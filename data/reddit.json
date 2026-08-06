@@ -1,35 +1,35 @@
 {
-  "date": "August 05, 2026",
+  "date": "August 06, 2026",
   "summaries": [
     {
-      "title": "Qwen 3.6 27B Dense vs 35B-A3B MoE: Which Should You Run Locally?",
+      "title": "Qwen 3.6 27B with MTP in llama.cpp — 2.5x Speedup, 262K Context on 48GB",
       "subreddit": "r/LocalLLaMA",
       "url": "https://www.reddit.com/r/LocalLLaMA/comments/1kaqi3k/qwen_3_8b_14b_32b_30ba3b_235ba22b_tested/",
-      "summary": "The most-discussed comparison on r/LocalLLaMA right now. Both models fit a 24GB GPU at 4-bit quantization, but the 27B dense variant excels at coding accuracy while the 35B-A3B MoE delivers 3x faster throughput on the same hardware. Community consensus: run 27B for code review, 35B-MoE for high-throughput agents, and use --n-cpu-moe to offload expert layers on 12GB cards."
+      "summary": "Community guide for running Qwen 3.6 27B with Multi-Token Prediction in llama.cpp, achieving 2.5x faster generation with 262K context on 48GB of memory. MTP is now out of experimental mode — enable with --spec-type mtp for noticeably faster long-form output (code, writing) with zero quality loss, though short Q&A sees less benefit."
     },
     {
-      "title": "Multi-Token Prediction Lands in llama.cpp Mainline — Up to 2.4x Faster Inference",
+      "title": "MiniMax M3 Support Merged into llama.cpp Mainline with MSA Architecture",
       "subreddit": "r/LocalLLaMA",
-      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1dumrqp/meta_multi_token_prediction_models/",
-      "summary": "PR #22673 merged May 16, bringing MTP speculative decoding to mainstream llama.cpp. Community benchmarks show 71% faster token generation on Qwen3.6 27B and Gemma 4 models with zero quality loss. The catch: prompt processing is slower, so MTP shines on long-generation workloads (code, creative writing) but adds overhead for short Q&A. Enable with --spec-type mtp."
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1j6rngt/simple_inference_speed_comparison_of_deepseekr1/",
+      "summary": "llama.cpp has merged support for MiniMax M3, including its MiniMax Sparse Attention (MSA) architecture. Multi-GPU setups with two RTX PRO 6000s can run the full model, while consumer rigs need aggressive quantization. The EAGLE3 speculative decoding fork adds draft-model acceleration. Watch out for broken UD-Q4_K_XL quantizations from early GGUF conversions."
     },
     {
-      "title": "Gemma 4 Gets Multi-Token Prediction Drafters — 1.7x to 3x Speedup Without Quality Loss",
+      "title": "Gemma 4 Stealth Update Fixes Tool Calling — JSON Now Well-Formed",
       "subreddit": "r/LocalLLaMA",
-      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1jf10ar/so_gemma_4b_on_cell_phone/",
-      "summary": "Google released MTP drafter models for the Gemma 4 family, enabling speculative decoding that accelerates decode throughput by up to 3x. Works in Ollama, vLLM, and llama.cpp out of the box. The drafter proposes multiple future tokens at once, and the target model verifies them in a single forward pass — essentially getting more tokens per GPU pass. Available under Apache 2.0."
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1joyl9t/new_gguf_quants_of_v30324/",
+      "summary": "Google pushed a stealth update to Gemma 4 that fixes broken tool-calling JSON — payloads now close cleanly, escape properly, and no longer double-emit closing braces on retries. A companion truncation fix shipped together. This makes Gemma 4 viable for local agentic workflows in Ollama, vLLM, and llama.cpp without manual JSON repair."
     },
     {
-      "title": "Is NVIDIA Still the Default Best Choice for Local LLMs in 2026?",
+      "title": "ik_llama.cpp Benchmarks: 26x Faster Prompt Processing on Qwen 3.5 27B",
       "subreddit": "r/LocalLLaMA",
-      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1tmkaua/is_nvidia_still_the_default_best_choice_for_local/",
-      "summary": "Heated community debate on whether NVIDIA's CUDA ecosystem lock-in still justifies the premium in 2026. AMD ROCm support has matured substantially (RX 7900 XTX at $849 with 24GB runs Ollama/vLLM natively). Intel Arc B580 offers 12GB at $250 but software support remains spotty. Consensus: NVIDIA still wins for plug-and-play reliability, but AMD is the value play if you're comfortable troubleshooting."
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1k5gyzy/llama4scout_prompt_processing_44_ts_only_with_cpu/",
+      "summary": "Community benchmarks show ik_llama.cpp (a performance-focused llama.cpp fork) raising Qwen 3.5 27B prompt evaluation from ~43 tok/s to 1,122 tok/s on an RTX PRO 4000, with generation climbing from 7.5 to 26 tok/s. The fork offers SOTA quantization types and better CPU performance. Best for long-context workloads where prefill time dominates."
     },
     {
-      "title": "What GPU Is Best for My Use Case? Community Hardware Recommendations",
+      "title": "Local Tool Calling Reality Check: Model Quant, Runtime, and Harness All Matter",
       "subreddit": "r/LocalLLaMA",
-      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1sechf4/what_gpu_is_the_best_for_my_use_case_scenario/",
-      "summary": "Comprehensive community advice thread mapping GPU tiers to real workloads. Key takeaway: VRAM gates whether a model runs at all, but memory bandwidth determines speed. For 24GB cards, Qwen3.6 27B and Gemma 4 26B are the current sweet spots. The RTX 3060 12GB remains the budget king for 7-14B models. Dual RTX 3090 setups still outvalue single 24GB cards for 70B-class models."
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1kb97ys/ubergarmqwen3235ba22bgguf_over_140_toks_pp_and_10/",
+      "summary": "A practical checklist born from a failed local tool-calling setup: OpenWebUI configuration, native tool-call support, quantization level, and runtime choice (Ollama vs llama.cpp vs vLLM) all affect reliability. Key takeaway — tool calling breaks more often from harness misconfiguration than model capability. Start with Qwen 3.6 or Gemma 4 post-fix, use Q4_K_M or higher, and verify your chat template."
     }
   ]
 }

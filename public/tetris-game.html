@@ -542,7 +542,7 @@ function gameLoop(ts) {
   if (!running) return;
   updateEffects();
 
-  if (!clearingLines && !warningActive) {
+  if (!clearingLines) {
     accumulator += ts - (lastDrop || ts);
     if (accumulator >= dropInterval) {
       accumulator = 0;
@@ -565,7 +565,7 @@ function gameLoop(ts) {
 
 // ─── Controls ────────────────────────────────────────────
 function movePiece(dx, dy) {
-  if (!current || gameOver || paused || clearingLines || warningActive) return false;
+  if (!current || gameOver || paused || clearingLines) return false;
   if (!collide(board, current.shape, current.x + dx, current.y + dy)) {
     current.x += dx;
     current.y += dy;
