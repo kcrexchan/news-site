@@ -673,7 +673,10 @@ canvas.addEventListener('touchend', (e) => {
   e.preventDefault();
   if (!current || gameOver || paused) return;
   const dt = Date.now() - touchStartTime;
-  if (dt < 250 && Math.abs(e.changedTouches[0].clientX - touchStartX) < 15)
+  const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  // Only rotate on a quick tap — ignore if dragged down (soft drop) or moved sideways
+  if (dt < 250 && dx < 15 && dy < BLOCK)
     rotatePiece();
 }, { passive: false });
 
