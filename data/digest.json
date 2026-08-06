@@ -1,0 +1,75 @@
+{
+  "updated": "2026-08-06T09:01:00Z",
+  "articles": [
+    {
+      "title": "28.9M-parameter LLM runs locally on ESP32-S3 at 9 tokens/s",
+      "url": "https://www.cnx-software.com/2026/08/03/28-9m-parameter-llm-runs-locally-on-esp32-s3-at-9-tokens-s/",
+      "summary": "Developer slvDev optimized a 28.9M-parameter LLM to run on an ESP32-S3 microcontroller board, achieving ~9 tokens/s while generating text and telling short stories. This pushes ultra-low-resource on-device inference to the extreme edge, proving LLMs can run on sub-$10 hardware.",
+      "source": "CNX Software",
+      "date": "2026-08-03"
+    },
+    {
+      "title": "Local LLM news 2026: the leaderboard is stale, the endpoint is forever",
+      "url": "https://fazm.ai/t/local-llm-news-2026",
+      "summary": "The 2026 local LLM landscape shows open weights are genuinely usable for real work, ship constantly, and can run on a laptop. While benchmark leaderboards move fast, the practical takeaway is that local inference has reached mainstream viability for everyday tasks.",
+      "source": "FAZM",
+      "date": "2026-08-05"
+    },
+    {
+      "title": "LiteRT.js: On-Device AI Inference in Web Browsers",
+      "url": "https://quasa.io/media/google-s-litert-js-enables-on-device-ai-inference-in-web-browsers",
+      "summary": "Google's LiteRT.js enables on-device AI inference directly in web browsers, supporting better data privacy and compliance with regional data protection regulations. The framework supports hardware acceleration for efficient local model execution without sending data to the cloud.",
+      "source": "Quasa",
+      "date": "2026-08-03"
+    },
+    {
+      "title": "Google Launches LiteRT-LM: Run LLMs on Your Device with Edge Inference Framework",
+      "url": "https://happycapyguide.com/blog/google-litert-lm-edge-llm-inference-framework-2026",
+      "summary": "Google's LiteRT-LM is the runtime behind Gemini Nano 4 on Android, enabling fast, private on-device AI inference. Android developers can access Gemini Nano 4 via AICore in developer preview now, with the production API expected alongside Android 17 later in 2026.",
+      "source": "HappyCapy Guide",
+      "date": "2026-08-06"
+    },
+    {
+      "title": "Reface, Prisma Founders Raise $10M for On-Device AI Startup Mirai",
+      "url": "https://www.techbuzz.ai/articles/reface-prisma-founders-raise-10m-for-on-device-ai-startup-mirai",
+      "summary": "Serial entrepreneurs behind Reface and Prisma raised $10M in seed funding for Mirai Labs, focused on solving the AI inference bottleneck through edge deployment. The company aims to make on-device AI interactive, ambient, and continuous rather than isolated prompt-based chat.",
+      "source": "Tech Buzz",
+      "date": "2026-08-05"
+    },
+    {
+      "title": "Google DeepMind Nano Banana 2 Lite and Gemini Omni Flash Target On-Device AI",
+      "url": "https://artificialintelligenceherald.com/posts/google-deepmind-nano-banana-2-lite-gemini-omni-flash-2026",
+      "summary": "Google DeepMind released two new models — Nano Banana 2 Lite and Gemini Omni Flash — specifically targeting on-device AI performance. Developers can access these lightweight models optimized for edge inference, expanding the toolkit for private, offline AI applications.",
+      "source": "AI Herald",
+      "date": "2026-08-06"
+    },
+    {
+      "title": "Claude's Corner: RunAnywhere — The On-Device AI Startup From YC W2026",
+      "url": "https://www.startuphub.ai/ai-news/claudes-corner/2026/claudes-corner-runanywhere-yc-w2026",
+      "summary": "RunAnywhere, a YC W2026 startup, offers hybrid routing for on-device AI inference — keeping requests on-device when possible and sending overflow to cloud APIs. This architecture reduces API costs while maintaining reliability for developers building local-first AI applications.",
+      "source": "StartupHub.ai",
+      "date": "2026-08-06"
+    },
+    {
+      "title": "ASUS UGen300: Run AI From a USB Stick — 40 TOPS Edge Inference",
+      "url": "https://wowhow.cloud/blogs/asus-ugen300-usb-ai-accelerator-edge-inference-hailo-2026",
+      "summary": "ASUS announced the UGen300, a USB stick-sized AI accelerator delivering 40 AI TOPS of dedicated inference compute at just 2.5 watts. It plugs into any USB-C port, making powerful local AI inference accessible without a dedicated GPU or specialized hardware.",
+      "source": "WowHow Cloud",
+      "date": "2026-08-06"
+    },
+    {
+      "title": "On-Device AI Keyboards: What a Sub-2GB LLM Needs in 2026",
+      "url": "https://specpicks.com/reviews/on-device-ai-keyboard-agents-local-llm-rtx-3060-2026",
+      "summary": "An analysis of on-device AI keyboard agents running sub-2GB LLMs locally. Running the model on your own hardware means keystroke context never leaves the device, making this the strongest privacy argument for self-hosted keyboard AI agents over cloud alternatives.",
+      "source": "SpecPicks",
+      "date": "2026-08-06"
+    },
+    {
+      "title": "User Builds Local LLM News Brief to Replace Multiple News Apps",
+      "url": "https://noahwire.com/news/articles/user-builds-local-llm-news-brief-to-replace-multiple-news-apps-8318f7.html",
+      "summary": "Users are replacing multiple news apps with a local LLM-powered daily brief: trusted RSS feeds fed into an automated script that produces a short, scheduled morning digest. This approach trims noise and restores user control over what they actually read each day.",
+      "source": "Noah Wire",
+      "date": "2026-08-05"
+    }
+  ]
+}

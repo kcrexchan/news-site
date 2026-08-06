@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tank Battle</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; font-family: 'Segoe UI', monospace; }
+canvas { display: block; cursor: crosshair; }
+
+#ui-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 10;
+  padding: 12px 20px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.hud-panel {
+  background: rgba(0,0,0,0.65); border: 1px solid rgba(100,200,100,0.3);
+  border-radius: 8px; padding: 8px 14px; color: #c8ffc8; font-size: 14px;
+  backdrop-filter: blur(4px);
+}
+.hud-panel h3 { font-size: 11px; color: #6a6; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px; }
+.hud-value { font-size: 22px; font-weight: bold; }
+.health-bar-bg { width: 160px; height: 12px; background: #333; border-radius: 6px; overflow: hidden; margin-top: 4px; }
+.health-bar { height: 100%; background: linear-gradient(90deg, #f44, #4f4); transition: width 0.2s; border-radius: 6px; }
+
+#start-screen, #gameover-screen {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, #1a2a1a 0%, #0a0a0a 70%);
+}
+#start-screen h1 { font-size: 52px; color: #4f4; text-shadow: 0 0 30px #0f0, 0 0 60px #0a0; margin-bottom: 8px; }
+#start-screen .subtitle { color: #8a8; font-size: 16px; margin-bottom: 30px; }
+#gameover-screen h1 { font-size: 48px; color: #f44; text-shadow: 0 0 30px #f00; margin-bottom: 10px; }
+#gameover-screen .stats { color: #ccc; font-size: 18px; margin: 6px 0; }
+#gameover-screen .stats span { color: #4f4; font-weight: bold; }
+
+.btn {
+  pointer-events: all; cursor: pointer;
+  padding: 14px 40px; font-size: 20px; font-weight: bold;
+  border: 2px solid #4f4; border-radius: 8px;
+  background: rgba(0,40,0,0.7); color: #4f4;
+  text-transform: uppercase; letter-spacing: 2px;
+  transition: all 0.2s; margin-top: 20px;
+}
+.btn:hover { background: rgba(0,80,0,0.8); box-shadow: 0 0 20px rgba(0,255,0,0.3); }
+
+.controls-info {
+  margin-top: 24px; color: #6a6; font-size: 13px; text-align: center; line-height: 1.8;
+}
+.controls-info kbd {
+  background: #222; border: 1px solid #555; border-radius: 4px;
+  padding: 2px 8px; color: #afa; font-family: monospace;
+}
+
+#wave-announce {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 50; pointer-events: none; color: #ff4; font-size: 42px; font-weight: bold;
+  text-shadow: 0 0 20px #fa0, 0 0 40px #f80;
+  opacity: 0; transition: opacity 0.3s;
+}
+#wave-announce.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui-overlay">
+  <div class="hud-panel" id="hud-left">
+    <h3>Health</h3>
+    <div class="health-bar-bg"><div class="health-bar" id="hp-bar"></div></div>
+    <div style="margin-top:8px"><h3>Score</h3><div class="hud-value" id="score-val">0</div></div>
+    <div><h3>Wave</h3><div class="hud-value" id="wave-val">1</div></div>
+  </div>
+  <div class="hud-panel" id="hud-right">
+    <h3>Ammo</h3>
+    <div class="hud-value" id="ammo-val">∞</div>
+    <div><h3>Enemies</h3><div class="hud-value" id="enemy-val">0</div></div>
+    <div><h3>Kills</h3><div class="hud-value" id="kills-val">0</div></div>
+  </div>
+</div>
+
+<div id="wave-announce"></div>
+
+<div id="start-screen">
+  <h1>⚔ TANK BATTLE ⚔</h1>
+  <div class="subtitle">Survive the waves. Destroy everything.</div>
+  <button class="btn" id="start-btn">START BATTLE</button>
+  <div class="controls-info">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move &nbsp;|&nbsp;
+    <kbd>Mouse</kbd> Aim &nbsp;|&nbsp;
+    <kbd>Click</kbd> Fire<br>
+    <kbd>Shift</kbd> Sprint &nbsp;|&nbsp;
+    <kbd>Space</kbd> Special Shell &nbsp;|&nbsp;
+    <kbd>R</kbd> Reload
+  </div>
+</div>
+
+<div id="gameover-screen" style="display:none;">
+  <h1>💥 GAME OVER 💥</h1>
+  <div class="stats">Score: <span id="final-score">0</span></div>
+  <div class="stats">Wave Reached: <span id="final-wave">1</span></div>
+  <div class="stats">Enemies Destroyed: <span id="final-kills">0</span></div>
+  <button class="btn" id="restart-btn">FIGHT AGAIN</button>
+</div>
+
+<script>
+// ─── AUDIO ENGINE ──────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+function playSound(type) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.connect(audioCtx.destination);
+
+  if (type === 'shoot') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(200, now);
+    o.frequency.exponentialRampToValueAtTime(60, now + 0.1);
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    o.connect(g); o.start(now); o.stop(now + 0.12);
+  } else if (type === 'explosion') {
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.3, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    g.gain.setValueAtTime(0.25, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    src.connect(g); src.start(now);
+  } else if (type === 'hit') {
+    const o = audioCtx.createOscillator();
+    o.type = 'square'; o.frequency.setValueAtTime(400, now);
+    o.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+    g.gain.setValueAtTime(0.1, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    o.connect(g); o.start(now); o.stop(now + 0.06);
+  } else if (type === 'special') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine'; o.frequency.setValueAtTime(300, now);
+    o.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    o.connect(g); o.start(now); o.stop(now + 0.2);
+  } else if (type === 'powerup') {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(500, now);
+    o.frequency.setValueAtTime(700, now + 0.08);
+    o.frequency.setValueAtTime(900, now + 0.16);
+    g.gain.setValueAtTime(0.12, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    o.connect(g); o.start(now); o.stop(now + 0.25);
+  }
+}
+
+// ─── CONSTANTS ─────────────────────────────────────────────
+const TILE = 32;
+const MAP_W = 60, MAP_H = 45;
+
+// Terrain types
+const T = { EMPTY: 0, WALL: 1, RUDE_WALL: 2, WATER: 3, GRASS: 4 };
+
+// ─── GAME STATE ────────────────────────────────────────────
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// Dynamically size canvas to fit the viewport/iframe
+function initCanvasSize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+initCanvasSize();
+window.addEventListener('resize', initCanvasSize);
+
+let map = [];
+let player = null;
+let enemies = [];
+let bullets = [];
+let particles = [];
+let powerups = [];
+let camera = { x: 0, y: 0 };
+let keys = {};
+let mouse = { x: 0, y: 0, down: false };
+let gameRunning = false;
+let wave = 1;
+let score = 0;
+let kills = 0;
+let waveTimer = 0;
+let waveDelay = 180; // frames between waves
+let enemiesRemaining = 0;
+let shakeX = 0, shakeY = 0, shakeIntensity = 0;
+let announceTimer = 0;
+let frameCount = 0;
+
+// ─── MAP GENERATION ────────────────────────────────────────
+function generateMap() {
+  map = [];
+  for (let y = 0; y < MAP_H; y++) {
+    map[y] = [];
+    for (let x = 0; x < MAP_W; x++) {
+      if (y === 0 || y === MAP_H - 1 || x === 0 || x === MAP_W - 1) {
+        map[y][x] = T.WALL;
+      } else {
+        map[y][x] = T.EMPTY;
+      }
+    }
+  }
+
+  // Scatter walls using cellular automata-ish approach
+  for (let y = 2; y < MAP_H - 2; y++) {
+    for (let x = 2; x < MAP_W - 2; x++) {
+      const r = Math.random();
+      if (r < 0.08) map[y][x] = T.WALL;
+      else if (r < 0.10) map[y][x] = T.RUDE_WALL;
+      else if (r < 0.11) map[y][x] = T.WATER;
+      else if (r < 0.14) map[y][x] = T.GRASS;
+    }
+  }
+
+  // Smooth walls - remove isolated wall tiles
+  for (let pass = 0; pass < 2; pass++) {
+    const tmp = map.map(r => [...r]);
+    for (let y = 2; y < MAP_H - 2; y++) {
+      for (let x = 2; x < MAP_W - 2; x++) {
+        if (map[y][x] === T.WALL) {
+          let wallNeighbors = 0;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++)
+              if (map[y+dy][x+dx] === T.WALL) wallNeighbors++;
+          if (wallNeighbors < 3) tmp[y][x] = T.EMPTY;
+        }
+      }
+    }
+    map = tmp;
+  }
+
+  // Ensure center area is clear for player spawn
+  for (let y = 18; y < 27; y++)
+    for (let x = 24; x < 36; x++)
+      map[y][x] = T.EMPTY;
+}
+
+function isWalkable(tx, ty, ignoreRubble = false) {
+  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return false;
+  const t = map[ty][tx];
+  if (t === T.WALL) return false;
+  if (t === T.WATER) return false;
+  if (t === T.RUDE_WALL && !ignoreRubble) return false;
+  return true;
+}
+
+// ─── TANK CLASS ────────────────────────────────────────────
+class Tank {
+  constructor(x, y, opts = {}) {
+    this.x = x; this.y = y;
+    this.w = 22; this.h = 22;
+    this.angle = 0;
+    this.turretAngle = 0;
+    this.speed = opts.speed || 2;
+    this.hp = opts.hp || 100;
+    this.maxHp = this.hp;
+    this.fireRate = opts.fireRate || 15; // frames between shots
+    this.fireCooldown = 0;
+    this.bulletSpeed = opts.bulletSpeed || 7;
+    this.bulletDamage = opts.bulletDamage || 20;
+    this.color = opts.color || '#4a4';
+    this.turretColor = opts.turretColor || '#5c5';
+    this.isPlayer = opts.isPlayer || false;
+    this.alive = true;
+    this.specialAmmo = 5;
+    this.specialCooldown = 0;
+    this.aiTimer = 0;
+    this.aiMoveAngle = 0;
+    this.aiState = 'patrol'; // patrol, chase, shoot
+    this.type = opts.type || 'basic';
+    this.flashTimer = 0;
+    this.trackMarks = [];
+  }
+
+  get tileX() { return Math.floor(this.x / TILE); }
+  get tileY() { return Math.floor(this.y / TILE); }
+
+  canMove(nx, ny) {
+    const hw = this.w / 2 + 2;
+    const corners = [
+      [nx - hw, ny - hw], [nx + hw, ny - hw],
+      [nx - hw, ny + hw], [nx + hw, ny + hw]
+    ];
+    for (const [cx, cy] of corners) {
+      const tx = Math.floor(cx / TILE);
+      const ty = Math.floor(cy / TILE);
+      if (!isWalkable(tx, ty)) return false;
+    }
+    return true;
+  }
+
+  move(dx, dy) {
+    if (!this.alive) return;
+    const nx = this.x + dx;
+    const ny = this.y + dy;
+    if (this.canMove(nx, this.y)) this.x = nx;
+    if (this.canMove(this.x, ny)) this.y = ny;
+
+    // Track marks
+    if (frameCount % 4 === 0) {
+      this.trackMarks.push({ x: this.x, y: this.y, age: 0 });
+      if (this.trackMarks.length > 20) this.trackMarks.shift();
+    }
+  }
+
+  fire(isSpecial = false) {
+    if (this.fireCooldown > 0 || !this.alive) return;
+    this.fireCooldown = isSpecial ? this.fireRate * 2 : this.fireRate;
+    playSound(isSpecial ? 'special' : 'shoot');
+
+    const tipX = this.x + Math.cos(this.turretAngle) * 20;
+    const tipY = this.y + Math.sin(this.turretAngle) * 20;
+
+    bullets.push({
+      x: tipX, y: tipY,
+      vx: Math.cos(this.turretAngle) * this.bulletSpeed,
+      vy: Math.sin(this.turretAngle) * this.bulletSpeed,
+      damage: isSpecial ? this.bulletDamage * 3 : this.bulletDamage,
+      isSpecial: isSpecial,
+      fromPlayer: this.isPlayer,
+      life: 180,
+      size: isSpecial ? 5 : 3,
+      trail: []
+    });
+
+    // Muzzle flash particles
+    for (let i = 0; i < 6; i++) {
+      particles.push(createParticle(tipX, tipY, isSpecial ? '#ff0' : '#fa0', 3, 0.08));
+    }
+  }
+
+  takeDamage(dmg) {
+    this.hp -= dmg;
+    this.flashTimer = 8;
+    playSound('hit');
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.alive = false;
+      this.explode();
+    }
+  }
+
+  explode() {
+    playSound('explosion');
+    shakeIntensity = 12;
+    for (let i = 0; i < 40; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 5 + 1;
+      const colors = ['#f80', '#ff0', '#f44', '#fa0', '#fff'];
+      particles.push({
+        x: this.x, y: this.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1, decay: 0.015 + Math.random() * 0.02,
+        size: 3 + Math.random() * 6,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      });
+    }
+    // Destroy nearby rubble
+    const tx = this.tileX, ty = this.tileY;
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const nx = tx + dx, ny = ty + dy;
+        if (nx >= 0 && ny >= 0 && nx < MAP_W && ny < MAP_H && map[ny][nx] === T.RUDE_WALL) {
+          if (Math.random() < 0.5) map[ny][nx] = T.EMPTY;
+        }
+      }
+  }
+
+  updateAI() {
+    if (!this.alive || !player || !player.alive) return;
+    this.aiTimer--;
+
+    const dx = player.x - this.x;
+    const dy = player.y - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const angleToPlayer = Math.atan2(dy, dx);
+
+    // State machine
+    if (dist < 400) this.aiState = 'chase';
+    else this.aiState = 'patrol';
+
+    if (this.aiState === 'chase') {
+      // Move toward player but keep some distance
+      if (dist > 150) {
+        const moveAngle = angleToPlayer;
+        const spd = this.speed * 0.6;
+        this.move(Math.cos(moveAngle) * spd, Math.sin(moveAngle) * spd);
+      }
+      // Aim at player
+      this.turretAngle = angleToPlayer;
+      this.angle = angleToPlayer;
+
+      // Fire if roughly aimed
+      const aimDiff = Math.abs(angleDiff(this.turretAngle, angleToPlayer));
+      if (aimDiff < 0.2 && dist < 350) {
+        this.fire(false);
+      }
+    } else {
+      // Patrol - random movement
+      if (this.aiTimer <= 0) {
+        this.aiTimer = 60 + Math.random() * 120;
+        this.aiMoveAngle = Math.random() * Math.PI * 2;
+      }
+      const spd = this.speed * 0.3;
+      this.move(Math.cos(this.aiMoveAngle) * spd, Math.sin(this.aiMoveAngle) * spd);
+      this.angle = this.aiMoveAngle;
+      this.turretAngle = this.angle;
+    }
+
+    // Grass invisibility check - enemies can't hide in grass
+  }
+}
+
+function angleDiff(a, b) {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+function createParticle(x, y, color, size, decay) {
+  return {
+    x, y,
+    vx: (Math.random() - 0.5) * 4,
+    vy: (Math.random() - 0.5) * 4,
+    life: 1, decay: decay || 0.03,
+    size: size || 3,
+    color: color || '#fa0'
+  };
+}
+
+// ─── WAVE SYSTEM ───────────────────────────────────────────
+function spawnWave() {
+  const count = 3 + wave * 2;
+  enemiesRemaining = count;
+  announceWave(wave);
+
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      if (!gameRunning) return;
+      const pos = findSpawnPoint();
+      if (!pos) return;
+
+      let type = 'basic';
+      let opts = { color: '#a44', turretColor: '#c66' };
+
+      if (wave >= 2 && Math.random() < 0.3) {
+        type = 'fast';
+        opts = { speed: 3, hp: 60, color: '#a4a', turretColor: '#c6c', fireRate: 20 };
+      }
+      if (wave >= 3 && Math.random() < 0.2) {
+        type = 'heavy';
+        opts = { speed: 1, hp: 200, color: '#888', turretColor: '#aaa', fireRate: 25, bulletDamage: 30 };
+      }
+      if (wave >= 5 && Math.random() < 0.15) {
+        type = 'sniper';
+        opts = { speed: 1.5, hp: 80, color: '#48a', turretColor: '#6ac', fireRate: 40, bulletSpeed: 11, bulletDamage: 35 };
+      }
+
+      const enemy = new Tank(pos.x, pos.y, { ...opts, type });
+      enemies.push(enemy);
+    }, i * 500);
+  }
+}
+
+function findSpawnPoint() {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const x = 3 + Math.floor(Math.random() * (MAP_W - 6));
+    const y = 3 + Math.floor(Math.random() * (MAP_H - 6));
+    const px = x * TILE + TILE / 2;
+    const py = y * TILE + TILE / 2;
+
+    // Must be walkable
+    if (!isWalkable(x, y)) continue;
+
+    // Must be far from player
+    if (player) {
+      const dx = px - player.x;
+      const dy = py - player.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 300) continue;
+    }
+
+    return { x: px, y: py };
+  }
+  return null;
+}
+
+function announceWave(n) {
+  const el = document.getElementById('wave-announce');
+  el.textContent = `⚔ WAVE ${n} ⚔`;
+  el.classList.add('show');
+  announceTimer = 120;
+}
+
+// ─── POWERUPS ──────────────────────────────────────────────
+function maybeSpawnPowerup(x, y) {
+  if (Math.random() > 0.15) return;
+  const types = ['health', 'speed', 'damage', 'special'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const colors = { health: '#f44', speed: '#4af', damage: '#fa0', special: '#f0f' };
+  powerups.push({ x, y, type, color: colors[type], life: 600, pulse: 0 });
+}
+
+function applyPowerup(p) {
+  if (!player || !player.alive) return;
+  playSound('powerup');
+  switch (p.type) {
+    case 'health': player.hp = Math.min(player.hp + 40, player.maxHp); break;
+    case 'speed': player.speed = Math.min(player.speed + 0.5, 4); break;
+    case 'damage': player.bulletDamage = Math.min(player.bulletDamage + 10, 60); break;
+    case 'special': player.specialAmmo = Math.min(player.specialAmmo + 3, 10); break;
+  }
+  // Flash particles
+  for (let i = 0; i < 15; i++) {
+    particles.push(createParticle(p.x, p.y, p.color, 4, 0.05));
+  }
+}
+
+// ─── INPUT ─────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ' && player && player.alive && gameRunning) {
+    e.preventDefault();
+    if (player.specialAmmo > 0 && player.specialCooldown <= 0) {
+      player.specialAmmo--;
+      player.specialCooldown = 30;
+      player.fire(true);
+    }
+  }
+});
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  mouse.x = (e.clientX - rect.left) * scaleX;
+  mouse.y = (e.clientY - rect.top) * scaleY;
+});
+
+canvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  mouse.down = true;
+  initAudio();
+});
+canvas.addEventListener('mouseup', () => { mouse.down = false; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ─── RESIZE ────────────────────────────────────────────────
+// Handled by initCanvasSize() above — no duplicate needed.
+
+// ─── UPDATE ────────────────────────────────────────────────
+function update() {
+  if (!gameRunning) return;
+  frameCount++;
+
+  // Player input
+  if (player && player.alive) {
+    let dx = 0, dy = 0;
+    const sprint = keys['shift'] ? 1.5 : 1;
+    if (keys['w'] || keys['arrowup']) dy -= 1;
+    if (keys['s'] || keys['arrowdown']) dy += 1;
+    if (keys['a'] || keys['arrowleft']) dx -= 1;
+    if (keys['d'] || keys['arrowright']) dx += 1;
+
+    if (dx || dy) {
+      const len = Math.sqrt(dx * dx + dy * dy);
+      dx /= len; dy /= len;
+      player.move(dx * player.speed * sprint, dy * player.speed * sprint);
+      player.angle = Math.atan2(dy, dx);
+    }
+
+    // Turret aims at mouse (world coords)
+    const worldMouseX = mouse.x - canvas.width / 2 + camera.x;
+    const worldMouseY = mouse.y - canvas.height / 2 + camera.y;
+    player.turretAngle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
+
+    if (mouse.down) player.fire(false);
+    if (player.fireCooldown > 0) player.fireCooldown--;
+    if (player.specialCooldown > 0) player.specialCooldown--;
+    if (player.flashTimer > 0) player.flashTimer--;
+
+    // Grass visibility for player
+    const pt = player.tileX, py2 = player.tileY;
+    if (pt >= 0 && py2 >= 0 && pt < MAP_W && py2 < MAP_H) {
+      player.inGrass = map[py2][pt] === T.GRASS;
+    }
+  }
+
+  // Update enemies
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    enemy.updateAI();
+    if (enemy.fireCooldown > 0) enemy.fireCooldown--;
+    if (enemy.flashTimer > 0) enemy.flashTimer--;
+  }
+
+  // Update bullets
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.x += b.vx;
+    b.y += b.vy;
+    b.life--;
+
+    // Trail
+    b.trail.push({ x: b.x, y: b.y });
+    if (b.trail.length > 8) b.trail.shift();
+
+    // Wall collision
+    const tx = Math.floor(b.x / TILE);
+    const ty = Math.floor(b.y / TILE);
+    if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H || b.life <= 0) {
+      bullets.splice(i, 1);
+      continue;
+    }
+
+    if (map[ty][tx] === T.WALL) {
+      // Hit wall - spark particles
+      for (let p = 0; p < 5; p++) particles.push(createParticle(b.x, b.y, '#aaa', 2, 0.06));
+      bullets.splice(i, 1);
+      continue;
+    }
+    if (map[ty][tx] === T.RUDE_WALL) {
+      map[ty][tx] = T.EMPTY;
+      for (let p = 0; p < 10; p++) particles.push(createParticle(b.x, b.y, '#888', 4, 0.04));
+      if (b.isSpecial) {
+        // Special destroys extra rubble
+        for (let dy2 = -1; dy2 <= 1; dy2++)
+          for (let dx2 = -1; dx2 <= 1; dx2++) {
+            const nx = tx + dx2, ny = ty + dy2;
+            if (nx >= 0 && ny >= 0 && nx < MAP_W && ny < MAP_H && map[ny][nx] === T.RUDE_WALL) {
+              map[ny][nx] = T.EMPTY;
+            }
+          }
+      }
+      bullets.splice(i, 1);
+      continue;
+    }
+
+    // Hit tanks
+    if (b.fromPlayer) {
+      for (const enemy of enemies) {
+        if (!enemy.alive) continue;
+        const edx = b.x - enemy.x, edy = b.y - enemy.y;
+        if (Math.sqrt(edx * edx + edy * edy) < 16) {
+          enemy.takeDamage(b.damage);
+          if (!enemy.alive) {
+            kills++;
+            score += enemy.type === 'heavy' ? 200 : enemy.type === 'sniper' ? 150 : 100;
+            maybeSpawnPowerup(enemy.x, enemy.y);
+          }
+          for (let p = 0; p < 8; p++) particles.push(createParticle(b.x, b.y, '#fa0', 3, 0.05));
+          bullets.splice(i, 1);
+          break;
+        }
+      }
+    } else {
+      if (player && player.alive) {
+        const pdx = b.x - player.x, pdy = b.y - player.y;
+        if (Math.sqrt(pdx * pdx + pdy * pdy) < 16) {
+          player.takeDamage(b.damage);
+          for (let p = 0; p < 8; p++) particles.push(createParticle(b.x, b.y, '#f44', 3, 0.05));
+          shakeIntensity = 5;
+          bullets.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  // Update particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.96;
+    p.vy *= 0.96;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Update powerups
+  for (let i = powerups.length - 1; i >= 0; i--) {
+    const p = powerups[i];
+    p.life--;
+    p.pulse += 0.1;
+    if (p.life <= 0) { powerups.splice(i, 1); continue; }
+    if (player && player.alive) {
+      const dx = p.x - player.x, dy = p.y - player.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 24) {
+        applyPowerup(p);
+        powerups.splice(i, 1);
+      }
+    }
+  }
+
+  // Clean dead enemies
+  enemies = enemies.filter(e => e.alive || particles.some(p => true)); // keep briefly for particles
+  enemies = enemies.filter(e => e.alive);
+
+  // Wave management
+  const aliveEnemies = enemies.filter(e => e.alive).length;
+  if (aliveEnemies === 0 && enemiesRemaining <= 0) {
+    waveTimer++;
+    if (waveTimer >= waveDelay) {
+      wave++;
+      waveTimer = 0;
+      spawnWave();
+    }
+  }
+
+  // Announce timer
+  if (announceTimer > 0) {
+    announceTimer--;
+    if (announceTimer <= 0) document.getElementById('wave-announce').classList.remove('show');
+  }
+
+  // Screen shake decay
+  if (shakeIntensity > 0) {
+    shakeX = (Math.random() - 0.5) * shakeIntensity;
+    shakeY = (Math.random() - 0.5) * shakeIntensity;
+    shakeIntensity *= 0.85;
+    if (shakeIntensity < 0.3) { shakeIntensity = 0; shakeX = 0; shakeY = 0; }
+  }
+
+  // Camera follows player
+  if (player) {
+    camera.x += (player.x - camera.x) * 0.1;
+    camera.y += (player.y - camera.y) * 0.1;
+  }
+
+  // Update HUD
+  updateHUD();
+
+  // Check game over
+  if (player && !player.alive) {
+    gameOver();
+  }
+}
+
+function updateHUD() {
+  if (!player) return;
+  const hpPct = Math.max(0, player.hp / player.maxHp * 100);
+  document.getElementById('hp-bar').style.width = hpPct + '%';
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('wave-val').textContent = wave;
+  document.getElementById('enemy-val').textContent = enemies.filter(e => e.alive).length;
+  document.getElementById('kills-val').textContent = kills;
+}
+
+function gameOver() {
+  gameRunning = false;
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-wave').textContent = wave;
+  document.getElementById('final-kills').textContent = kills;
+  document.getElementById('gameover-screen').style.display = 'flex';
+}
+
+// ─── RENDER ────────────────────────────────────────────────
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Before game starts: just draw a dark background so the start screen is visible
+  if (!gameRunning) {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  // Camera transform
+  const viewW = canvas.width;
+  const viewH = canvas.height;
+  ctx.save();
+  ctx.translate(viewW / 2 + shakeX - camera.x, viewH / 2 + shakeY - camera.y);
+
+  // Determine visible tile range
+  const startTX = Math.max(0, Math.floor((camera.x - viewW / 2) / TILE) - 1);
+  const startTY = Math.max(0, Math.floor((camera.y - viewH / 2) / TILE) - 1);
+  const endTX = Math.min(MAP_W, Math.ceil((camera.x + viewW / 2) / TILE) + 1);
+  const endTY = Math.min(MAP_H, Math.ceil((camera.y + viewH / 2) / TILE) + 1);
+
+  // Draw terrain
+  for (let ty = startTY; ty < endTY; ty++) {
+    for (let tx = startTX; tx < endTX; tx++) {
+      const x = tx * TILE, y = ty * TILE;
+      const t = map[ty][tx];
+
+      switch (t) {
+        case T.EMPTY:
+          ctx.fillStyle = '#2a3a2a';
+          ctx.fillRect(x, y, TILE, TILE);
+          // Grid lines
+          ctx.strokeStyle = 'rgba(50,70,50,0.3)';
+          ctx.strokeRect(x, y, TILE, TILE);
+          break;
+        case T.WALL:
+          ctx.fillStyle = '#555';
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = '#666';
+          ctx.fillRect(x + 1, y + 1, TILE - 2, TILE / 2 - 1);
+          ctx.strokeStyle = '#444';
+          ctx.strokeRect(x, y, TILE, TILE);
+          break;
+        case T.RUDE_WALL:
+          ctx.fillStyle = '#776655';
+          ctx.fillRect(x, y, TILE, TILE);
+          // Rubble texture
+          ctx.fillStyle = '#887766';
+          ctx.fillRect(x + 4, y + 4, 8, 6);
+          ctx.fillRect(x + 16, y + 14, 10, 8);
+          ctx.fillRect(x + 2, y + 20, 12, 5);
+          break;
+        case T.WATER:
+          ctx.fillStyle = '#1a3a5a';
+          ctx.fillRect(x, y, TILE, TILE);
+          // Water shimmer
+          const shimmer = Math.sin(frameCount * 0.05 + tx + ty) * 0.15;
+          ctx.fillStyle = `rgba(100,180,255,${0.1 + shimmer})`;
+          ctx.fillRect(x, y, TILE, TILE);
+          break;
+        case T.GRASS:
+          ctx.fillStyle = '#2a3a2a';
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = '#3a5a3a';
+          for (let g = 0; g < 5; g++) {
+            const gx = x + ((g * 7 + tx * 3) % TILE);
+            const gy = y + ((g * 11 + ty * 5) % TILE);
+            ctx.fillRect(gx, gy, 2, 5);
+          }
+          break;
+      }
+    }
+  }
+
+  // Draw track marks
+  const allTanks = [player, ...enemies].filter(t => t && t.alive);
+  for (const tank of allTanks) {
+    for (const mark of tank.trackMarks) {
+      mark.age++;
+      const alpha = Math.max(0, 1 - mark.age / 300);
+      if (alpha > 0) {
+        ctx.fillStyle = `rgba(40,35,30,${alpha * 0.3})`;
+        ctx.fillRect(mark.x - 4, mark.y - 4, 3, 3);
+        ctx.fillRect(mark.x + 1, mark.y - 4, 3, 3);
+        ctx.fillRect(mark.x - 4, mark.y + 1, 3, 3);
+        ctx.fillRect(mark.x + 1, mark.y + 1, 3, 3);
+      }
+    }
+    if (tank.trackMarks.length > 20) tank.trackMarks.splice(0, tank.trackMarks.length - 20);
+  }
+
+  // Draw powerups
+  for (const p of powerups) {
+    const pulse = Math.sin(p.pulse) * 0.3 + 0.7;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.pulse * 0.5);
+    ctx.globalAlpha = pulse;
+
+    // Glow
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Icon
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const icons = { health: '+', speed: '»', damage: '↑', special: '★' };
+    ctx.fillText(icons[p.type] || '?', 0, 0);
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Draw tanks
+  for (const tank of allTanks) {
+    drawTank(tank);
+  }
+
+  // Draw bullets
+  for (const b of bullets) {
+    // Trail
+    for (let t = 0; t < b.trail.length; t++) {
+      const alpha = t / b.trail.length * 0.5;
+      ctx.fillStyle = b.isSpecial
+        ? `rgba(255,100,255,${alpha})`
+        : b.fromPlayer
+          ? `rgba(100,255,100,${alpha})`
+          : `rgba(255,100,100,${alpha})`;
+      const s = b.size * (t / b.trail.length);
+      ctx.fillRect(b.trail[t].x - s/2, b.trail[t].y - s/2, s, s);
+    }
+
+    // Bullet
+    ctx.fillStyle = b.isSpecial ? '#f0f' : b.fromPlayer ? '#8f8' : '#f88';
+    ctx.shadowColor = b.isSpecial ? '#f0f' : b.fromPlayer ? '#4f4' : '#f44';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Draw particles
+  for (const p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size * p.life, p.size * p.life);
+  }
+  ctx.globalAlpha = 1;
+
+  // Draw minimap
+  drawMinimap();
+
+  ctx.restore();
+}
+
+function drawTank(tank) {
+  if (!tank.alive) return;
+
+  const inGrass = tank.inGrass;
+  const alpha = inGrass ? 0.4 : 1;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(tank.x, tank.y);
+
+  // Body rotation
+  ctx.rotate(tank.angle);
+
+  // Tank body
+  const bodyColor = tank.flashTimer > 0 ? '#fff' : tank.color;
+  ctx.fillStyle = bodyColor;
+  ctx.fillRect(-tank.w / 2, -tank.h / 2, tank.w, tank.h);
+
+  // Body detail
+  ctx.fillStyle = tank.flashTimer > 0 ? '#faa' : shadeColor(tank.color, -30);
+  ctx.fillRect(-tank.w / 2 + 2, -tank.h / 2 + 2, tank.w - 4, tank.h - 4);
+
+  // Tracks
+  ctx.fillStyle = '#333';
+  ctx.fillRect(-tank.w / 2 - 2, -tank.h / 2, 4, tank.h);
+  ctx.fillRect(tank.w / 2 - 2, -tank.h / 2, 4, tank.h);
+
+  // Border
+  ctx.strokeStyle = shadeColor(tank.color, -50);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-tank.w / 2, -tank.h / 2, tank.w, tank.h);
+
+  ctx.rotate(-tank.angle);
+
+  // Turret
+  ctx.save();
+  ctx.rotate(tank.turretAngle);
+
+  // Barrel
+  ctx.fillStyle = tank.flashTimer > 0 ? '#faa' : tank.turretColor;
+  ctx.fillRect(0, -3, 22, 6);
+  ctx.strokeStyle = shadeColor(tank.turretColor, -40);
+  ctx.strokeRect(0, -3, 22, 6);
+
+  // Turret dome
+  ctx.fillStyle = tank.flashTimer > 0 ? '#fff' : tank.turretColor;
+  ctx.beginPath();
+  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = shadeColor(tank.turretColor, -40);
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Health bar (above tank)
+  if (!tank.isPlayer) {
+    const hpPct = tank.hp / tank.maxHp;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(-16, -tank.h / 2 - 10, 32, 5);
+    ctx.fillStyle = hpPct > 0.5 ? '#4f4' : hpPct > 0.25 ? '#fa0' : '#f44';
+    ctx.fillRect(-16, -tank.h / 2 - 10, 32 * hpPct, 5);
+  }
+
+  // Special ammo indicator for player
+  if (tank.isPlayer) {
+    ctx.fillStyle = '#f0f';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`★${tank.specialAmmo}`, 0, tank.h / 2 + 14);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawMinimap() {
+  const mmSize = 140;
+  const mmX = MAP_W * TILE - mmSize - 10;
+  const mmY = MAP_H * TILE - mmSize - 10;
+  const scaleX = mmSize / (MAP_W * TILE);
+  const scaleY = mmSize / (MAP_H * TILE);
+
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(mmX, mmY, mmSize, mmSize);
+  ctx.strokeStyle = 'rgba(100,200,100,0.4)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(mmX, mmY, mmSize, mmSize);
+
+  // Terrain
+  for (let ty = 0; ty < MAP_H; ty += 2) {
+    for (let tx = 0; tx < MAP_W; tx += 2) {
+      const t = map[ty][tx];
+      if (t === T.WALL) {
+        ctx.fillStyle = '#555';
+        ctx.fillRect(mmX + tx * TILE * scaleX, mmY + ty * TILE * scaleY,
+                     Math.max(2, TILE * 2 * scaleX), Math.max(2, TILE * 2 * scaleY));
+      } else if (t === T.GRASS) {
+        ctx.fillStyle = '#3a5a3a';
+        ctx.fillRect(mmX + tx * TILE * scaleX, mmY + ty * TILE * scaleY,
+                     Math.max(2, TILE * 2 * scaleX), Math.max(2, TILE * 2 * scaleY));
+      }
+    }
+  }
+
+  // Enemies
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    ctx.fillStyle = '#f44';
+    ctx.beginPath();
+    ctx.arc(mmX + enemy.x * scaleX, mmY + enemy.y * scaleY, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Player
+  if (player && player.alive) {
+    ctx.fillStyle = '#4f4';
+    ctx.beginPath();
+    ctx.arc(mmX + player.x * scaleX, mmY + player.y * scaleY, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Viewport rectangle
+  const viewW = canvas.width;
+  const viewH = canvas.height;
+  ctx.strokeStyle = 'rgba(100,255,100,0.5)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(
+    mmX + (camera.x - viewW / 2) * scaleX,
+    mmY + (camera.y - viewH / 2) * scaleY,
+    viewW * scaleX,
+    viewH * scaleY
+  );
+}
+
+function shadeColor(color, amount) {
+  let r, g, b;
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    r = parseInt(hex.substring(0, 2), 16);
+    g = parseInt(hex.substring(2, 4), 16);
+    b = parseInt(hex.substring(4, 6), 16);
+  } else return color;
+  r = Math.max(0, Math.min(255, r + amount));
+  g = Math.max(0, Math.min(255, g + amount));
+  b = Math.max(0, Math.min(255, b + amount));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ─── GAME LOOP ─────────────────────────────────────────────
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// ─── START / RESTART ───────────────────────────────────────
+function startGame() {
+  generateMap();
+  player = new Tank(30 * TILE, 22 * TILE, {
+    isPlayer: true,
+    color: '#3a8a3a',
+    turretColor: '#4c4',
+    speed: 2.5,
+    hp: 150,
+    fireRate: 10,
+    bulletDamage: 25
+  });
+  player.maxHp = 150;
+  enemies = [];
+  bullets = [];
+  particles = [];
+  powerups = [];
+  wave = 1;
+  score = 0;
+  kills = 0;
+  waveTimer = 0;
+  enemiesRemaining = 0;
+  camera = { x: player.x, y: player.y };
+  gameRunning = true;
+  frameCount = 0;
+
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
+
+  spawnWave();
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  initAudio();
+  startGame();
+});
+document.getElementById('restart-btn').addEventListener('click', () => {
+  startGame();
+});
+
+// Start the loop
+gameLoop();
+</script>
+</body>
+</html>

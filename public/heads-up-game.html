@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Heads Up! 📱</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:#0f1a0f;color:#ecfccb;user-select:none;-webkit-user-select:none;touch-action:none}
+
+/* ── Screens ── */
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:20px;position:absolute;top:0;left:0;overflow-y:auto;overflow-x:hidden}
+.screen.active{display:flex}
+
+/* ── Menu ── */
+#menu h1{font-size:clamp(32px,6vw,56px);font-weight:900;margin-bottom:6px;text-shadow:0 0 30px rgba(107,158,74,.4)}
+#menu .subtitle{font-size:16px;color:#7a8f6e;margin-bottom:24px;text-align:center;max-width:500px;line-height:1.4}
+.category-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:80vw;width:100%;margin-bottom:20px}
+.cat-btn{padding:14px 10px;border:2px solid #2a3a2a;border-radius:14px;background:#1a2a1a;color:#ecfccb;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px}
+.cat-btn:hover,.cat-btn.selected{border-color:#6b9e4a;background:#243324;box-shadow:0 0 20px rgba(107,158,74,.25)}
+.cat-btn .emoji{font-size:24px}
+.cat-btn .count{font-size:10px;color:#7a8f6e;font-weight:400}
+.play-btn{padding:14px 40px;border:none;border-radius:12px;background:#6b9e4a;color:#fff;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:1px;transition:all .2s;min-width:160px}
+.play-btn:hover{background:#7ab850;box-shadow:0 0 24px rgba(107,158,74,.4)}
+.play-btn:disabled{background:#3a4a3a;cursor:not-allowed;box-shadow:none}
+.timer-select{display:flex;align-items:center;gap:10px;margin-top:16px;font-size:13px;color:#7a8f6e}
+.timer-select select{background:#1a2a1a;color:#ecfccb;border:1px solid #2a3a2a;border-radius:8px;padding:5px 10px;font-size:13px}
+/* ── Language toggle buttons ── */
+.lang-toggle{display:flex;gap:6px;margin-bottom:18px}
+.lang-btn{padding:7px 16px;border:2px solid #2a3a2a;border-radius:20px;background:#1a2a1a;color:#7a8f6e;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.lang-btn:hover{border-color:#6b9e4a;color:#ecfccb}
+.lang-btn.active{border-color:#6b9e4a;background:#243324;color:#ecfccb;box-shadow:0 0 12px rgba(107,158,74,.3)}
+/* ── Head mode toggle ── */
+.head-mode-toggle{display:flex;gap:6px;margin-bottom:18px}
+.head-mode-btn{padding:7px 16px;border:2px solid #2a3a2a;border-radius:20px;background:#1a2a1a;color:#7a8f6e;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.head-mode-btn:hover{border-color:#6b9e4a;color:#ecfccb}
+.head-mode-btn.active{border-color:#6b9e4a;background:#243324;color:#ecfccb;box-shadow:0 0 12px rgba(107,158,74,.3)}
+/* ── Fullscreen toggle ── */
+.fullscreen-toggle{display:flex;gap:6px;margin-bottom:18px}
+.fullscreen-btn{padding:7px 16px;border:2px solid #2a3a2a;border-radius:20px;background:#1a2a1a;color:#7a8f6e;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.fullscreen-btn:hover{border-color:#6b9e4a;color:#ecfccb}
+.fullscreen-btn.active{border-color:#6b9e4a;background:#243324;color:#ecfccb;box-shadow:0 0 12px rgba(107,158,74,.3)}
+/* ── Fallback tap zones (always available as backup) ── */
+.tap-zones{position:absolute;top:0;left:0;width:100%;height:100%;display:none;z-index:1;pointer-events:none}
+.tap-zones.active{display:flex}
+.tap-zone{flex:1;display:flex;align-items:center;justify-content:center;font-size:clamp(18px,4vw,28px);font-weight:800;pointer-events:auto;cursor:pointer;transition:background .15s}
+.tap-zone:active{background:rgba(255,255,255,.05)}
+.tap-zone-skip{color:#9e3f3f}
+.tap-zone-correct{color:#4a9e3f}
+.accel-status{font-size:11px;color:#d4923a;margin-top:4px;text-align:center}
+/* Card sits above tap zones */
+#game .card{position:relative;z-index:2}
+
+/* ── Game ── */
+#game{background:#0f1a0f}
+.card{width:min(420px,60vw);height:min(340px,65vh);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;transition:transform .35s ease,opacity .25s ease,background .3s;position:relative;overflow:hidden}
+.card.correct{background:#1a4a1a;border:3px solid #4a9e3f;box-shadow:0 0 60px rgba(74,158,63,.3)}
+.card.wrong{background:#4a1a1a;border:3px solid #9e3f3f;box-shadow:0 0 60px rgba(158,63,63,.3)}
+.card .category-label{font-size:12px;text-transform:uppercase;letter-spacing:2px;color:#7a8f6e;margin-bottom:12px}
+.card .word{font-size:clamp(22px,5vw,42px);font-weight:900;line-height:1.2}
+.card .instruction{font-size:13px;color:#7a8f6e;margin-top:16px;line-height:1.4}
+.card .swipe-hints{display:flex;justify-content:space-between;width:100%;margin-top:14px;font-size:12px}
+.card .swipe-hints span{padding:6px 12px;border-radius:8px;font-weight:600}
+.hint-correct{background:#1a4a1a;color:#4a9e3f}
+.hint-wrong{background:#4a1a1a;color:#9e3f3f}
+
+/* Timer bar */
+.timer-bar-container{width:min(420px,60vw);height:8px;background:#1a2a1a;border-radius:4px;margin-bottom:16px;overflow:hidden}
+.timer-bar{height:100%;background:linear-gradient(90deg,#6b9e4a,#4a9e3f);border-radius:4px;transition:width .1s linear;width:100%}
+.timer-bar.warning{background:linear-gradient(90deg,#d4923a,#c0552d)}
+.timer-text{font-size:13px;color:#7a8f6e;margin-bottom:10px;font-weight:700}
+
+/* Score display */
+.score-display{position:absolute;top:16px;right:16px;font-size:13px;font-weight:700;color:#6b9e4a}
+.round-display{position:absolute;top:16px;left:16px;font-size:13px;color:#7a8f6e}
+
+/* ── Results ── */
+#results{text-align:center}
+#results h2{font-size:clamp(24px,5vw,36px);font-weight:900;margin-bottom:6px}
+.final-score{font-size:clamp(40px,8vw,60px);font-weight:900;color:#6b9e4a;margin:12px 0;text-shadow:0 0 30px rgba(107,158,74,.3)}
+.score-label{font-size:13px;color:#7a8f6e;text-transform:uppercase;letter-spacing:2px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:500px;width:100%;margin:16px auto}
+.stat-card{background:#1a2a1a;border-radius:12px;padding:12px;text-align:center}
+.stat-val{font-size:24px;font-weight:800;color:#6b9e4a}
+.stat-label{font-size:11px;color:#7a8f6e;margin-top:3px}
+.words-review{max-width:500px;width:100%;margin:16px auto;text-align:left;max-height:15vh;overflow-y:auto;border:1px solid #2a3a2a;border-radius:10px;padding:10px}
+.words-review h3{font-size:14px;margin-bottom:8px;color:#a7c4a0}
+.word-row{display:flex;justify-content:space-between;padding:6px 10px;border-radius:8px;margin-bottom:3px;font-size:13px}
+.word-row.correct-row{background:#1a3a1a}
+.word-row.wrong-row{background:#3a1a1a}
+.word-row .status{font-size:16px}
+.btn-group{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.secondary-btn{padding:10px 24px;border:2px solid #2a3a2a;border-radius:10px;background:transparent;color:#ecfccb;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.secondary-btn:hover{border-color:#6b9e4a}
+
+/* ── Intro overlay ── */
+#intro{background:rgba(15,26,15,.97);z-index:10}
+#intro h2{font-size:clamp(22px,4vw,32px);font-weight:900;margin-bottom:12px;text-align:center}
+#intro p{font-size:14px;color:#a7c4a0;text-align:center;max-width:400px;line-height:1.5;margin-bottom:10px}
+.countdown{font-size:clamp(60px,12vw,100px);font-weight:900;color:#6b9e4a;text-shadow:0 0 40px rgba(107,158,74,.5)}
+
+/* Swipe animation */
+.swipe-right{animation:swipeRight .4s ease forwards}
+.swipe-left{animation:swipeLeft .4s ease forwards}
+@keyframes swipeRight{to{transform:translateX(120%) rotate(15deg);opacity:0}}
+@keyframes swipeLeft{to{transform:translateX(-120%) rotate(-15deg);opacity:0}}
+
+/* Keyboard shortcut hints */
+.key-hint{font-size:11px;color:#3d5a2e;margin-top:6px}
+
+/* ── Tilt indicator ── */
+.tilt-indicator{width:min(420px,60vw);margin-bottom:12px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tilt-track{width:100%;height:24px;background:#1a2a1a;border-radius:14px;position:relative;overflow:hidden}
+.tilt-thumb{position:absolute;top:2px;left:50%;width:20px;height:20px;border-radius:50%;background:#6b9e4a;transition:left 0.15s ease,background 0.2s;transform:translateX(-50%);box-shadow:0 0 10px rgba(107,158,74,.4)}
+.tilt-thumb.tilted-right{background:#4a9e3f;left:85%}
+.tilt-thumb.tilted-left{background:#9e3f3f;left:15%}
+.tilt-label{font-size:10px;color:#7a8f6e;letter-spacing:1px}
+
+/* ── Teams toggle ── */
+.teams-toggle{display:flex;gap:6px;margin-bottom:18px}
+.teams-btn{padding:7px 16px;border:2px solid #2a3a2a;border-radius:20px;background:#1a2a1a;color:#7a8f6e;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.teams-btn:hover{border-color:#6b9e4a;color:#ecfccb}
+.teams-btn.active{border-color:#6b9e4a;background:#243324;color:#ecfccb;box-shadow:0 0 12px rgba(107,158,74,.3)}
+
+/* ── Team setup screen ── */
+#teamSetup{text-align:center}
+#teamSetup h2{font-size:clamp(24px,5vw,36px);font-weight:900;margin-bottom:16px}
+.team-count-select{display:flex;gap:10px;margin-bottom:20px;justify-content:center}
+.team-count-btn{width:50px;height:50px;border-radius:50%;border:2px solid #2a3a2a;background:#1a2a1a;color:#ecfccb;font-size:20px;font-weight:800;cursor:pointer;transition:all .2s}
+.team-count-btn:hover,.team-count-btn.selected{border-color:#6b9e4a;background:#243324;box-shadow:0 0 16px rgba(107,158,74,.3)}
+.team-name-inputs{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;max-width:360px;width:100%}
+.team-name-row{display:flex;align-items:center;gap:10px}
+.team-color-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0}
+.team-name-input{flex:1;padding:10px 14px;border:2px solid #2a3a2a;border-radius:10px;background:#1a2a1a;color:#ecfccb;font-size:14px;font-weight:600;outline:none;transition:border-color .2s}
+.team-name-input:focus{border-color:#6b9e4a}
+.team-name-input::placeholder{color:#3d5a2e}
+
+/* ── Team scoreboard during game ── */
+.team-scoreboard{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:5;flex-wrap:wrap;justify-content:center}
+.team-score-chip{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#1a2a1a;border:2px solid #2a3a2a;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.team-score-chip.active-team{box-shadow:0 0 14px rgba(107,158,74,.5);animation:teamPulse 1.5s infinite}
+.team-score-chip .chip-dot{width:8px;height:8px;border-radius:50%}
+.team-score-chip .chip-score{color:#6b9e4a}
+@keyframes teamPulse{0%,100%{box-shadow:0 0 14px rgba(107,158,74,.5)}50%{box-shadow:0 0 24px rgba(107,158,74,.8)}}
+
+/* ── Team transition screen ── */
+#teamTransition{text-align:center}
+#teamTransition .transition-emoji{font-size:clamp(48px,10vw,80px);margin-bottom:12px}
+#teamTransition .transition-team-name{font-size:clamp(28px,6vw,48px);font-weight:900;margin-bottom:6px}
+#teamTransition .transition-instruction{font-size:14px;color:#7a8f6e;max-width:400px;line-height:1.5;margin-bottom:20px}
+#teamTransition .transition-countdown{font-size:clamp(40px,8vw,70px);font-weight:900;color:#6b9e4a;text-shadow:0 0 30px rgba(107,158,74,.5)}
+
+/* ── Team leaderboard on results ── */
+.team-leaderboard{max-width:500px;width:100%;margin:16px auto}
+.team-leaderboard h3{font-size:16px;margin-bottom:10px;color:#a7c4a0;text-align:center}
+.leaderboard-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;margin-bottom:8px;background:#1a2a1a;border:2px solid #2a3a2a;transition:border-color .3s}
+.leaderboard-row.rank-1{border-color:#ffd700;background:#2a2a1a}
+.leaderboard-row.rank-2{border-color:#c0c0c0;background:#1a1a1a}
+.leaderboard-row.rank-3{border-color:#cd7f32;background:#2a1a1a}
+.rank-badge{font-size:20px;width:36px;text-align:center;flex-shrink:0}
+.lb-team-name{flex:1;font-size:15px;font-weight:700;text-align:left}
+.lb-team-score{font-size:22px;font-weight:900;color:#6b9e4a}
+.lb-team-stats{font-size:11px;color:#7a8f6e;text-align:right;min-width:80px}
+</style>
+</head>
+<body>
+
+<!-- TEAM SETUP SCREEN -->
+<div id="teamSetup" class="screen">
+  <h2 id="teamSetupTitle">👥 Setup Teams</h2>
+  <p class="subtitle" id="teamSetupSubtitle">How many teams are playing?</p>
+  <div class="team-count-select" id="teamCountSelect">
+    <button class="team-count-btn selected" data-count="2">2</button>
+    <button class="team-count-btn" data-count="3">3</button>
+    <button class="team-count-btn" data-count="4">4</button>
+  </div>
+  <div class="team-name-inputs" id="teamNameInputs"></div>
+  <button class="play-btn" id="teamSetupBtn">▶ Start Game</button>
+</div>
+
+<!-- TEAM TRANSITION SCREEN -->
+<div id="teamTransition" class="screen">
+  <div class="transition-emoji">🎯</div>
+  <div class="transition-team-name" id="transitionTeamName"></div>
+  <div class="transition-instruction" id="transitionInstruction">
+    Hold the screen to your forehead.<br>Your team will shout the hints!
+  </div>
+  <button class="play-btn" id="transitionBtn">Ready!</button>
+</div>
+
+<!-- MENU SCREEN -->
+<div id="menu" class="screen active">
+  <div class="lang-toggle" id="langToggle">
+    <button class="lang-btn active" data-lang="en">English</button>
+    <button class="lang-btn" data-lang="zh">繁體中文</button>
+    <button class="lang-btn" data-lang="mix">Mixed / 混合</button>
+  </div>
+  <div class="head-mode-toggle" id="headModeToggle">
+    <button class="head-mode-btn" data-head="false">📱 Handheld</button>
+    <button class="head-mode-btn active" data-head="true">🧠 Head Mode</button>
+  </div>
+  <div class="fullscreen-toggle" id="fullscreenToggle">
+    <button class="fullscreen-btn active" data-fs="true">⛶ Fullscreen</button>
+    <button class="fullscreen-btn" data-fs="false">⛶ Windowed</button>
+  </div>
+  <div class="teams-toggle" id="teamsToggle">
+    <button class="teams-btn active" data-teams="false">👤 Solo</button>
+    <button class="teams-btn" data-teams="true">👥 Teams</button>
+  </div>
+  <h1>📱 Heads Up!</h1>
+  <p class="subtitle">Pick a category, hold the screen to your forehead, and guess the words your friends shout!</p>
+  <div class="category-grid" id="categoryGrid"></div>
+  <button class="play-btn" id="playBtn" disabled>▶ PLAY</button>
+  <div class="timer-select">
+    <label id="timerLabel">Timer:</label>
+    <select id="timerSelect">
+      <option value="15">15s</option>
+      <option value="20">20s</option>
+      <option value="30" selected>30s</option>
+      <option value="45">45s</option>
+      <option value="60">60s</option>
+    </select>
+  </div>
+  <p class="key-hint" id="keyHint">Swipe or press → (right=correct) ← (left=skip) | Tilt phone on mobile</p>
+</div>
+
+<!-- INTRO / COUNTDOWN -->
+<div id="intro" class="screen">
+  <h2 id="introTitle">Get Ready!</h2>
+  <p id="introText">Hold the screen up to your forehead.<br>Your friends will shout hints!</p>
+  <div class="countdown" id="countdown" style="display:none"></div>
+  <button class="play-btn" id="startBtn" style="margin-top:24px">Hold to Start</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game" class="screen">
+  <div class="team-scoreboard" id="teamScoreboard" style="display:none"></div>
+  <div class="score-display" id="scoreDisplay">Score: <span id="scoreVal">0</span></div>
+  <div class="round-display">Word <span id="roundNum">1</span>/<span id="roundTotal">10</span></div>
+  <div class="timer-bar-container"><div class="timer-bar" id="timerBar"></div></div>
+  <div class="timer-text" id="timerText">30s</div>
+  <!-- Tilt indicator -->
+  <div class="tilt-indicator" id="tiltIndicator">
+    <div class="tilt-track">
+      <div class="tilt-thumb" id="tiltThumb"></div>
+    </div>
+    <span class="tilt-label">Skip ← → Correct</span>
+  </div>
+  <div class="card" id="card">
+    <div class="category-label" id="cardCategory"></div>
+    <div class="word" id="cardWord"></div>
+    <div class="instruction">Can you guess it?</div>
+    <div class="swipe-hints">
+      <span class="hint-wrong">← Skip</span>
+      <span class="hint-correct">Got it! →</span>
+    </div>
+  </div>
+  <!-- Fallback tap zones for browsers without accelerometer (Firefox iOS etc) -->
+  <div class="tap-zones" id="tapZones">
+    <div class="tap-zone tap-zone-skip" id="tapSkip">← Skip</div>
+    <div class="tap-zone tap-zone-correct" id="tapCorrect">Got it! →</div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results" class="screen">
+  <h2>Time's Up!</h2>
+  <div id="soloResults">
+    <div class="score-label">Your Score</div>
+    <div class="final-score" id="finalScore">0</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="statCorrect">0</div><div class="stat-label">Correct</div></div>
+      <div class="stat-card"><div class="stat-val" id="statSkipped">0</div><div class="stat-label">Skipped</div></div>
+      <div class="stat-card"><div class="stat-val" id="statAccuracy">0%</div><div class="stat-label">Accuracy</div></div>
+      <div class="stat-card"><div class="stat-val" id="statTime">0s</div><div class="stat-label">Time</div></div>
+    </div>
+    <div class="words-review" id="wordsReview">
+      <h3>Word Review</h3>
+      <div id="wordList"></div>
+    </div>
+  </div>
+  <div id="teamLeaderboard" class="team-leaderboard" style="display:none">
+    <h3>🏆 Final Standings</h3>
+    <div id="leaderboardList"></div>
+  </div>
+  <div class="btn-group">
+    <button class="play-btn" onclick="goToMenu()">🏠 Menu</button>
+    <button class="secondary-btn" onclick="playAgain()">🔄 Play Again</button>
+  </div>
+</div>
+
+<script>
+// ── Categories & words ──
+const CATEGORIES = {
+  "Movies": {
+    emoji: "🎬",
+    words: ["Titanic","The Matrix","Avatar","Inception","Jurassic Park","The Godfather","Star Wars","Frozen","The Lion King","Forrest Gump","Gladiator","The Dark Knight","Pulp Fiction","Schindler's List","The Shawshank Redemption","Fight Club","Interstellar","The Avengers","Jaws","Rocky","The Silence of the Lambs","Goodfellas","Saving Private Ryan","The Lord of the Rings","Back to the Future","E.T.","Home Alone","Toy Story","Finding Nemo","Moana","The Exorcist","Alien","Blade Runner","The Shining","Apocalypse Now","Casablanca","Psycho","Vertigo","2001: A Space Odyssey","One Flew Over the Cuckoo's Nest","The Graduate","Taxi Driver","Chinatown","The French Connection","Raging Bull","A Clockwork Orange","The Green Mile","The Truman Show","The Sixth Sense","Get Out","Parasite","La La Land","Whiplash","Mad Max: Fury Road","Dune","Everything Everywhere All at Once","The Terminator","Die Hard","The Departed","There Will Be Blood","The Prestige","Memento","Se7en","American Beauty","The Social Network","Joker","1917","Dunkirk","Arrival","The Revenant","Birdman","Eternal Sunshine of the Spotless Mind","The Grand Budapest Hotel","Fargo","The Big Lebowski","Trainspotting","The Wolf of Wall Street","The King's Speech","Slumdog Millionaire","The Hurt Locker","Argo","Spotlight","A Star Is Born","Coco","Up","Wall-E","Ratatouille","Inside Out","Zootopia","Spider-Man","Iron Man","Captain America","Black Panther","Wonder Woman","Guardians of the Galaxy","Logan","Deadpool","John Wick","Mission Impossible","Casino Royale","Skyfall","The Hangover","Mean Girls","Legally Blonde","Clueless","The Princess Bride","Groundhog Day","Cast Away","The Martian","Gravity","Life of Pi","The Hunger Games","Harry Potter","Indiana Jones","Speed","Lethal Weapon","Ghostbusters","Beetlejuice","Ferris Bueller's Day Off","The Breakfast Club"],
+    wordsZh: ["鐵達尼號","駭客任務","阿凡達","全面啟動","侏羅紀公園","教父","星戰","冰雪奇緣","獅子王","阿甘正傳","角鬥士","黑暗騎士","低俗小說","辛德勒的名單","肖申克的救贖","鬥陣俱樂部","星際效應","復仇者聯盟","大白鯊","洛奇","沉默的羔羊","好傢伙","拯救大兵瑞恩","指環王","回到未來","鐵金剛勇戰外星人","小鬼當家","玩具總動員","海底總動員","海洋奇緣","驅魔人","異形","銀翼殺手","閃靈","現代啟示錄","卡薩布蘭卡","驚魂記","迷魂記","2001太空漫遊","飛越瘋人院","畢業生","計程車司機","唐人街","法國結","狂牛","發條橘子","綠里奇蹟","楚門的世界","第六感","逃出絕命鎮","寄生上流","愛樂之城","爆裂鼓手","瘋狂麥斯","沙丘","瞬息全宇宙","終結者","終極警探","無間道風雲","血色慾望","致命魔術","記憶碎片","七宗罪","美國美人","社群網戰","小丑","1917","敦刻爾克","降臨","復仇者","鳥人","無聲告白","大布達佩斯酒店","冰血暴","大賴背浪子","猜火車","華爾街之狼","國王的演說","貧民窟的百萬富翁","拆彈部隊","騙局","聚焦","一個明星的誕生","可可","飛屋環遊記","無極","美食總動員","腦筋急轉彎","動物城市","蜘蛛俠","鋼鐵俠","美國隊長","黑豹","神奇女俠","銀河守護者","羅根","死侍","約翰威克","不可能的任務","皇家特工","天幕殺機","宿醉","賤女孩","律政嬌娃","獨領風騷","公主新娘","地獄無門","孤島自救","火星救援","地心引力","少年派的奇幻漂流","飢餓遊戲","哈利波特","印第安納瓊斯","生死時速","致命武器","魔鬼剋星","甲蟲人","春天不是讀書天","早餐俱樂部"]
+  },
+  "Celebrities": {
+    emoji: "⭐",
+    words: ["Taylor Swift","Elon Musk","Beyoncé","Dwayne Johnson","Oprah","Kanye West","Lady Gaga","Brad Pitt","Rihanna","Leonardo DiCaprio","Ariana Grande","Drake","Selena Gomez","Tom Cruise","Emma Watson","Chris Hemsworth","Jennifer Lopez","Will Smith","Kim Kardashian","Demi Lovato","Zendaya","The Rock","Nicki Minaj","Billie Eilish","Harry Styles","Adele","Ed Sheeran","Justin Bieber","Shakira","Katy Perry","Penélope Cruz","Dua Lipa","Kendall Jenner","Kylie Jenner","Meghan Markle","Cate Blanchett","Meryl Streep","Scarlett Johansson","Chris Evans","Robert Downey Jr.","Ryan Reynolds","Margot Robbie","Tom Holland","Mark Ruffalo","Anthony Hopkins","Harrison Ford","Morgan Freeman","Samuel L. Jackson","Viola Davis","Jennifer Lawrence","Alicia Keys","Bruno Mars","John Legend","Post Malone","Travis Scott","Snoop Dogg","Eminem","Cardi B","A$AP Rocky","Dr. Dre","Jay-Z","Kim Kardashian","Kylie Jenner","Meghan Markle","Cate Blanchett","Meryl Streep","Scarlett Johansson","Chris Evans","Robert Downey Jr.","Ryan Reynolds","Margot Robbie","Tom Holland","Mark Ruffalo","Anthony Hopkins","Harrison Ford","Morgan Freeman","Samuel L. Jackson","Viola Davis","Jennifer Lawrence","Alicia Keys","Bruno Mars","John Legend","Post Malone","Snoop Dogg","Eminem","Cardi B","Dr. Dre","Jay-Z","Rihanna","Kanye West","Beyonce","Taylor Swift","Ariana Grande","Billie Eilish","Harry Styles","Dua Lipa","Olivia Rodrigo","Sabrina Carpenter","Barack Obama","Donald Trump","Joe Biden","Jeff Bezos","Tim Cook","Mark Zuckerberg","Bernie Sanders","Kamala Harris","Celine Dion","Justin Timberlake","Britney Spears","Madonna","Michael Jackson","David Beckham","Cristiano Ronaldo","Lionel Messi","LeBron James","Serena Williams","Tom Brady","Stephen Curry","Arnold Schwarzenegger","Sylvester Stallone","Dolly Parton","Blake Lively","Ryan Gosling","Reese Witherspoon","Jennifer Aniston","George Clooney","Angelina Jolie","Brad Pitt","Leonardo DiCaprio","Johnny Depp","Kate Winslet","Hugh Jackman","Russell Crowe","Nicole Kidman"],
+    wordsZh: ["泰勒絲","馬斯克","碧昂絲","巨石強森","歐普拉","肯伊威斯特","女神卡卡","布萊德彼特","蕾哈娜","李奧納多","愛莉安娜","德雷克","賽琳娜戈梅茲","湯姆克魯斯","艾瑪華生","克里斯漢斯沃","珍妮佛洛培茲","威爾史密斯","金卡戴珊","黛咪洛瓦","珍娜","巨石強森","妮琪米娜","碧梨","哈利史泰爾斯","阿黛兒","艾德希蘭","賈斯汀比伯","夏奇拉","凱蒂佩芮","佩內洛普","dua lipa","肯豆","凱莉詹娜","梅根","凱特布蘭琪","梅麗史翠普","史嘉蕾喬韓森","克里斯伊凡斯","小勞勃道尼","萊恩雷諾斯","瑪歌羅比","湯姆霍蘭","馬克盧法洛","安東尼霍普金斯","哈里遜福特","摩根費里曼","塞謬爾傑克森","維奧拉戴維斯","珍妮佛勞倫斯","艾莉西亞凱斯","布勞諾馬斯","約翰傳奇","波斯特馬龍","崔維斯史考特","史努比狗狗","埃米納姆","卡迪B","A$AP Rocky","德雷","傑伊","金卡戴珊","凱莉詹娜","梅根","凱特布蘭琪","梅麗史翠普","史嘉蕾喬韓森","克里斯伊凡斯","小勞勃道尼","萊恩雷諾斯","瑪歌羅比","湯姆霍蘭","馬克盧法洛","安東尼霍普金斯","哈里遜福特","摩根費里曼","塞謬爾傑克森","維奧拉戴維斯","珍妮佛勞倫斯","艾莉西亞凱斯","布勞諾馬斯","約翰傳奇","波斯特馬龍","史努比狗狗","埃米納姆","卡迪B","德雷","傑伊","蕾哈娜","肯伊威斯特","碧昂絲","泰勒絲","愛莉安娜","碧梨","哈利史泰爾斯","Dua Lipa","奧莉維亞羅德里戈","薩布瑞娜卡彭特","奧巴馬","特朗普","拜登","貝索斯","庫克","扎克伯格","桑德斯","哈里斯","席琳狄翁","賈斯汀汀布萊克","布蘭妮","瑪丹娜","麥可傑克森","大衛貝克漢","C羅","梅西","詹姆斯","塞雷娜威廉姆斯","湯姆布雷迪","庫里","阿諾史瓦辛格","席維斯史特龍","多莉帕頓","布蕾克萊芙莉","萊恩高斯林","瑞絲薇斯朋","珍妮佛安妮絲頓","喬治克隆尼","安潔麗娜裘莉","布萊德彼特","李奧納多","強尼戴普","凱特溫絲蕾","休傑克曼","羅素克洛","妮可基嫚"]
+  },
+  "Actions": {
+    emoji: "🏃",
+    words: ["Dancing","Swimming","Cooking","Singing","Driving","Brushing Teeth","Taking a Selfie","Playing Guitar","Riding a Horse","Skydiving","Surfing","Snowboarding","Doing Yoga","Jumping Jacks","High Fiving","Proposing","Crying","Laughing","Sleeping","Snoring","Waking Up","Stretching","Running Late","Tripping","Slapping","Hugging","Kissing","Winking","Nodding","Shrugging","Texting","Vlogging","Photographing","Gardening","Fishing","Hunting","Camping","Hiking","Biking","Skating","Ice Skating","Snowshoeing","Paragliding","Bungee Jumping","Rock Climbing","Scuba Diving","Snorkeling","Kayaking","Sailing","Windsurfing","Kite Surfing","Martial Arts","Meditating","Juggling","Magic Tricks","Breakdancing","Freestyle Rapping","Stand-up Comedy","Public Speaking","Painting","Sculpting","Knitting","Sewing","Baking a Cake","Making a Sandwich","Ironing Clothes","Vacuuming","Taking a Shower","Washing Dishes","Mowing the Lawn","Changing a Tire","Parallel Parking","Doing Push-ups","Taking a Shower","Washing Dishes","Mowing the Lawn","Changing a Tire","Parallel Parking","Doing Push-ups","Doing Sit-ups","Lifting Weights","Riding a Bike","Walking the Dog","Feeding the Cat","Watering Plants","Folding Laundry","Making the Bed","Setting the Table","Chopping Vegetables","Whisking Eggs","Decorating a Cake","Lighting Candles","Building a Fire","Telling a Joke","Singing Karaoke","Playing Poker","Playing Chess","Reading a Book","Writing a Letter","Drawing a Picture","Taking Notes","Studying for a Test","Giving a Presentation","Interviewing Someone","Negotiating a Deal","Signing a Contract","Shaking Hands","Waving Goodbye","Pointing at Something","Thumbs Up","Clapping","Cheering","Whistling","Humming a Tune","Yawning","Sneezing","Stretching","Opening a Present","Wrapping a Gift","Blowing Out Candles","Tying Shoelaces","Putting on Makeup","Brushing Hair","Checking Your Phone","Scrolling Social Media","Typing on a Keyboard","Answering the Door","Picking up the Phone","Sending a Text","Taking a Photo","Editing a Video","Recording a Podcast","Livestreaming","Dancing in the Rain","Building a Sandcastle","Flying a Kite","Riding a Roller Coaster","Playing Pinball","Shooting a Basketball","Throwing a Baseball","Kicking a Soccer Ball","Swinging a Golf Club","Serving a Tennis Ball","Sliding into Home","Hitting a Home Run","Scoring a Goal","Proposing Marriage","Saying I Do","Cutting the Cake","Dancing at a Wedding","Toasting with Champagne"],
+    wordsZh: ["跳舞","游泳","煮嘢","唱歌","開車","刷牙","打自拍","彈吉他","騎馬","跳傘","衝浪","滑雪","做瑜伽","開合跳","擊掌","求婚","喊冤","發笑","瞓覺","打呼嚕","起身","企理","遲咗","跌交","掌摑","擁抱","親嘴","眨眼","點頭","聳肩","打機","拍片","影相","種花","釣魚","狩獵","露營","行山","踩單車","溜冰","冰上溜冰","雪地行","滑翔傘","蹦極","攀石","水肺潛水","浮潛","划獨木舟","帆船","風帆衝浪","風箏衝浪","武術","冥想","雜耍","魔術","街舞","即興說唱","脫口秀","公開演講","畫畫","雕刻","編織","縫衣","做蛋糕","做三文治","熨衫","吸塵","沖涼","洗碗","割草","換車胎","側方停車","做伏地挺身","沖涼","洗碗","割草","換車胎","側方停車","做伏地挺身","做仰臥起坐","舉重","踩單車","行狗","餵貓","澆花","摺衫","鋪床","擺枱","切菜","打蛋","裝飾蛋糕","點蠟燭","生火","講笑話","唱K","打撲克","下棋","睇書","寫信","畫畫","做筆記","溫書","做報告","面試人","談判","簽合約","握手","揮手告別","指嘢","讚","拍掌","歡呼","吹口哨","哼歌","打呵欠","噴嚏","企理","拆禮物","包禮物","熄蠟燭","繫鞋帶","化妝","梳頭","睇電話","滑社交媒體","打字","開門","接電話","傳訊息","影相","剪片","錄播客","直播","雨中跳舞","堆沙堡","放風箏","坐過山車","打彈珠台","投籃","投棒球","踢足球","揮高爾夫球桿","發網球","滑壘","全壘打","入球","求婚","說我願意","切蛋糕","婚禮跳舞","開香檳"]
+  },
+  "Animals": {
+    emoji: "🐾",
+    words: ["Elephant","Giraffe","Penguin","Dolphin","Lion","Tiger","Panda","Koala","Octopus","Shark","Eagle","Cheetah","Zebra","Flamingo","Sloth","Hedgehog","Platypus","Chameleon","Butterfly","Bee","Spider","Crocodile","Kangaroo","Raccoon","Owl","Whale","Seal","Pufferfish","Axolotl","Capybara","Gorilla","Chimpanzee","Orangutan","Leopard","Hyena","Wolverine","Polar Bear","Red Panda","Meerkat","Jaguar","Pangolin","Iguana","Komodo Dragon","Narwhal","Manatee","Sea Otter","Walrus","Toucan","Parrot","Peacock","Ostrich","Emu","Kiwi Bird","Puffin","Vulture","Condor","Bat","Jellyfish","Coral","Starfish","Sea Urchin","Cockroach","Scorpion","Tarantula","Firefly","Ladybug","Praying Mantis","Caterpillar","Cockroach","Scorpion","Tarantula","Firefly","Ladybug","Praying Mantis","Caterpillar","Worm","Slug","Snail","Jellyfish","Coral","Starfish","Sea Urchin","Dugong","Dolphin","Porpoise","Beluga Whale","Blue Whale","Humpback Whale","Squid","Cuttlefish","Manta Ray","Stingray","Seahorse","Clownfish","Pufferfish","Lobster","Crab","Shrimp","Eel","Piranha","Platypus","Echidna","Wombat","Quokka","Tasmanian Devil","Armadillo","Anteater","Sloth","Capybara","Chinchilla","Guinea Pig","Rabbit","Hare","Beaver","Otter","Badger","Skunk","Weasel","Ferret","Raccoon","Red Panda","Giant Panda","Snow Leopard","Cheetah","Jaguar","Cougar","Lynx","Bobcat","Hyena","Wolf","Coyote","Fox","Jackal","Dingo","Bat","Flying Squirrel","Sugar Glider","Pangolin","Aardvark","Okapi","Giraffe","Zebra","Hippo","Rhino","Warthog","Wildebeest","Gazelle","Buffalo","Bison"],
+    wordsZh: ["大象","長頸鹿","企鵝","海豚","獅子","老虎","大熊貓","考拉","八爪魚","鯊魚","鷹","獵豹","斑馬","火鶴","樹懶","豪豬","鴨嘴獸","變色龍","蝴蝶","蜜蜂","蜘蛛","鱷魚","袋鼠","浣熊","貓頭鷹","鯨魚","海豹","河豚","六角龍魚","卡皮巴拉","大猩猩","黑猩猩","紅毛猩猩","豹","鬣狗","狼獾","北極熊","小熊猫","狐獴","美洲豹","穿山甲","鬣蜥","科莫多龍","角鯨","海牛","海獭","海象","巨嘴鳥","鸚鵡","孔雀","鴕鳥","鸸鶋","幾維鳥","海鸚","禿鷹","神鷹","蝙蝠","水母","珊瑚","海星","海膽","蟑螂","蠍子","狼蛛","螢火蟲","瓢蟲","螳螂","毛毛蟲","蟑螂","蠍子","狼蛛","螢火蟲","瓢蟲","螳螂","毛毛蟲","蚯蚓","蛞蝓","蝸牛","水母","珊瑚","海星","海膽","儒艮","海豚","鼠海豚","白鯨","藍鯨","座頭鯨","烏賊","墨魚","魔鬼魚","魟魚","海馬","小丑魚","河豚","龍蝦","蟹","蝦","鰻魚","食人魚","鴨嘴獸","針鼴","袋熊","短尾矮袋鼠","塔斯馬尼亞魔鬼","犰狳","食蟻獸","樹懶","卡皮巴拉","龍貓","天竺鼠","兔子","野兔","海狸","水獺","獾","臭鼬","鼬鼠","雪貂","浣熊","小熊猫","大熊貓","雪豹","獵豹","美洲豹","美洲獅","山貓","短尾貓","鬣狗","狼","郊狼","狐狸","胡狼","澳洲野犬","蝙蝠","飛鼠","袋鼯","穿山甲","土豚","霍加狓","長頸鹿","斑馬","河馬","犀牛","疣豬","角馬","瞪羚","水牛","野牛"]
+  },
+  "Food & Drink": {
+    emoji: "🍕",
+    words: ["Pizza","Sushi","Tacos","Ice Cream","Chocolate","Burger","Pasta","Ramen","Steak","Salad","Donut","Pancakes","Waffles","Burrito","Croissant","Bagel","Popcorn","Cheese","Avocado Toast","Smoothie","Coffee","Tea","Milkshake","Brownie","Macarons","Pad Thai","Pho","Gyoza","Empanadas","Churros","Ribs","BBQ","Fried Chicken","Fried Rice","Curry","Kimchi","Dim Sum","Spring Rolls","Hot Dogs","Fries","Onion Rings","Clam Chowder","Lobster","Crab Cakes","Fish and Chips","Ceviche","Moussaka","Falafel","Hummus","Pita Bread","Naan","Biryani","Tiramisu","Crème Brûlée","Cheesecake","Gelato","Sorbet","Pretzel","Bratwurst","Pierogi","Borscht","Stew","Gazpacho","Cobbler","Pumpkin Pie","Cotton Candy","Pocky","Matcha Latte","Boba Tea","Boba Tea","Matcha Latte","Cotton Candy","Pumpkin Pie","Gazpacho","Stew","Borscht","Pierogi","Bratwurst","Pretzel","Sorbet","Gelato","Cheesecake","Crme Brulee","Tiramisu","Biryani","Naan","Pita Bread","Hummus","Falafel","Moussaka","Ceviche","Fish and Chips","Crab Cakes","Lobster","Clam Chowder","Onion Rings","Hot Dogs","Spring Rolls","Dim Sum","Kimchi","Curry","Fried Rice","BBQ","Ribs","Churros","Empanadas","Gyoza","Pho","Pad Thai","Macarons","Brownie","Milkshake","Tea","Coffee","Smoothie","Avocado Toast","Cheese","Popcorn","Bagel","Croissant","Burrito","Waffles","Pancakes","Donut","Salad","Steak","Ramen","Pasta","Tom Yum","Tom Kha","Green Curry","Bibimbap","Kimchi Fried Rice","Tteokbokki","Bulgogi","Samgyeopsal","Tempura","Sashimi","Edamame","Miso Soup","Poutine","Baklava","Pizza Margherita","Carbonara","Lasagna","Risotto","Bruschetta","Espresso","Cappuccino","Latte","Chai Latte","Cold Brew","Lemonade","Mojito","Margarita","Beer","Wine","Whiskey","Vodka","Sake","Soju","Bubble Tea","Milk Tea","Horchata","Kombucha"],
+    wordsZh: ["披薩","壽司","墨西哥卷","冰淇淋","朱古力","漢堡包","意粉","拉麵","牛扒","沙律","甜甜圈","班戟","窩夫","墨西哥薄餅","牛角包","貝果","爆谷","芝士","牛油果多士","冰沙","咖啡","茶","奶昔","布朗尼","馬卡龍","泰式炒金邊粉","河粉","煎餃","阿根廷烤餅","西班牙吉拿棒","肋骨","燒烤","炸雞","炒飯","咖喱","泡菜","點心","春卷","熱狗","薯條","洋蔥圈","蛤蜊湯","龍蝦","蟹餅","炸魚薯條","酸橘汁醃魚","摩卡卡","法拉費","鷹嘴豆泥","皮塔餅","烤餅","印度香飯","提拉米蘇","法式焦糖布丁","芝士蛋糕","意大利冰淇淋","雪葩","椒鹽捲餅","德式香腸","波羅吉","羅宋湯","燉菜","西班牙冷湯","水果酥","南瓜派","棉花糖","百奇","抹茶拿鐵","珍珠奶茶","珍珠奶茶","抹茶拿鐵","棉花糖","南瓜派","西班牙冷湯","燉菜","羅宋湯","波羅吉","德式香腸","椒鹽捲餅","雪葩","意大利冰淇淋","芝士蛋糕","法式焦糖布丁","提拉米蘇","印度香飯","烤餅","皮塔餅","鷹嘴豆泥","法拉費","摩卡卡","酸橘汁醃魚","炸魚薯條","蟹餅","龍蝦","蛤蜊湯","洋蔥圈","熱狗","春卷","點心","泡菜","咖喱","炒飯","燒烤","肋骨","西班牙吉拿棒","阿根廷烤餅","煎餃","河粉","泰式炒金邊粉","馬卡龍","布朗尼","奶昔","茶","咖啡","冰沙","牛油果多士","芝士","爆谷","貝果","牛角包","墨西哥薄餅","窩夫","班戟","甜甜圈","沙律","牛扒","拉麵","意粉","冬陰功","椰奶鸡汤","綠咖喱","石鍋拌飯","泡菜炒飯","辣炒年糕","烤牛肉","五花肉","天婦羅","刺身","毛豆","味噌湯","魁北克薯條","巴克拉瓦","瑪格麗特披薩","培根蛋麵","千層麵","燉飯","義式烤麵包","濃縮咖啡","卡布奇諾","拿鐵","奶茶","冷萃咖啡","檸檬水","莫吉托","瑪格麗塔","啤酒","葡萄酒","威士忌","伏特加","清酒","燒酒","珍珠奶茶","奶茶","荷爾查塔","康普茶"]
+  },
+  "Sports": {
+    emoji: "⚽",
+    words: ["Basketball","Soccer","Tennis","Baseball","Swimming","Boxing","Golf","Surfing","Skiing","Skateboarding","Volleyball","Hockey","Rugby","Cricket","Badminton","Fencing","Archery","Wrestling","MMA","Track and Field","Gymnastics","Cycling","Rock Climbing","Diving","Rowing","Lacrosse","Polo","Kickball","Ultimate Frisbee","Parkour","Snowboarding","Ice Hockey","Figure Skating","Curling","Biathlon","Triathlon","Marathon","Motocross","BMX","Kung Fu","Karate","Taekwondo","Judo","Sumo","Fishing","Horse Racing","Sailing","Kayaking","Windsurfing","Kickboxing","Muay Thai","Aikido","Paddleboarding","BMX Racing","Kitesurfing","Bobsled","Luge","Skeleton","Handball","Squash","Table Tennis","Snooker","Darts","Chess Boxing","E-sports","Go-Karting","Dodgeball","Dodgeball","Go-Karting","E-sports","Darts","Snooker","Table Tennis","Squash","Handball","Skeleton","Luge","Bobsled","Kitesurfing","BMX Racing","Paddleboarding","Aikido","Muay Thai","Kickboxing","Windsurfing","Kayaking","Sailing","Horse Racing","Fishing","Sumo","Judo","Taekwondo","Karate","Kung Fu","Motocross","Marathon","Triathlon","Biathlon","Curling","Figure Skating","Ice Hockey","Snowboarding","Parkour","Ultimate Frisbee","Kickball","Polo","Lacrosse","Rowing","Diving","Rock Climbing","Cycling","Gymnastics","Track and Field","MMA","Wrestling","Archery","Fencing","Badminton","Cricket","Rugby","Hockey","Volleyball","Skateboarding","Skiing","Surfing","Golf","Boxing","Swimming","Baseball","Tennis","Soccer","Basketball","Bouldering","Ice Climbing","Rollerblading","Bodyboarding","Wakesurfing","Canoeing","Rafting","Springboard","Platform","Open Water Swimming","Ironman","Ultra Marathon","Half Marathon","Long Jump","High Jump","Pole Vault","Shot Put","Discus","Javelin","Hammer Throw","Decathlon","Artistic Gymnastics","Rhythmic Gymnastics","Trampoline","BJJ","Freestyle Wrestling","Greco-Roman Wrestling","Capoeira","Sabre Fencing","Epee","Cross Country Skiing","Ski Jumping","Nordic Combined","Ice Dancing","Beach Volleyball","Water Polo"],
+    wordsZh: ["籃球","足球","網球","棒球","游泳","拳擊","高爾夫","衝浪","滑雪","滑板","排球","曲棍球","欖球","板球","羽毛球","擊劍","射箭","摔角","綜合格鬥","田徑","體操","單車","攀石","跳水","划艇","長曲棍球","馬球","踢皮球","飛盤","跑酷","單板滑雪","冰球","花式滑冰","冰壺","冬季兩項","鐵人三項","馬拉松","越野摩托","小輪車","功夫","空手道","跆拳道","柔道","相撲","釣魚","賽馬","帆船","划獨木舟","風帆衝浪","踢拳","泰拳","合氣道","立式划板","小輪車賽","風箏衝浪","雪橇","無舵雪橇","骨架雪橇","手球","壁球","乒乓球","斯諾克","飛鏢","國際象棋拳擊","電子競技","卡丁車","躲避球","躲避球","卡丁車","電子競技","飛鏢","斯諾克","乒乓球","壁球","手球","骨架雪橇","無舵雪橇","雪橇","風箏衝浪","小輪車賽","立式划板","合氣道","泰拳","踢拳","風帆衝浪","划獨木舟","帆船","賽馬","釣魚","相撲","柔道","跆拳道","空手道","功夫","越野摩托","馬拉松","鐵人三項","冬季兩項","冰壺","花式滑冰","冰球","單板滑雪","跑酷","飛盤","踢皮球","馬球","長曲棍球","划艇","跳水","攀石","單車","體操","田徑","綜合格鬥","摔角","射箭","擊劍","羽毛球","板球","欖球","曲棍球","排球","滑板","滑雪","衝浪","高爾夫","拳擊","游泳","棒球","網球","足球","籃球","抱石","冰攀","直排輪","趴板","尾波衝浪","划獨木舟","漂流","跳板","跳台","公開水域游泳","鐵人","超級馬拉松","半程馬拉松","跳遠","跳高","撐竿跳","鉛球","鐵餅","標槍","鏈球","十項全能","競技體操","韻律體操","彈床","巴西柔術","自由式摔角","古典式摔角","卡波耶拉","花劍","重劍","越野滑雪","跳台滑雪","北歐兩項","冰上舞蹈","沙灘排球","水球"]
+  },
+  "Finish the Phrase": {
+    emoji: "💬",
+    words: ["Don't Count Your Chickens Before They Hatch","A Picture Is Worth A Thousand Words","When Pigs Fly","The Early Bird Gets The Worm","Don't Cry Over Spilled Milk","Actions Speak Louder Than Words","Every Cloud Has A Silver Lining","No Pain No Gain","Good Things Come to Those Who Wait","Beauty Is Only Skin Deep","Don't Put All Your Eggs in One Basket","The Grass Is Always Greener","Curiosity Killed the Cat","Better Late Than Never","Two Can Play at That Game","Don't Judge a Book by Its Cover","Rome Wasn't Built in a Day","The pen is mightier than the sword","Fortune Favors the Bold","Strike While the Iron Is Hot","A Stitch in Time Saves Nine","The Best Things in Life Are Free","There's No Place Like Home","Knowledge Is Power","Practice Makes Perfect","The Customer Is Always Right","An Apple a Day Keeps the Doctor Away","Laughter Is the Best Medicine","Honesty Is the Best Policy","Home Is Where the Heart Is","A Penny for Your Thoughts","Don't Bite the Hand That Feeds You","The Apple Doesn't Fall Far from the Tree","When in Rome Do as the Romans Do","You Can't Have Your Cake and Eat It Too","An Ounce of Prevention Is Worth a Pound of Cure","The Proof Is in the Pudding","Birds of a Feather Flock Together","To Each His Own","A Fool and His Money Are Soon Parted","There's No Time Like the Present","Don't Look a Gift Horse in the Mouth","It Takes Two to Tango","The World Is Your Oyster","If It Ain't Broke Don't Fix It","Two Heads Are Better Than One","A Picture Says a Thousand Words","Great Minds Think Alike","You Reap What You Sow","Kill Two Birds with One Stone","The Early Worm Gets the Bird","The Early Bird Catches the Worm","Kill Two Birds with One Stone","You Reap What You Sow","Great Minds Think Alike","A Picture Is Worth a Thousand Words","Two Heads Are Better Than One","If It Ain't Broke Don't Fix It","The World Is Your Oyster","There's No Time Like the Present","Don't Look a Gift Horse in the Mouth","A Fool and His Money Are Soon Parted","To Each His Own","Birds of a Feather Flock Together","The Proof Is in the Pudding","An Ounce of Prevention Is Worth a Pound of Cure","When in Rome Do as the Romans Do","The Apple Doesn't Fall Far from the Tree","Don't Bite the Hand That Feeds You","A Penny for Your Thoughts","Home Is Where the Heart Is","Honesty Is the Best Policy","Laughter Is the Best Medicine","An Apple a Day Keeps the Doctor Away","The Customer Is Always Right","Practice Makes Perfect","Knowledge Is Power","There's No Place Like Home","The Best Things in Life Are Free","A Stitch in Time Saves Nine","Strike While the Iron Is Hot","Fortune Favors the Bold","The pen is mightier than the sword","Rome Wasn't Built in a Day","Two Can Play at That Game","Don't Count Your Chickens Before They Hatch","You Can't Make an Omelette Without Breaking Eggs","There's No Smoke Without Fire","It's Not Rocket Science","The Straw That Broke the Camel's Back","An Eye for an Eye","Easy Does It","Let the Cat Out of the Bag","Spill the Beans","Hit the Nail on the Head","Bite the Bullet","Burn the Midnight Oil","Cut Corners","Call It a Day","Get the Ball Rolling","Go the Extra Mile","In the Same Boat","It's a Small World","Jack of All Trades Master of None","Jump on the Bandwagon","Keep Your Chin Up","Keep Your Fingers Crossed","Look Before You Leap","Make a Long Story Short","Make Hay While the Sun Shines","Many Hands Make Light Work","Money Doesn't Grow on Trees","No News Is Good News","Once in a Blue Moon","Paint the Town Red","Play It by Ear","Put Your Foot Down","Put Your Money Where Your Mouth Is","Read Between the Lines","See Eye to Eye","Sit on the Fence","Slow and Steady Wins the Race","Smell a Rat","Snap Out of It","Speak of the Devil","Spoilt for Choice","Still Waters Run Deep","Take It or Leave It","Take the Bait","Take the Bull by the Horns","Talk the Talk Walk the Walk","Teach an Old Dog New Tricks","Think Outside the Box","The Calm Before the Storm","The Elephant in the Room","The More the Merrier","The Squeaky Wheel Gets the Grease","The Writing Is on the Wall","There Ain't No Such Thing as a Free Lunch","Think Twice","Through Thick and Thin","Throw in the Towel","Tie the Knot","Time Flies When You're Having Fun","Time Is Money","Tip of the Iceberg"],
+    wordsZh: ["唔好早落定","一圖勝過千言","豬飛喇","早起身有蟲食","覆水難收","做嘢勝過講嘢","黑暗中總有一線希望","一分耕耘一分收穫","好事多磨","人不可貌相","唔好將所有雞蛋放喺同一個籃","個個都話自己個草皮靚","好奇害死貓","遲到總比不到好","你行我也行","唔好以貌取人","羅馬唔係一日建成","筆桿子比刀槍更有力","機會留俾有準備的人","趁熱打鐵","小修補省大麻煩","生活中最好嘅嘢係免費","無處比家好","知識就係力量","熟能生巧","顧客永遠係對","一日一苹果醫生遠離我","笑係最好嘅藥","誠實係最好嘅策略","心係家","你諗緊咩","唔好咬喂你嘅手","離樹唔遠","入鄉隨俗","唔可以兩全其美","預防勝過治療","事實勝於雄辯","物以類聚","各有所好","蠢人同錢難兩全","把握當下","唔好挑剔送嘅馬","兩人才可以共舞","世界係你嘅","冇壞就唔好修","三人行必有我師","一圖勝過千言","英雄所見略同","種瓜得瓜","一石二鳥","早起身嘅蟲被食","早起身有蟲食","一石二鳥","種瓜得瓜","英雄所見略同","一圖勝過千言","三人行必有我師","冇壞就唔好修","世界係你嘅","把握當下","唔好挑剔送嘅馬","蠢人同錢難兩全","各有所好","物以類聚","事實勝於雄辯","預防勝過治療","入鄉隨俗","離樹唔遠","唔好咬喂你嘅手","你諗緊咩","心係家","誠實係最好嘅策略","笑係最好嘅藥","一日一苹果醫生遠離我","顧客永遠係對","熟能生巧","知識就係力量","無處比家好","生活中最好嘅嘢係免費","小修補省大麻煩","趁熱打鐵","機會留俾有準備的人","筆桿子比刀槍更有力","羅馬唔係一日建成","你行我也行","唔好早落定","唔係打破雞蛋做唔到煎蛋","冇煙冇火","唔係火箭科學","壓垮駱駝嘅最後一根稻草","以眼還眼","慢慢嚟","出賣秘密","洩露秘密","一語中的","咬緊牙關","加班","偷懶","收工","開始行動","多走一步","同舟共濟","世界很小","萬金油","跳上車","振作起來","祈禱","三思而後行","簡而言之","趁太陽出嚟曬乾草","人多力量大","錢唔係樹上長嘅","冇消息就係好消息","千載難逢","染紅全城","隨機應變","堅定立場","行動證明","讀懂弦外之音","意見一致","騎牆","慢工出細貨","嗅到老鼠","清醒過來","說曹操曹操到","選擇困難","靜水流深","要唔要你自己決定","上鉤","勇往直前","說做就做","跳出框架思考","風暴前嘅平靜","房裡嘅大象","人多多興旺","會哭嘅孩子有奶飲","大势已去","冇免費午餐","三思而後行","無論順境逆境","投降","結婚","開心嘅時候時間飛快","時間就係金錢","冰山一角"]
+  },
+  "Music": {
+    emoji: "🎵",
+    words: ["Bohemian Rhapsody","Thriller","Rolling in the Deep","Shape of You","Blinding Lights","Bad Guy","Old Town Road","Despacito","Uptown Funk","Shake It Off","Hello","Someone Like You","Levitating","Stay","Watermelon Sugar","Dynamite","Butter","Heat Waves","As It Was","Anti-Hero","Flowers","Kill Bill","Vampire","Cruel Summer","Karma","Paint The Town Red","Greedy","Snooze","Yes And Then What","Billie Jean","Like a Virgin","Sweet Child O' Mine","Smells Like Teen Spirit","Hotel California","Stairway to Heaven","Imagine","Yesterday","Wonderwall","Lose Yourself","Hallelujah","No Woman No Cry","Respect","What a Wonderful World","Let It Be","Hey Jude","Comfortably Numb","Paranoid Android","Take Five","So What","Moon River","My Way","What Is Love","Don't Stop Believin'","Livin' on a Prayer","We Will Rock You","Born to Run","Purple Rain","Like a Rolling Stone","Bridge Over Troubled Water","Fast Car","Uptown Girl","Take On Me","Africa","Careless Whisper","Total Eclipse of the Heart","Total Eclipse of the Heart","What Is Love","Don't Stop Believin'","Livin' on a Prayer","We Will Rock You","Born to Run","Purple Rain","Like a Rolling Stone","Bridge Over Troubled Water","Fast Car","Uptown Girl","Take On Me","Africa","Careless Whisper","Thriller","Rolling in the Deep","Shape of You","Blinding Lights","Bad Guy","Old Town Road","Despacito","Uptown Funk","Shake It Off","Hello","Someone Like You","Levitating","Stay","Watermelon Sugar","Dynamite","Butter","Heat Waves","As It Was","Anti-Hero","Flowers","Kill Bill","Vampire","Cruel Summer","Karma","Paint The Town Red","Greedy","Snooze","Billie Jean","Sweet Child O' Mine","Smells Like Teen Spirit","Hotel California","Stairway to Heaven","Imagine","Yesterday","Wonderwall","Lose Yourself","Hallelujah","No Woman No Cry","Respect","What a Wonderful World","Let It Be","Hey Jude","Comfortably Numb","Paranoid Android","Take Five","So What","Moon River","My Way","Creep","Losing My Religion","Nothing Else Matters","Enter Sandman","Paranoid","Money for Nothing","Sweet Dreams","Blue Monday","Enjoy the Silence","Personal Jesus","Bitter Sweet Symphony","Song 2","Karma Police","No Surprises","Fake Plastic Trees","Black Hole Sun","Hunger Strike","Alive","Jeremy","More Than a Feeling","Baba O'Riley","American Idiot","Boulevard of Broken Dreams","Seven Nation Army","In the End","Numb","One Step Closer","Papercut","What I've Done","Closer","The Middle","Believer","Let Me Down Slowly","Sweater Weather","Heathens","Riptide","Feel Good Inc","Roxanne","Cry Me a River","Iris","Mr. Brightside","Somebody Told Me","Time to Pretend","Pumped Up Kicks","Safe and Sound","Radioactive","Demons","Shut Up and Dance","Ride","Take Me to Church","All of Me","Happy","Thinking Out Loud","Can't Feel My Face","Love Yourself","Stressed Out","Blank Space","Style"],
+    wordsZh: ["波希米亞狂想曲","顫慄","深淵滾動","你的形狀","炫目之光","壞人","老街","慢慢來","上城放克","搖擺它","你好","像你的人","飄浮","留下","西瓜糖","活力","奶油","熱浪","如從前","反英雄","花","弒愛","吸血鬼","殘酷夏天","因果","染紅全城","貪心","貪睡","然後呢","比利珍","像處女一樣","甜美的孩子","少年心氣的味道","加州旅館","天堂之梯","想像","昨天","神奇牆壁","失去自己","哈利路亞","冇女冇愁","尊重","多美好嘅世界","讓它過去","嘿裘德","安逸麻木","偏執安卓","五分鐘","如何","月亮河","我嘅路","咩係愛","唔好停咗信","靠歌生活","搖滾你","生來奔跑","紫色雨","似滾石","憂鬱橋","快車","上城女孩","接受我","非洲","粗心低語","完全日蝕之心","完全日蝕之心","咩係愛","唔好停咗信","靠歌生活","搖滾你","生來奔跑","紫色雨","似滾石","憂鬱橋","快車","上城女孩","接受我","非洲","粗心低語","顫慄","深淵滾動","你的形狀","炫目之光","壞人","老街","慢慢來","上城放克","搖擺它","你好","像你的人","飄浮","留下","西瓜糖","活力","奶油","熱浪","如從前","反英雄","花","弒愛","吸血鬼","殘酷夏天","因果","染紅全城","貪心","貪睡","比利珍","甜美的孩子","少年心氣的味道","加州旅館","天堂之梯","想像","昨天","神奇牆壁","失去自己","哈利路亞","冇女冇愁","尊重","多美好嘅世界","讓它過去","嘿裘德","安逸麻木","偏執安卓","五分鐘","如何","月亮河","我嘅路","爬蟲","失去信仰","冇其他事","入嚟沙曼","偏執","冇錢","甜蜜夢想","藍色星期一","享受沉默","個人耶穌","苦甜交織交響曲","第二首歌","業力警察","冇驚喜","假塑料樹","黑洞太陽","絕食行動","活住","傑瑞米","超越感覺","巴巴奧賴利","美國白癡","破碎夢想的林蔭大道","七國軍團","結局","麻木","一步接近","紙割傷","我做过嘅","更近","中間","信徒","慢慢放下我","毛衣天氣","異教徒","裂流","感覺良好公司","羅克珊","給我哭一條河","虹膜","亮哥","有人告訴我","假裝時間","充氣踢","安全同聲音","放射性","惡魔","閉嘴跳舞","騎","帶我去教堂","全部嘅我","開心","大聲思考","感覺唔到我自己嘅臉","愛你自己","壓力山大","空白空間","風格"]
+  }
+};
+
+// ── i18n ──
+const i18n = {
+  en: {
+    title: '📱 Heads Up!',
+    subtitle: 'Pick a category, hold the screen to your forehead, and guess the words your friends shout!',
+    play: '▶ PLAY',
+    timer: 'Timer:',
+    lang: 'Language:',
+    keyHint: 'Swipe or press → (right=correct) ← (left=skip) | Tilt phone on mobile',
+    headModeHint: 'Swipe or press → (right=correct) ← (left=skip) | Flip head forward=back, up=skip',
+    introTitle: 'Get Ready!',
+    introText: 'Hold the screen up to your forehead.<br>Your friends will shout hints!',
+    headIntroTitle: 'Place Phone on Your Head!',
+    headIntroText: 'Put the phone face-down on your forehead.<br>Flip it forward when they guess right, backward to skip!',
+    startBtn: 'Hold to Start',
+    headStartBtn: 'Place on Head & Tap',
+    score: 'Score:',
+    word: 'Word',
+    guessIt: 'Can you guess it?',
+    headGuessIt: 'Flip forward when guessed, backward to skip!',
+    skip: '← Skip',
+    gotIt: 'Got it! →',
+    skipLabel: 'Skip ← → Correct',
+    headLabel: '↑ Skip | Flip Down = Correct ↓',
+    flipSkip: '↑ Skip',
+    flipCorrect: 'Flip Down = Got it! ↓',
+    timesUp: "Time's Up!",
+    yourScore: 'Your Score',
+    correct: 'Correct',
+    skipped: 'Skipped',
+    accuracy: 'Accuracy',
+    time: 'Time',
+    wordReview: 'Word Review',
+    menu: '🏠 Menu',
+    playAgain: '🔄 Play Again',
+    mixedCats: 'Mixed Categories',
+    headMode: '🧠 Head Mode',
+    handheld: '📱 Handheld',
+    tapSkip: '← Skip',
+    tapCorrect: 'Got it! →',
+    accelFallback: 'Accelerometer unavailable — tap left/right below',
+    fullscreen: '⛶ Fullscreen',
+    windowed: '⛶ Windowed',
+    soloMode: '👤 Solo',
+    teamsMode: '👥 Teams',
+    setupTeams: '👥 Setup Teams',
+    howManyTeams: 'How many teams are playing?',
+    startGame: '▶ Start Game',
+    teamTurn: 'turn',
+    transitionInstruction: 'Hold the screen to your forehead.<br>Your team will shout the hints!',
+    ready: 'Ready!',
+    finalStandings: '🏆 Final Standings',
+    teamScore: 'Score',
+    teamCorrect: 'correct',
+    teamSkipped: 'skipped',
+  },
+  zh: {
+    title: '📱 看提示猜詞！',
+    subtitle: '揀個類別，將螢幕貼喺額頭上，猜朋友喊嘅詞！',
+    play: '▶ 開始',
+    timer: '時間：',
+    lang: '語言：',
+    keyHint: '滑動或按 →（右=猜中）←（左=跳過）| 手機可以傾側',
+    headModeHint: '滑動或按 →（右=猜中）←（左=跳過）| 向前傾=猜中，向後=跳過',
+    introTitle: '準備好未？',
+    introText: '將螢幕貼喺額頭上。<br>朋友會喊提示！',
+    headIntroTitle: '將手機放喺頭上！',
+    headIntroText: '將手機螢幕向下貼喺額頭上。<br>猜中時向前傾，跳過時向後傾！',
+    startBtn: '開始遊戲',
+    headStartBtn: '放好後按呢度',
+    score: '得分：',
+    word: '第',
+    guessIt: '你猜到係咩未？',
+    headGuessIt: '猜中向前傾，跳過向後傾！',
+    skip: '← 跳過',
+    gotIt: '猜中喇！→',
+    skipLabel: '跳過 ← → 猜中',
+    headLabel: '↑ 跳過 | 向前傾 = 猜中 ↓',
+    flipSkip: '↑ 跳過',
+    flipCorrect: '向前傾 = 猜中喇！↓',
+    timesUp: '時間到！',
+    yourScore: '你嘅得分',
+    correct: '猜中',
+    skipped: '跳過',
+    accuracy: '準確率',
+    time: '用時',
+    wordReview: '詞語回顧',
+    menu: '🏠 選單',
+    playAgain: '🔄 再玩一次',
+    mixedCats: '混合類別',
+    headMode: '🧠 頭上模式',
+    handheld: '📱 手持模式',
+    tapSkip: '← 跳過',
+    tapCorrect: '猜中喇！→',
+    accelFallback: '加速器不可用 — 請按左/右',
+    fullscreen: '⛶ 全螢幕',
+    windowed: '⛶ 視窗',
+    soloMode: '👤 單獨',
+    teamsMode: '👥 隊伍',
+    setupTeams: '👥 設定隊伍',
+    howManyTeams: '幾支隊伍參加？',
+    startGame: '▶ 開始遊戲',
+    teamTurn: '回合',
+    transitionInstruction: '將螢幕貼喺額頭上。<br>你嘅隊伍會喊提示！',
+    ready: '準備好了！',
+    finalStandings: '🏆 最終排名',
+    teamScore: '得分',
+    teamCorrect: '猜中',
+    teamSkipped: '跳過',
+  },
+  mix: {
+    title: '📱 Heads Up! 看提示猜詞',
+    subtitle: 'Pick a category / 選擇類別, hold it to your forehead, guess the words!',
+    play: '▶ PLAY 開始',
+    timer: 'Timer 時間:',
+    lang: 'Language 語言:',
+    keyHint: 'Swipe → (right=correct 猜對) ← (left=skip 跳過) | Tilt phone / 傾斜手機',
+    headModeHint: 'Swipe → (right=correct 猜對) ← (left=skip 跳過) | Flip head forward/back 向前/後傾',
+    introTitle: 'Get Ready! 準備好了嗎？',
+    introText: 'Hold the screen up to your forehead / 把螢幕放在額頭上.<br>Your friends will shout hints! 朋友會喊提示！',
+    headIntroTitle: 'Place Phone on Your Head! 將手機放喺頭上！',
+    headIntroText: 'Put the phone face-down on your forehead / 將手機螢幕向下貼喺額頭上.<br>Flip forward when guessed, backward to skip! 猜中向前傾，跳過向後傾！',
+    startBtn: 'Hold to Start / 開始遊戲',
+    headStartBtn: 'Place on Head & Tap / 放好後按呢度',
+    score: 'Score 得分:',
+    word: 'Word 第',
+    guessIt: 'Can you guess it? 你能猜出是什麼嗎？',
+    headGuessIt: 'Flip forward when guessed / 猜中向前傾, backward to skip / 跳過向後傾！',
+    skip: '← Skip 跳過',
+    gotIt: 'Got it! 猜對了！→',
+    skipLabel: 'Skip 跳過 ← → Correct 猜對',
+    headLabel: '↑ Skip 跳過 | Flip Down = Correct 猜對 ↓',
+    flipSkip: '↑ Skip 跳過',
+    flipCorrect: 'Flip Down = Got it! 猜中了！↓',
+    timesUp: "Time's Up! 時間到！",
+    yourScore: 'Your Score 你的得分',
+    correct: 'Correct 猜對',
+    skipped: 'Skipped 跳過',
+    accuracy: 'Accuracy 準確率',
+    time: 'Time 用時',
+    wordReview: 'Word Review 詞語回顧',
+    menu: '🏠 Menu 選單',
+    playAgain: '🔄 Play Again 再玩一次',
+    mixedCats: 'Mixed Categories 混合類別',
+    headMode: '🧠 Head Mode 頭上模式',
+    handheld: '📱 Handheld 手持模式',
+    tapSkip: '← Skip 跳過',
+    tapCorrect: 'Got it! 猜中了！→',
+    accelFallback: 'Accelerometer unavailable / 加速器不可用 — tap left/right / 按左/右',
+    fullscreen: '⛶ Fullscreen 全螢幕',
+    windowed: '⛶ Windowed 視窗',
+    soloMode: '👤 Solo 單獨',
+    teamsMode: '👥 Teams 隊伍',
+    setupTeams: '👥 Setup Teams 設定隊伍',
+    howManyTeams: 'How many teams? 幾支隊伍？',
+    startGame: '▶ Start Game 開始遊戲',
+    teamTurn: 'turn 回合',
+    transitionInstruction: 'Hold the screen to your forehead / 將螢幕貼喺額頭上.<br>Your team will shout the hints! 你嘅隊伍會喊提示！',
+    ready: 'Ready! 準備好了！',
+    finalStandings: '🏆 Final Standings 最終排名',
+    teamScore: 'Score 得分',
+    teamCorrect: 'correct 猜中',
+    teamSkipped: 'skipped 跳過',
+  }
+};
+
+let lang = 'en';
+let headMode = true;
+let useFullscreen = true;
+let teamsMode = false;
+
+// ── Team state ──
+const TEAM_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12']; // red, blue, green, orange
+let teams = [];         // [{name, color, score, correct, skipped, results}]
+let currentTeamIdx = 0; // which team's turn it is
+
+function t(key) {
+  return (i18n[lang] && i18n[lang][key]) || i18n.en[key] || key;
+}
+
+function applyLang() {
+  const l = lang;
+  document.querySelector('#menu h1').textContent = t('title');
+  document.querySelector('#menu .subtitle').textContent = t('subtitle');
+  document.getElementById('playBtn').textContent = t('play');
+  document.getElementById('timerLabel').textContent = t('timer');
+  document.getElementById('keyHint').textContent = headMode ? t('headModeHint') : t('keyHint');
+  document.getElementById('introTitle').textContent = headMode ? t('headIntroTitle') : t('introTitle');
+  document.getElementById('introText').innerHTML = headMode ? t('headIntroText') : t('introText');
+  document.getElementById('startBtn').textContent = headMode ? t('headStartBtn') : t('startBtn');
+  document.querySelector('.score-display').childNodes[0].textContent = t('score') + ' ';
+  document.querySelector('.round-display').childNodes[0].textContent = t('word') + ' ';
+  document.querySelector('.card .instruction').textContent = headMode ? t('headGuessIt') : t('guessIt');
+  document.querySelector('.hint-wrong').textContent = headMode ? t('flipSkip') : t('skip');
+  document.querySelector('.hint-correct').textContent = headMode ? t('flipCorrect') : t('gotIt');
+  document.querySelector('.tilt-label').textContent = headMode ? t('headLabel') : t('skipLabel');
+  document.querySelector('#results h2').textContent = t('timesUp');
+  document.querySelector('.score-label').textContent = t('yourScore');
+  const statLabels = document.querySelectorAll('.stat-label');
+  if (statLabels[0]) statLabels[0].textContent = t('correct');
+  if (statLabels[1]) statLabels[1].textContent = t('skipped');
+  if (statLabels[2]) statLabels[2].textContent = t('accuracy');
+  if (statLabels[3]) statLabels[3].textContent = t('time');
+  document.querySelector('.words-review h3').textContent = t('wordReview');
+  const btnGroup = document.querySelector('#results .btn-group');
+  if (btnGroup) {
+    btnGroup.innerHTML = `<button class="play-btn" onclick="goToMenu()">${t('menu')}</button><button class="secondary-btn" onclick="playAgain()">${t('playAgain')}</button>`;
+  }
+  // Update category button word counts
+  document.querySelectorAll('.cat-btn .count').forEach((el, i) => {
+    const catName = Object.keys(CATEGORIES)[i];
+    const words = CATEGORIES[catName];
+    el.textContent = lang === 'zh' ? `${words.words.length} 個詞` : lang === 'mix' ? `${words.words.length} words/詞` : `${words.words.length} words`;
+  });
+  // Update head mode toggle labels
+  document.querySelectorAll('.head-mode-btn').forEach(b => {
+    const isHead = b.dataset.head === 'true';
+    b.textContent = isHead ? t('headMode') : t('handheld');
+  });
+  // Update fullscreen toggle labels
+  document.querySelectorAll('.fullscreen-btn').forEach(b => {
+    const isFs = b.dataset.fs === 'true';
+    b.textContent = isFs ? t('fullscreen') : t('windowed');
+  });
+  // Update teams toggle labels
+  document.querySelectorAll('.teams-btn').forEach(b => {
+    const isTeams = b.dataset.teams === 'true';
+    b.textContent = isTeams ? t('teamsMode') : t('soloMode');
+  });
+  // Update team setup screen
+  const teamSetupTitle = document.getElementById('teamSetupTitle');
+  if (teamSetupTitle) teamSetupTitle.textContent = t('setupTeams');
+  const teamSetupSubtitle = document.getElementById('teamSetupSubtitle');
+  if (teamSetupSubtitle) teamSetupSubtitle.textContent = t('howManyTeams');
+  const teamSetupBtn = document.getElementById('teamSetupBtn');
+  if (teamSetupBtn) teamSetupBtn.textContent = t('startGame');
+  // Update team transition screen
+  const transitionInstruction = document.getElementById('transitionInstruction');
+  if (transitionInstruction) transitionInstruction.innerHTML = t('transitionInstruction');
+  const transitionBtn = document.getElementById('transitionBtn');
+  if (transitionBtn) transitionBtn.textContent = t('ready');
+  // Update team leaderboard
+  const leaderboardTitle = document.querySelector('#teamLeaderboard h3');
+  if (leaderboardTitle) leaderboardTitle.textContent = t('finalStandings');
+}
+
+// ── State ──
+let selectedCategories = [];
+let timerSeconds = 30;
+let gameWords = [];
+let currentIndex = 0;
+let score = 0;
+let correctCount = 0;
+let skippedCount = 0;
+let timerInterval = null;
+let timeLeft = 0;
+let gameStartTime = 0;
+let results = [];
+let isPlaying = false;
+let touchStartX = 0;
+let touchStartY = 0;
+let isSwiping = false;
+
+// ── Accelerometer state ──
+let accelEnabled = false;
+let accelCooldown = false;
+let lastGamma = 0;
+const TILT_THRESHOLD = 22;       // degrees before a tilt counts
+const TILT_RETURN_THRESHOLD = 8; // degrees to return to "center" before next tilt
+const TILT_COOLDOWN_MS = 600;   // ms cooldown after each tilt
+
+// ── DOM refs ──
+const screens = {
+  menu: document.getElementById('menu'),
+  teamSetup: document.getElementById('teamSetup'),
+  teamTransition: document.getElementById('teamTransition'),
+  intro: document.getElementById('intro'),
+  game: document.getElementById('game'),
+  results: document.getElementById('results')
+}
+const card = document.getElementById('card')
+const playBtn = document.getElementById('playBtn')
+const timerSelect = document.getElementById('timerSelect')
+
+// Language toggle buttons
+document.querySelectorAll('#langToggle .lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    lang = btn.dataset.lang;
+    applyLang();
+    document.querySelectorAll('#langToggle .lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+// Head mode toggle buttons
+document.querySelectorAll('#headModeToggle .head-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    headMode = btn.dataset.head === 'true';
+    applyLang();
+    document.querySelectorAll('#headModeToggle .head-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+// Fullscreen toggle buttons
+document.querySelectorAll('#fullscreenToggle .fullscreen-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    useFullscreen = btn.dataset.fs === 'true';
+    applyLang();
+    document.querySelectorAll('#fullscreenToggle .fullscreen-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+// Teams toggle buttons
+document.querySelectorAll('#teamsToggle .teams-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    teamsMode = btn.dataset.teams === 'true';
+    applyLang();
+    document.querySelectorAll('#teamsToggle .teams-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+// ── Init menu ──
+function initMenu() {
+  const grid = document.getElementById('categoryGrid');
+  grid.innerHTML = '';
+  Object.entries(CATEGORIES).forEach(([name, cat]) => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.innerHTML = `<span class="emoji">${cat.emoji}</span>${name}<span class="count">${cat.words.length} words</span>`;
+    btn.dataset.category = name;
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('selected');
+      selectedCategories = [...document.querySelectorAll('.cat-btn.selected')].map(b => b.dataset.category);
+      playBtn.disabled = selectedCategories.length === 0;
+    });
+    grid.appendChild(btn);
+  });
+}
+
+// ── Screen management ──
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
+
+function goToMenu() {
+  stopTimer();
+  // Reset category selections
+  selectedCategories = [];
+  document.querySelectorAll('.cat-btn.selected').forEach(b => b.classList.remove('selected'));
+  playBtn.disabled = true;
+  showScreen('menu');
+}
+
+function playAgain() {
+  // Keep current category selections, restart the game
+  timerSeconds = parseInt(timerSelect.value);
+  showScreen('intro');
+  document.getElementById('introTitle').textContent = selectedCategories.length === 1 ? selectedCategories[0] : t('mixedCats');
+  document.getElementById('startBtn').style.display = 'block';
+  document.getElementById('countdown').style.display = 'none';
+  document.getElementById('introTitle').style.display = '';
+  document.getElementById('introText').style.display = '';
+}
+
+// ── Shuffle ──
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ── Start game flow ──
+playBtn.addEventListener('click', () => {
+  if (selectedCategories.length === 0) return;
+  timerSeconds = parseInt(timerSelect.value);
+  if (teamsMode) {
+    showScreen('teamSetup');
+    buildTeamNameInputs(2); // default 2 teams
+  } else {
+    showScreen('intro');
+    document.getElementById('introTitle').textContent = selectedCategories.length === 1 ? selectedCategories[0] : t('mixedCats');
+    document.getElementById('startBtn').style.display = 'block';
+    document.getElementById('countdown').style.display = 'none';
+    document.getElementById('introTitle').style.display = '';
+    document.getElementById('introText').style.display = '';
+  }
+});
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('startBtn').style.display = 'none';
+  // iOS 13+ requires permission from a user gesture
+  enableAccelerometer();
+  runCountdown();
+});
+
+function runCountdown() {
+  const cd = document.getElementById('countdown');
+  cd.style.display = 'block';
+  let count = 3;
+  cd.textContent = count;
+  document.getElementById('introTitle').style.display = 'none';
+  document.getElementById('introText').style.display = 'none';
+
+  const iv = setInterval(() => {
+    count--;
+    if (count > 0) {
+      cd.textContent = count;
+    } else {
+      clearInterval(iv);
+      cd.style.display = 'none';
+      document.getElementById('introTitle').style.display = '';
+      document.getElementById('introText').style.display = '';
+      enterFullscreen();
+      showScreen('game');
+      beginRound();
+    }
+  }, 800);
+}
+
+// ── Game logic ──
+function beginRound() {
+  // Build word pool — pick English, Chinese, or both depending on lang
+  let pool = [];
+  selectedCategories.forEach(cat => {
+    if (!CATEGORIES[cat]) return;
+    const catData = CATEGORIES[cat];
+    if (lang === 'zh') {
+      catData.wordsZh.forEach(w => pool.push({ word: w, category: cat }));
+    } else if (lang === 'mix') {
+      catData.words.forEach(w => pool.push({ word: w, category: cat }));
+      catData.wordsZh.forEach(w => pool.push({ word: w, category: cat }));
+    } else {
+      catData.words.forEach(w => pool.push({ word: w, category: cat }));
+    }
+  });
+  gameWords = shuffle(pool).slice(0, Math.min(20, pool.length));
+  currentIndex = 0;
+  score = 0;
+  correctCount = 0;
+  skippedCount = 0;
+  results = [];
+  isPlaying = true;
+  document.getElementById('roundTotal').textContent = gameWords.length;
+  document.getElementById('scoreVal').textContent = '0';
+  // Always show tap zones in head mode (accelerometer may not work on HTTP)
+  if (headMode) {
+    activateFallbackTapZones();
+  } else {
+    document.getElementById('tapZones').classList.remove('active');
+  }
+  showWord();
+}
+
+function showWord() {
+  if (currentIndex >= gameWords.length) {
+    endGame();
+    return;
+  }
+  const item = gameWords[currentIndex];
+  document.getElementById('cardCategory').textContent = item.category;
+  document.getElementById('cardWord').textContent = item.word;
+  document.getElementById('roundNum').textContent = currentIndex + 1;
+  card.className = 'card';
+  card.style.transform = '';
+  card.style.opacity = '1';
+  startTimer();
+}
+
+// ── Timer ──
+function startTimer() {
+  stopTimer();
+  timeLeft = timerSeconds;
+  gameStartTime = Date.now();
+  updateTimerUI();
+  timerInterval = setInterval(() => {
+    timeLeft -= 0.1;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      stopTimer();
+      endGame();
+    }
+    updateTimerUI();
+  }, 100);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+function updateTimerUI() {
+  const pct = (timeLeft / timerSeconds) * 100;
+  const bar = document.getElementById('timerBar');
+  bar.style.width = pct + '%';
+  bar.className = 'timer-bar' + (pct < 30 ? ' warning' : '');
+  document.getElementById('timerText').textContent = Math.ceil(timeLeft) + 's';
+}
+
+// ── Swipe / keyboard ──
+function guessCorrect() {
+  if (!isPlaying) return;
+  score++;
+  correctCount++;
+  document.getElementById('scoreVal').textContent = score;
+  results.push({ word: gameWords[currentIndex].word, correct: true });
+  card.classList.add('correct');
+  card.classList.add('swipe-right');
+  setTimeout(() => {
+    currentIndex++;
+    showWord();
+  }, 400);
+}
+
+function guessWrong() {
+  if (!isPlaying) return;
+  skippedCount++;
+  results.push({ word: gameWords[currentIndex].word, correct: false });
+  card.classList.add('wrong');
+  card.classList.add('swipe-left');
+  setTimeout(() => {
+    currentIndex++;
+    showWord();
+  }, 400);
+}
+
+function endGame() {
+  isPlaying = false;
+  accelEnabled = false;
+  accelCooldown = false;
+  lastGamma = 0;
+  stopTimer();
+  tiltThumb.classList.remove('tilted-right', 'tilted-left');
+  exitFullscreen();
+  const elapsed = ((Date.now() - gameStartTime) / 1000).toFixed(0);
+  const total = correctCount + skippedCount;
+  const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('statCorrect').textContent = correctCount;
+  document.getElementById('statSkipped').textContent = skippedCount;
+  document.getElementById('statAccuracy').textContent = accuracy + '%';
+  document.getElementById('statTime').textContent = elapsed + 's';
+
+  const list = document.getElementById('wordList');
+  list.innerHTML = '';
+  results.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'word-row ' + (r.correct ? 'correct-row' : 'wrong-row');
+    row.innerHTML = `<span>${r.word}</span><span class="status">${r.correct ? '✅' : '❌'}</span>`;
+    list.appendChild(row);
+  });
+
+  showScreen('results');
+}
+
+// ── Keyboard ──
+document.addEventListener('keydown', (e) => {
+  if (!isPlaying) return;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); guessCorrect(); }
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); guessWrong(); }
+  if (e.key === ' ') { e.preventDefault(); /* pause could go here */ }
+});
+
+// ── Touch swipe ──
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  isSwiping = true;
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  if (!isSwiping || !isPlaying) { isSwiping = false; return; }
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+    if (dx > 0) guessCorrect(); else guessWrong();
+  }
+  isSwiping = false;
+});
+
+// ── Mouse swipe for desktop ──
+let mouseDown = false;
+let mouseStartX = 0;
+document.addEventListener('mousedown', (e) => {
+  if (!isPlaying) return;
+  mouseDown = true;
+  mouseStartX = e.clientX;
+});
+document.addEventListener('mouseup', (e) => {
+  if (!mouseDown || !isPlaying) return;
+  const dx = e.clientX - mouseStartX;
+  if (Math.abs(dx) > 60) {
+    if (dx > 0) guessCorrect(); else guessWrong();
+  }
+  mouseDown = false;
+});
+
+// ── Accelerometer (device orientation) ──
+const tiltThumb = document.getElementById('tiltThumb');
+const BETA_TILT_THRESHOLD = 25;    // degrees for head mode (beta axis)
+const BETA_RETURN_THRESHOLD = 10;  // degrees to return to "center" before next beta tilt
+
+function handleOrientation(e) {
+  if (!isPlaying || !accelEnabled) return;
+
+  if (headMode) {
+    // ── Head Mode: use BETA axis (front-back tilt) ──
+    const beta = e.beta || 0; // -180..180, but ~-90..90 in practice
+
+    // Update tilt indicator visual
+    if (beta > BETA_TILT_THRESHOLD) {
+      tiltThumb.classList.add('tilted-right');
+      tiltThumb.classList.remove('tilted-left');
+    } else if (beta < -BETA_TILT_THRESHOLD) {
+      tiltThumb.classList.add('tilted-left');
+      tiltThumb.classList.remove('tilted-right');
+    } else {
+      tiltThumb.classList.remove('tilted-right', 'tilted-left');
+    }
+
+    if (accelCooldown) return;
+
+    // Positive beta = phone tilts forward/down = correct
+    if (beta > BETA_TILT_THRESHOLD && lastGamma <= BETA_TILT_THRESHOLD) {
+      guessCorrect();
+      accelCooldown = true;
+      lastGamma = beta;
+      setTimeout(() => { accelCooldown = false; }, TILT_COOLDOWN_MS);
+    } else if (beta < -BETA_TILT_THRESHOLD && lastGamma >= -BETA_TILT_THRESHOLD) {
+      guessWrong();
+      accelCooldown = true;
+      lastGamma = beta;
+      setTimeout(() => { accelCooldown = false; }, TILT_COOLDOWN_MS);
+    } else {
+      lastGamma = beta;
+    }
+  } else {
+    // ── Handheld Mode: use GAMMA axis (left-right tilt) ──
+    const gamma = e.gamma || 0; // left-right tilt in degrees (-90..90)
+
+    // Update tilt indicator visual
+    if (gamma > TILT_THRESHOLD) {
+      tiltThumb.classList.add('tilted-right');
+      tiltThumb.classList.remove('tilted-left');
+    } else if (gamma < -TILT_THRESHOLD) {
+      tiltThumb.classList.add('tilted-left');
+      tiltThumb.classList.remove('tilted-right');
+    } else {
+      tiltThumb.classList.remove('tilted-right', 'tilted-left');
+    }
+
+    // Trigger on tilt edge crossing (with cooldown)
+    if (accelCooldown) return;
+
+    if (gamma > TILT_THRESHOLD && lastGamma <= TILT_THRESHOLD) {
+      guessCorrect();
+      accelCooldown = true;
+      lastGamma = gamma;
+      setTimeout(() => { accelCooldown = false; }, TILT_COOLDOWN_MS);
+    } else if (gamma < -TILT_THRESHOLD && lastGamma >= -TILT_THRESHOLD) {
+      guessWrong();
+      accelCooldown = true;
+      lastGamma = gamma;
+      setTimeout(() => { accelCooldown = false; }, TILT_COOLDOWN_MS);
+    } else {
+      lastGamma = gamma;
+    }
+  }
+}
+
+function enableAccelerometer() {
+  // iOS 13+ requires explicit permission (must be called from user gesture)
+  // Note: Safari on iOS requires HTTPS for this to work — HTTP silently fails
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // Add listener BEFORE requesting permission (Safari quirk)
+    window.addEventListener('deviceorientation', handleOrientation);
+    DeviceOrientationEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          accelEnabled = true;
+        } else {
+          accelEnabled = false;
+        }
+      })
+      .catch(() => { accelEnabled = false; });
+  } else if ('DeviceOrientationEvent' in window) {
+    // Android / non-iOS13 — works without permission
+    accelEnabled = true;
+    window.addEventListener('deviceorientation', handleOrientation);
+  }
+}
+
+function activateFallbackTapZones() {
+  // Show tap zones — always available in head mode as the primary input
+  // (friends tap the screen while phone is on player's head)
+  const tapZones = document.getElementById('tapZones');
+  const tapSkip = document.getElementById('tapSkip');
+  const tapCorrect = document.getElementById('tapCorrect');
+  tapZones.classList.add('active');
+  tapSkip.textContent = t('tapSkip');
+  tapCorrect.textContent = t('tapCorrect');
+}
+
+// ── Fullscreen ──
+async function enterFullscreen() {
+  if (!useFullscreen) return;
+  try {
+    const el = document.documentElement;
+    if (el.requestFullscreen) await el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+  } catch (e) { /* user denied or not supported — keep playing */ }
+}
+
+function exitFullscreen() {
+  try {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+  } catch (e) { /* ignore */ }
+}
+
+// Handle user pressing Escape during gameplay — game keeps running
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && isPlaying) {
+    // User exited fullscreen mid-game — that's fine, just keep playing
+  }
+});
+
+// ── Teams ──
+function buildTeamNameInputs(count) {
+  const container = document.getElementById('teamNameInputs');
+  container.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'team-name-input';
+    input.placeholder = `Team ${i + 1}`;
+    input.value = `Team ${i + 1}`;
+    input.style.borderColor = TEAM_COLORS[i % TEAM_COLORS.length];
+    container.appendChild(input);
+  }
+}
+
+// Team count buttons
+document.querySelectorAll('#teamCountSelect .team-count-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#teamCountSelect .team-count-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    buildTeamNameInputs(parseInt(btn.dataset.count));
+  });
+});
+
+// Team setup start button
+document.getElementById('teamSetupBtn').addEventListener('click', () => {
+  const inputs = document.querySelectorAll('.team-name-input');
+  teams = [];
+  inputs.forEach((input, i) => {
+    teams.push({
+      name: input.value.trim() || `Team ${i + 1}`,
+      color: TEAM_COLORS[i % TEAM_COLORS.length],
+      score: 0,
+      correct: 0,
+      skipped: 0,
+      results: []
+    });
+  });
+  currentTeamIdx = 0;
+  startTeamTurn();
+});
+
+// Team transition button
+document.getElementById('transitionBtn').addEventListener('click', () => {
+  document.getElementById('startBtn').style.display = 'none';
+  enableAccelerometer();
+  runCountdown();
+});
+
+function startTeamTurn() {
+  const team = teams[currentTeamIdx];
+  document.getElementById('transitionTeamName').textContent = team.name;
+  document.getElementById('transitionTeamName').style.color = team.color;
+  document.getElementById('transitionTeamName').style.borderLeftColor = team.color;
+  showScreen('teamTransition');
+}
+
+// Override countdown to go to game for teams
+const origRunCountdown = runCountdown;
+runCountdown = function () {
+  const cd = document.getElementById('countdown');
+  cd.style.display = 'block';
+  let count = 3;
+  cd.textContent = count;
+  document.getElementById('introTitle').style.display = 'none';
+  document.getElementById('introText').style.display = 'none';
+
+  const iv = setInterval(() => {
+    count--;
+    if (count > 0) {
+      cd.textContent = count;
+    } else {
+      clearInterval(iv);
+      cd.style.display = 'none';
+      document.getElementById('introTitle').style.display = '';
+      document.getElementById('introText').style.display = '';
+      enterFullscreen();
+      showScreen('game');
+      if (teamsMode) {
+        updateTeamScoreboard();
+      }
+      beginRound();
+    }
+  }, 800);
+};
+
+function updateTeamScoreboard() {
+  const sb = document.getElementById('teamScoreboard');
+  if (teamsMode) {
+    sb.style.display = 'flex';
+    sb.innerHTML = teams.map((t, i) => {
+      const isCurrent = i === currentTeamIdx;
+      return `<div class="team-score-pill ${isCurrent ? 'active' : ''}" style="border-color:${t.color}">
+        <span class="team-emoji">${['🔴', '🔵', '🟢', '🟠'][i % 4]}</span>
+        <span>${t.name}: <strong>${t.score}</strong></span>
+      </div>`;
+    }).join('');
+  } else {
+    sb.style.display = 'none';
+  }
+}
+
+function showTeamResults() {
+  const leaderboard = document.getElementById('leaderboardList');
+  const soloResults = document.getElementById('soloResults');
+  const teamLeaderboardEl = document.getElementById('teamLeaderboard');
+
+  soloResults.style.display = 'none';
+  teamLeaderboardEl.style.display = 'block';
+
+  // Sort teams by score descending
+  const sorted = [...teams].sort((a, b) => b.score - a.score);
+  const medals = ['🥇', '🥈', '🥉', '4th'];
+
+  leaderboard.innerHTML = sorted.map((t, i) => {
+    return `<div class="leaderboard-row" style="border-left-color:${t.color}">
+      <span class="medal">${medals[i] || (i + 1)}</span>
+      <span class="lb-name" style="color:${t.color}">${t.name}</span>
+      <span class="lb-score">${t.score} pts</span>
+      <span class="lb-detail">${t.correct} ${t('teamCorrect')} · ${t.skipped} ${t('teamSkipped')}</span>
+    </div>`;
+  }).join('');
+
+  showScreen('results');
+}
+
+// Override endGame for teams mode
+const origEndGame = endGame;
+endGame = function () {
+  isPlaying = false;
+  accelEnabled = false;
+  accelCooldown = false;
+  lastGamma = 0;
+  stopTimer();
+  tiltThumb.classList.remove('tilted-right', 'tilted-left');
+  exitFullscreen();
+
+  if (teamsMode) {
+    // Save current team's results
+    const team = teams[currentTeamIdx];
+    team.score = score;
+    team.correct = correctCount;
+    team.skipped = skippedCount;
+    team.results = [...results];
+
+    currentTeamIdx++;
+    if (currentTeamIdx < teams.length) {
+      startTeamTurn();
+    } else {
+      showTeamResults();
+    }
+  } else {
+    // Solo mode - original behavior
+    const elapsed = ((Date.now() - gameStartTime) / 1000).toFixed(0);
+    const total = correctCount + skippedCount;
+    const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('statCorrect').textContent = correctCount;
+    document.getElementById('statSkipped').textContent = skippedCount;
+    document.getElementById('statAccuracy').textContent = accuracy + '%';
+    document.getElementById('statTime').textContent = elapsed + 's';
+
+    const list = document.getElementById('wordList');
+    list.innerHTML = '';
+    results.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'word-row ' + (r.correct ? 'correct-row' : 'wrong-row');
+      row.innerHTML = `<span>${r.word}</span><span class="status">${r.correct ? '✅' : '❌'}</span>`;
+      list.appendChild(row);
+    });
+
+    showScreen('results');
+  }
+};
+
+// Override guessCorrect/guessWrong to update team scoreboard
+const origGuessCorrect = guessCorrect;
+guessCorrect = function () {
+  if (!isPlaying) return;
+  score++;
+  correctCount++;
+  document.getElementById('scoreVal').textContent = score;
+  results.push({ word: gameWords[currentIndex].word, correct: true });
+  if (teamsMode) updateTeamScoreboard();
+  card.classList.add('correct');
+  card.classList.add('swipe-right');
+  setTimeout(() => {
+    currentIndex++;
+    showWord();
+  }, 400);
+};
+
+const origGuessWrong = guessWrong;
+guessWrong = function () {
+  if (!isPlaying) return;
+  skippedCount++;
+  results.push({ word: gameWords[currentIndex].word, correct: false });
+  if (teamsMode) updateTeamScoreboard();
+  card.classList.add('wrong');
+  card.classList.add('swipe-left');
+  setTimeout(() => {
+    currentIndex++;
+    showWord();
+  }, 400);
+};
+
+// ── Boot ──
+initMenu();
+// Wire tap zone listeners once (used in head mode)
+document.getElementById('tapSkip').addEventListener('click', () => { if (isPlaying) guessWrong(); });
+document.getElementById('tapCorrect').addEventListener('click', () => { if (isPlaying) guessCorrect(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+{
+  "title": "Earn While You Wander",
+  "subtitle": "Realistic ways to generate income from Lake Louise, the Rockies, and anywhere with WiFi",
+  "categories": {
+    "photography": {
+      "title": "📸 Photography & Visual Content",
+      "intro": "Lake Louise is one of the most photographed locations on Earth. Your shots have real commercial value if you approach them strategically.",
+      "items": [
+        {
+          "name": "Stock Photo Licensing (Adobe Stock, Shutterstock, Alamy)",
+          "description": "Upload your Lake Louise and Banff photos to multiple stock platforms simultaneously. Adobe Stock offers the best integration with Creative Cloud buyers; Shutterstock has the highest traffic volume; Alamy pays higher per-sale commissions (20-50% vs 15-30%). Realistic earnings: hobby contributors earn $10-100/month, part-time photographers make $100-1,000/month. The key is uploading 500+ images across platforms with proper metadata/keywords.",
+          "earningPotential": "$10 - $1,000+/month (passive)",
+          "link": "https://contributor.stock.adobe.com/",
+          "text": "Adobe Stock Contributor"
+        },
+        {
+          "name": "Print-on-Demand (Redbubble, Society6, Etsy + Printful)",
+          "description": "Upload your best Lake Louise photos to Redbubble or Society6 — they handle printing and shipping on posters, canvas prints, phone cases, tote bags, etc. You earn 5-10% commission per sale with zero inventory cost. For higher margins (~40%), use Etsy + Printful integration where you set your own prices. Landscape/travel photos sell well as wall art.",
+          "earningPotential": "$20 - $500/month (passive)",
+          "link": "https://www.redbubble.com/",
+          "text": "Redbubble"
+        },
+        {
+          "name": "Sell Direct Prints via Your Own Site",
+          "description": "Use your existing news-site infrastructure to add a print store. Platforms like SmugMug ($180/year) or Photoshelter give you full control over pricing and margins (~70%+). Lake Louise prints are premium-priced — buyers expect it given the location.",
+          "earningPotential": "$50 - $2,000/month (passive)",
+          "link": "",
+          "text": ""
+        },
+        {
+          "name": "Commercial Photography Permit",
+          "description": "For professional/commercial shoots inside Banff National Park, you need a Professional Film and Photography Permit from Parks Canada. This covers commercial use of your images (advertising, editorial, etc.). The Town of Banff also requires separate film permits for work done in town limits.",
+          "earningPotential": "Required for professional work",
+          "link": "https://parks.canada.ca/pn-np/ab/banff/info/permis-permit/",
+          "text": "Parks Canada Permits"
+        }
+      ]
+    },
+    "local": {
+      "title": "🏔️ Local Opportunities at Lake Louise/Banff",
+      "intro": "The Rockies have a massive summer tourism economy. If you're willing to work in-season, there are several ways to earn directly.",
+      "items": [
+        {
+          "name": "Photography Tours/Guides",
+          "description": "Banff and Lake Louise have dozens of established photography tour operators (VistaChase, Mountain Photo Tours, Sarah Lyndsay Photography). You could freelance as a guide for them — they need people who know the area. Rates typically range $150-300/day plus tips.",
+          "earningPotential": "$150 - $300/day + tips",
+          "link": "",
+          "text": ""
+        },
+        {
+          "name": "Tour Guide / Shuttle Driver (RADventures, Into the Wild Tours)",
+          "description": "Companies like RADventures and Into the Wild Tours hire seasonal guides for Banff/Lake Louise tours. They offer industry-leading wages, performance bonuses, tips, free/discounted experiences, gear rentals.",
+          "earningPotential": "$18 - $35/hour + tips",
+          "link": "https://www.radventurescanada.com/join-our-team/",
+          "text": "RADventures Careers"
+        },
+        {
+          "name": "Fairmont Chateau Lake Louise Seasonal Jobs",
+          "description": "The iconic hotel has year-round and seasonal positions — hospitality, front desk, food service, concierge. lakelouisejobs.com lists current openings.",
+          "earningPotential": "$17 - $25/hour + benefits",
+          "link": "https://lakelouisejobs.com/",
+          "text": "Lake Louise Jobs"
+        },
+        {
+          "name": "Gear Rental via Fat Llama",
+          "description": "If you have quality camera gear, list it on Fat Llama for rental by locals and visitors. Average earnings $15-40/day per item.",
+          "earningPotential": "$15 - $40/day per item rented",
+          "link": "",
+          "text": ""
+        }
+      ]
+    },
+    "remote": {
+      "title": "💻 Remote Income (Works From Anywhere)",
+      "intro": "You don't need to be local to earn. These income streams work from any WiFi connection — perfect for travel days.",
+      "items": [
+        {
+          "name": "Freelance Development/Consulting",
+          "description": "With your React/Svelte/Angular background, freelance dev work is the highest-earning remote option. Platforms: Upwork ($50-150/hr), Toptal (top 3%, $60-200/hr). You could take on a few hours of work each day while traveling.",
+          "earningPotential": "$50 - $200/hour",
+          "link": "https://www.upwork.com/",
+          "text": "Upwork"
+        },
+        {
+          "name": "Content Creation / Newsletter Sponsorships",
+          "description": "Your news-site infrastructure is already set up. You could monetize it through newsletter sponsorships, affiliate links for local LLM tools/hardware, or premium subscriptions.",
+          "earningPotential": "$500 - $3,000+/month",
+          "link": "",
+          "text": ""
+        },
+        {
+          "name": "AI-Assisted Content & Digital Products",
+          "description": "Create and sell digital products (templates, guides, courses) using AI tools for efficiency. Platforms: Gumroad, Teachable, Podia.",
+          "earningPotential": "$100 - $2,000/month",
+          "link": "",
+          "text": ""
+        },
+        {
+          "name": "Remote Side Hustles (2026 Trends)",
+          "description": "According to recent data, the most profitable remote side hustles in 2026 are: AI prompt engineering ($50-150/hr), technical writing for SaaS companies ($40-100/hr), and building micro-SaaS products.",
+          "earningPotential": "$30 - $150/hour",
+          "link": "",
+          "text": ""
+        }
+      ]
+    },
+    "quick-start": {
+      "title": "🚀 Quick-Start Recommendations",
+      "intro": "If you want to start earning within days of your trip, here's the fastest path:",
+      "items": [
+        {
+          "name": "1. Upload Lake Louise photos to Adobe Stock + Shutterstock TODAY",
+          "description": "Pick your best 50-100 shots from today and upload them now. Proper keywords are critical: 'Lake Louise', 'Banff National Park', 'turquoise lake', 'Canadian Rockies', 'glacier'. Each image takes ~5 minutes to keyword properly.",
+          "earningPotential": "$0 immediate, $10-100/month passive",
+          "link": "",
+          "text": ""
+        },
+        {
+          "name": "2. Apply for RADventures seasonal guide position (remote application)",
+          "description": "You can apply online before your trip ends. They hire year-round and summer positions fill fast.",
+          "earningPotential": "$18-35/hour + tips",
+          "link": "",
+          "text": ""
+        },
+        {
+          "name": "3. Set up Redbubble/Society6 account for your photos",
+          "description": "Upload your best shots to these platforms — they handle everything else (printing, shipping, customer service). Takes about 10 minutes per image.",
+          "earningPotential": "$20-500/month passive",
+          "link": "",
+          "text": ""
+        }
+      ]
+    }
+  },
+  "important-notes": {
+    "banff-regulations": [
+      "Drones are strictly prohibited in Banff National Park (no commercial permits available for recreational use)",
+      "Commercial filming/photography requires Parks Canada permit ($100-500+ depending on scale)",
+      "All visitors need a Parks Canada pass to enter the park",
+      "Wildlife harassment fines can exceed $2,500 CAD — keep distance from animals"
+    ],
+    "tax-note": [
+      "As a non-resident working temporarily in Canada, you may have tax obligations. Consult a cross-border tax professional for your specific situation.",
+      "Income earned remotely (from outside Canada) is generally not taxable in Canada."
+    ]
+  }
+}

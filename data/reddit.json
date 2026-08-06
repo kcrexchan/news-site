@@ -1,0 +1,35 @@
+{
+  "date": "August 05, 2026",
+  "summaries": [
+    {
+      "title": "Qwen 3.6 27B Dense vs 35B-A3B MoE: Which Should You Run Locally?",
+      "subreddit": "r/LocalLLaMA",
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1kaqi3k/qwen_3_8b_14b_32b_30ba3b_235ba22b_tested/",
+      "summary": "The most-discussed comparison on r/LocalLLaMA right now. Both models fit a 24GB GPU at 4-bit quantization, but the 27B dense variant excels at coding accuracy while the 35B-A3B MoE delivers 3x faster throughput on the same hardware. Community consensus: run 27B for code review, 35B-MoE for high-throughput agents, and use --n-cpu-moe to offload expert layers on 12GB cards."
+    },
+    {
+      "title": "Multi-Token Prediction Lands in llama.cpp Mainline — Up to 2.4x Faster Inference",
+      "subreddit": "r/LocalLLaMA",
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1dumrqp/meta_multi_token_prediction_models/",
+      "summary": "PR #22673 merged May 16, bringing MTP speculative decoding to mainstream llama.cpp. Community benchmarks show 71% faster token generation on Qwen3.6 27B and Gemma 4 models with zero quality loss. The catch: prompt processing is slower, so MTP shines on long-generation workloads (code, creative writing) but adds overhead for short Q&A. Enable with --spec-type mtp."
+    },
+    {
+      "title": "Gemma 4 Gets Multi-Token Prediction Drafters — 1.7x to 3x Speedup Without Quality Loss",
+      "subreddit": "r/LocalLLaMA",
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1jf10ar/so_gemma_4b_on_cell_phone/",
+      "summary": "Google released MTP drafter models for the Gemma 4 family, enabling speculative decoding that accelerates decode throughput by up to 3x. Works in Ollama, vLLM, and llama.cpp out of the box. The drafter proposes multiple future tokens at once, and the target model verifies them in a single forward pass — essentially getting more tokens per GPU pass. Available under Apache 2.0."
+    },
+    {
+      "title": "Is NVIDIA Still the Default Best Choice for Local LLMs in 2026?",
+      "subreddit": "r/LocalLLaMA",
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1tmkaua/is_nvidia_still_the_default_best_choice_for_local/",
+      "summary": "Heated community debate on whether NVIDIA's CUDA ecosystem lock-in still justifies the premium in 2026. AMD ROCm support has matured substantially (RX 7900 XTX at $849 with 24GB runs Ollama/vLLM natively). Intel Arc B580 offers 12GB at $250 but software support remains spotty. Consensus: NVIDIA still wins for plug-and-play reliability, but AMD is the value play if you're comfortable troubleshooting."
+    },
+    {
+      "title": "What GPU Is Best for My Use Case? Community Hardware Recommendations",
+      "subreddit": "r/LocalLLaMA",
+      "url": "https://www.reddit.com/r/LocalLLaMA/comments/1sechf4/what_gpu_is_the_best_for_my_use_case_scenario/",
+      "summary": "Comprehensive community advice thread mapping GPU tiers to real workloads. Key takeaway: VRAM gates whether a model runs at all, but memory bandwidth determines speed. For 24GB cards, Qwen3.6 27B and Gemma 4 26B are the current sweet spots. The RTX 3060 12GB remains the budget king for 7-14B models. Dual RTX 3090 setups still outvalue single 24GB cards for 70B-class models."
+    }
+  ]
+}

@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Admin Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  
+  :root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --accent-blue: #3b82f6;
+    --accent-green: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --border: #e2e8f0;
+    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: white;
+    padding: 1rem 2rem;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .status-badge.connected { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+  .status-badge.disconnected { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+  /* Layout */
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 0.375rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: 0.625rem 1.25rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    white-space: nowrap;
+    border: none;
+    background: transparent;
+    font-size: 0.9rem;
+  }
+
+  .tab:hover { background: var(--bg-primary); color: var(--text-primary); }
+  .tab.active { background: var(--accent-blue); color: white; box-shadow: var(--shadow); }
+
+  /* Cards */
+  .card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--bg-primary);
+  }
+
+  .card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+
+  /* Stat cards */
+  .stat-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--accent-blue);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .stat-card.green { border-left-color: var(--accent-green); }
+  .stat-card.amber { border-left-color: var(--accent-amber); }
+  .stat-card.red { border-left-color: var(--accent-red); }
+
+  .stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 0.375rem; }
+  .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); }
+
+  /* Buttons */
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+  }
+
+  .btn-primary { background: var(--accent-blue); color: white; }
+  .btn-primary:hover { background: #2563eb; box-shadow: var(--shadow); }
+  
+  .btn-success { background: var(--accent-green); color: white; }
+  .btn-success:hover { background: #059669; }
+
+  .btn-warning { background: var(--accent-amber); color: white; }
+  .btn-warning:hover { background: #d97706; }
+
+  .btn-danger { background: var(--accent-red); color: white; }
+  .btn-danger:hover { background: #dc2626; }
+
+  .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8rem; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; }
+  
+  th, td {
+    padding: 0.875rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th { background: var(--bg-primary); font-weight: 600; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  tr:hover td { background: #f1f5f9; }
+
+  /* Badge */
+  .badge {
+    padding: 0.2em 0.6em;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+
+  /* Forms */
+  input, textarea, select {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    background: white;
+  }
+
+  input:focus, textarea:focus, select:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); border-color: var(--accent-blue); }
+
+  .form-group { margin-bottom: 1rem; }
+  label { display: block; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem; font-size: 0.875rem; }
+
+  /* Terminal */
+  .terminal {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 8px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.85rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  /* Toast */
+  .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 200; display: flex; flex-direction: column; gap: 0.5rem; }
+  
+  .toast {
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    animation: slideIn 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    max-width: 100%;
+    word-break: break-word;
+  }
+
+  .toast.success { background: #10b981; }
+  .toast.error { background: #ef4444; }
+  .toast.info { background: #3b82f6; }
+
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Loading */
+  .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
+  
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+  
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .header { padding: 0.75rem 1rem; }
+    .header-content { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .header h1 { font-size: 1.15rem; }
+    .grid-2, .grid-4 { grid-template-columns: 1fr; }
+    .container { padding: 0.75rem; }
+    .tabs { gap: 0.125rem; padding: 0.25rem; }
+    .tab { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
+    .card { padding: 1rem; }
+    .stat-value { font-size: 1.35rem; }
+    /* Tables: scrollable within their card parent (card has overflow:hidden) */
+    .card table, #overviewTable { display: block; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+    th, td { padding: 0.625rem 0.75rem; font-size: 0.85rem; white-space: nowrap; }
+    /* Toast: bottom on mobile so it doesn't overlap header */
+    .toast-container { top: auto; bottom: 1rem; right: 1rem; left: 1rem; }
+    .toast { font-size: 0.85rem; padding: 0.75rem 1rem; }
+    /* Modal: full-width on mobile */
+    #addMemoryModal > div { margin: 1rem auto; width: calc(100% - 2rem); max-width: 600px; }
+    /* Quick command buttons wrap nicely */
+    .btn { font-size: 0.8rem; padding: 0.4rem 0.75rem; }
+    /* Config items wrap on mobile */
+    .config-item { flex-direction: column; align-items: flex-start; }
+  }
+
+  @media (max-width: 400px) {
+    .header h1 { font-size: 1rem; }
+    .tab { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
+    .stat-card { padding: 1rem; }
+    .stat-value { font-size: 1.15rem; }
+  }
+
+  /* Section hidden */
+  [data-section] { display: none; }
+  [data-section].active { display: block; animation: fadeIn 0.3s ease-out; }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Refresh button */
+  .refresh-btn { background: none; border: none; cursor: pointer; padding: 0.5rem; color: var(--text-secondary); transition: all 0.2s; }
+  .refresh-btn:hover { color: var(--accent-blue); transform: rotate(180deg); }
+
+  /* Command builder */
+  .command-preview { background: #f1f5f9; padding: 1rem; border-radius: 8px; font-family: monospace; margin-top: 0.75rem; word-break: break-all; color: var(--accent-blue); }
+
+  /* Memory entries */
+  .memory-entry { background: #f8fafc; padding: 1rem; border-radius: 8px; margin-bottom: 0.75rem; border-left: 3px solid var(--accent-amber); position: relative; }
+  .memory-timestamp { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+
+  /* Config status */
+  .config-item { display: flex; justify-content: space-between; align-items: center; padding: 0.875rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; background: #f8fafc; flex-wrap: wrap; gap: 0.5rem; }
+  .config-item span:last-child { overflow: hidden; text-overflow: ellipsis; max-width: 100%; word-break: break-all; }
+
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-content">
+    <h1>🔧 Hermes Admin Dashboard</h1>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <span id="statusBadge" class="status-badge disconnected">● Disconnected</span>
+      <button class="refresh-btn" onclick="loadAllData()" title="Refresh all data">🔄</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Main Content -->
+<div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="showSection('overview')">📊 Overview</button>
+    <button class="tab" onclick="showSection('cron')">⏰ Cron Jobs</button>
+    <button class="tab" onclick="showSection('memory')">💾 Memory</button>
+    <button class="tab" onclick="showSection('config')">⚙️ Config</button>
+    <button class="tab" onclick="showSection('terminal')">🖥️ Terminal</button>
+  </div>
+
+  <!-- OVERVIEW SECTION -->
+  <section data-section="overview" class="active">
+    <h2 style="margin-bottom:1rem;">Quick Stats</h2>
+    
+    <div class="grid-4" id="statsGrid">
+      <div class="stat-card green"><div class="stat-label">Active Cron Jobs</div><div class="stat-value" id="activeJobs">-</div></div>
+      <div class="stat-card blue"><div class="stat-label">Total Cron Jobs</div><div class="stat-value" id="totalJobs">-</div></div>
+      <div class="stat-card amber"><div class="stat-label">Memory Entries</div><div class="stat-value" id="memEntries">-</div></div>
+      <div class="stat-card green"><div class="stat-label">API Status</div><div class="stat-value" style="font-size:1.25rem;" id="apiStatus">Checking...</div></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:1.25rem;">
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">⚡ Quick Actions</span></div>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <a href="/digest.html" target="_blank" class="btn btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">📰 View LLM Digest →</a>
+          <button class="btn btn-success" onclick="showSection('cron')">Manage Cron Jobs →</button>
+          <button class="btn btn-warning" onclick="triggerWatchdog()">Trigger Air Quality Watchdog</button>
+        </div>
+      </div>
+
+      <!-- Recent Cron Jobs -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">📋 Active Jobs</span></div>
+        <table id="overviewTable">
+          <thead><tr><th>Name</th><th>Status</th><th>Schedule</th></tr></thead>
+          <tbody id="overviewBody">Loading...</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Config Status -->
+    <div class="card" style="margin-top:1.25rem;">
+      <div class="card-header"><span class="card-title">🔍 System Health</span></div>
+      <div id="systemHealth">Loading...</div>
+    </div>
+  </section>
+
+  <!-- CRON JOBS SECTION -->
+  <section data-section="cron">
+    <h2 style="margin-bottom:1rem;">Cron Job Management</h2>
+    
+    <div class="card">
+      <div class="card-header"><span class="card-title">All Jobs</span><button class="btn btn-primary" onclick="loadCronJobs()">🔄 Refresh</button></div>
+      
+      <!-- Add New Job -->
+      <div style="margin-bottom:1.5rem;padding:1rem;background:#f8fafc;border-radius:8px;">
+        <h3 style="font-size:0.95rem;margin-bottom:0.75rem;color:var(--text-primary);">➕ Add New Cron Job</h3>
+        <div class="grid-2">
+          <div class="form-group"><label>Name</label><input type="text" id="newJobName" placeholder="My new job"></div>
+          <div class="form-group"><label>Schedule (cron)</label><input type="text" id="newJobSchedule" placeholder="*/5 * * * *" value="*/10 * * * *"></div>
+        </div>
+        <div class="form-group"><label>Prompt</label><textarea id="newJobPrompt" rows="3" placeholder="What should the job do?">Check system health and report status</textarea></div>
+        <button class="btn btn-success" onclick="createCronJob()">Create Job</button>
+      </div>
+
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Schedule</th><th>Status</th><th>Last Run</th><th>Next Run</th><th>Actions</th></tr></thead>
+        <tbody id="cronTableBody">Loading...</tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- MEMORY SECTION -->
+  <section data-section="memory">
+    <h2 style="margin-bottom:1rem;">Memory Management</h2>
+    
+    <div class="grid-2">
+      <!-- User Memory -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">👤 User Profile (USER.md)</span></div>
+        
+        <div style="margin-bottom:1rem;">
+          <button class="btn btn-success" onclick="showAddMemory('user')">➕ Add Entry</button>
+        </div>
+
+        <div id="userMemList">Loading...</div>
+      </div>
+
+      <!-- System Memory -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔧 System Notes (MEMORY.md)</span></div>
+        
+        <div style="margin-bottom:1rem;">
+          <button class="btn btn-success" onclick="showAddMemory('system')">➕ Add Entry</button>
+        </div>
+
+        <div id="sysMemList">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Add Memory Modal -->
+    <div id="addMemoryModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:300;" onclick="if(event.target===this)hideAddMemory()">
+      <div style="max-width:600px;margin:4rem auto;background:white;border-radius:12px;padding:1.5rem;">
+        <h3 id="modalTitle">Add Memory Entry</h3>
+        <div class="form-group" style="margin-top:1rem;"><label>Content</label><textarea id="memoryContent" rows="6"></textarea></div>
+        <div style="display:flex;gap:0.75rem;">
+          <button class="btn btn-success" onclick="addMemory()">Save</button>
+          <button class="btn btn-danger" onclick="hideAddMemory()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONFIG SECTION -->
+  <section data-section="config">
+    <h2 style="margin-bottom:1rem;">Configuration Status</h2>
+    
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔌 Inference Config</span></div>
+        <div id="inferenceConfig">Loading...</div>
+        
+        <h3 style="font-size:0.95rem;margin-top:1.25rem;margin-bottom:0.75rem;">Change Provider/Model</h3>
+        <div class="grid-2">
+          <div class="form-group"><label>Provider</label><input type="text" id="configProvider" placeholder="lmstudio"></div>
+          <div class="form-group"><label>Model</label><input type="text" id="configModel" placeholder="qwen/qwen3.6-35b-a3b"></div>
+        </div>
+        <button class="btn btn-primary" onclick="updateConfig()">Update Config & Restart Gateway</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">📁 System Info</span></div>
+        <div id="systemInfo">Loading...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TERMINAL SECTION -->
+  <section data-section="terminal">
+    <h2 style="margin-bottom:1rem;">Terminal Commands</h2>
+    
+    <div class="card">
+      <div class="card-header"><span class="card-title">🖥️ Execute Command</span></div>
+      
+      <!-- Quick commands -->
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="execCommand('hermes status')">System Status</button>
+        <button class="btn btn-sm" onclick="execCommand('hermes cron list')">List Cron Jobs</button>
+        <button class="btn btn-sm" onclick="execCommand('ls ~/AppData/Local/hermes/cron/output/')">Cron Output</button>
+        <button class="btn btn-sm" onclick="execCommand('date')">Current Date/Time</button>
+      </div>
+
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+        <input type="text" id="terminalCmd" placeholder="Enter command..." style="flex:1;" onkeypress="if(event.key==='Enter')runTerminal()">
+        <button class="btn btn-primary" onclick="runTerminal()">Run</button>
+      </div>
+
+      <pre class="terminal" id="terminalOutput">Ready. Enter a command above to execute...</pre>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// Use relative paths so the dashboard works whether served from proxy (:8902) or admin-server (:9100) directly
+const apiBase = ''; // relative — browser resolves to same host serving this HTML
+let memoryTarget = 'user';
+
+function api(path, opts={}) {
+  return fetch(apiBase + path, {
+    ...opts,
+    headers: {...(opts.headers||{}), 'Content-Type': 'application/json'},
+  }).then(r => r.json());
+}
+
+// Tab switching
+function showSection(section) {
+  document.querySelectorAll('[data-section]').forEach(el => el.classList.remove('active'));
+  document.querySelector(`[data-section="${section}"]`).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  
+  if (section === 'overview') loadOverview();
+  else if (section === 'cron') loadCronJobs();
+  else if (section === 'memory') loadAllMemory();
+}
+
+// Toast notifications
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+// API helpers
+async function apiGet(url) {
+  try {
+    const res = await fetch(`${apiBase}${url}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('API GET failed:', err);
+    return null;
+  }
+}
+
+async function apiPost(url, data) {
+  try {
+    const res = await fetch(`${apiBase}${url}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('API POST failed:', err);
+    return null;
+  }
+}
+
+// Check API health on load
+async function checkApiHealth() {
+  const data = await apiGet('/health');
+  if (data && data.status === 'ok') {
+    document.getElementById('statusBadge').className = 'status-badge connected';
+    document.getElementById('statusBadge').textContent = '● Connected';
+    return true;
+  } else {
+    document.getElementById('statusBadge').className = 'status-badge disconnected';
+    document.getElementById('statusBadge').textContent = '● Disconnected';
+    showToast('Cannot reach admin API server', 'error');
+    return false;
+  }
+}
+
+// Load overview data
+async function loadOverview() {
+  const [cronData, memData, health] = await Promise.all([
+    apiGet('/cron/jobs/details'),
+    apiGet('/memory/all'),
+    apiGet('/system/status'),
+  ]);
+
+  // Update stats
+  if (cronData && cronData.details) {
+    document.getElementById('activeJobs').textContent = cronData.details.filter(j => j.enabled).length;
+    document.getElementById('totalJobs').textContent = cronData.details.length;
+    
+    // Populate overview table
+    const tbody = document.getElementById('overviewBody');
+    if (cronData.details.length > 0) {
+      tbody.innerHTML = cronData.details.map(job => `
+        <tr>
+          <td style="font-family:monospace;font-size:0.85rem;">${job.id}</td>
+          <td>${job.name || 'Unnamed'}</td>
+          <td><span class="badge ${job.enabled ? 'badge-green' : 'badge-amber'}">${job.enabled ? 'Active' : 'Paused'}</span></td>
+          <td style="font-size:0.85rem;">${job.schedule || '-'}</td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="4" class="loading">No jobs found</td></tr>';
+    }
+  }
+
+  if (memData) {
+    document.getElementById('memEntries').textContent = (memData.user?.length || 0) + (memData.system?.length || 0);
+  }
+
+  if (health) {
+    const healthHtml = `
+      <div class="config-item"><span>Config File</span><span>${health.config_exists ? '✅ Exists' : '❌ Missing'}</span></div>
+      <div class="config-item"><span>Memory Directory</span><span>${health.memory_dir_exists ? '✅ Exists' : '❌ Missing'}</span></div>
+      <div class="config-item"><span>Python Version</span><span>${health.python_version || '-'}</span></div>
+      <div class="config-item"><span>Last Check</span><span>${new Date(health.timestamp).toLocaleString()}</span></div>
+    `;
+    document.getElementById('systemHealth').innerHTML = healthHtml;
+  }
+}
+
+// Load cron jobs with full details
+async function loadCronJobs() {
+  const data = await apiGet('/cron/jobs/details');
+  if (!data || !data.details) return;
+
+  const tbody = document.getElementById('cronTableBody');
+  if (data.details.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="loading">No cron jobs found</td></tr>';
+    showToast('No cron jobs configured', 'info');
+    return;
+  }
+
+  tbody.innerHTML = data.details.map(job => `
+    <tr>
+      <td style="font-family:monospace;font-size:0.8rem;">${job.id}</td>
+      <td><strong>${job.name || 'Unnamed'}</strong></td>
+      <td style="font-family:monospace;font-size:0.85rem;">${job.schedule || '-'}</td>
+      <td><span class="badge ${job.enabled ? 'badge-green' : 'badge-amber'}">${job.enabled ? 'Active' : 'Paused'}</span></td>
+      <td style="font-size:0.85rem;">${job.last_run_status === 'ok' ? '✅ ok' : job.last_run_status === 'fail' ? '❌ fail' : '-'}</td>
+      <td style="font-size:0.85rem;">${job.next_run || '-'}</td>
+      <td>
+        ${job.enabled 
+          ? `<button class="btn btn-sm btn-warning" onclick="toggleJob('${job.id}', 'pause')">Pause</button>`
+          : `<button class="btn btn-sm btn-success" onclick="toggleJob('${job.id}', 'resume')">Resume</button>`}
+        <button class="btn btn-sm btn-danger" onclick="removeJob('${job.id}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  showToast(`Loaded ${data.details.length} cron jobs`, 'success');
+}
+
+// Toggle job (pause/resume)
+async function toggleJob(jobId, action) {
+  const result = await apiPost('/cron/update', { id: jobId, action });
+  if (result && result.success) {
+    showToast(`Job ${action === 'pause' ? 'paused' : 'resumed'} successfully`, 'success');
+    loadCronJobs();
+    loadOverview();
+  } else {
+    showToast(result?.message || `Failed to ${action} job`, 'error');
+  }
+}
+
+// Remove job
+async function removeJob(jobId) {
+  if (!confirm('Are you sure you want to delete this cron job?')) return;
+  
+  const result = await apiPost('/cron/remove', { id: jobId });
+  if (result && result.success) {
+    showToast('Job deleted successfully', 'success');
+    loadCronJobs();
+    loadOverview();
+  } else {
+    showToast(result?.message || 'Failed to delete job', 'error');
+  }
+}
+
+// Create new cron job
+async function createCronJob() {
+  const name = document.getElementById('newJobName').value;
+  const schedule = document.getElementById('newJobSchedule').value;
+  const prompt = document.getElementById('newJobPrompt').value;
+
+  if (!name || !schedule) {
+    showToast('Please provide a name and schedule', 'error');
+    return;
+  }
+
+  const result = await apiPost('/cron/create', { name, schedule, prompt });
+  if (result && result.success) {
+    showToast('Cron job created successfully!', 'success');
+    loadCronJobs();
+    loadOverview();
+  } else {
+    showToast(result?.message || 'Failed to create cron job', 'error');
+  }
+}
+
+// Load memory entries
+async function loadAllMemory() {
+  const [userMem, sysMem] = await Promise.all([
+    apiGet('/memory/user'),
+    apiGet('/memory/system'),
+  ]);
+
+  if (userMem) renderMemoryList('userMemList', userMem.entries || [], 'user');
+  if (sysMem) renderMemoryList('sysMemList', sysMem.entries || [], 'system');
+}
+
+function renderMemoryList(containerId, entries, type) {
+  const container = document.getElementById(containerId);
+  if (!entries || entries.length === 0) {
+    container.innerHTML = '<div class="loading">No memory entries</div>';
+    return;
+  }
+
+  container.innerHTML = entries.map((entry, i) => `
+    <div class="memory-entry">
+      ${entry.timestamp ? `<div class="memory-timestamp">${new Date(entry.timestamp).toLocaleString()}</div>` : ''}
+      <p style="margin-bottom:0.5rem;">${entry.content}</p>
+      <button class="btn btn-sm btn-danger" onclick="removeMemoryEntry('${type}', ${i + 1})">Remove</button>
+    </div>
+  `).join('');
+}
+
+// Show/hide add memory modal
+function showAddMemory(type) {
+  memoryTarget = type;
+  document.getElementById('modalTitle').textContent = type === 'user' ? 'Add User Memory Entry' : 'Add System Memory Entry';
+  document.getElementById('memoryContent').value = '';
+  document.getElementById('addMemoryModal').style.display = 'block';
+}
+
+function hideAddMemory() {
+  document.getElementById('addMemoryModal').style.display = 'none';
+}
+
+async function addMemory() {
+  const content = document.getElementById('memoryContent').value;
+  if (!content.trim()) {
+    showToast('Content cannot be empty', 'error');
+    return;
+  }
+
+  const result = await apiPost('/memory/add', { target: memoryTarget, type_name: memoryTarget, content });
+  if (result && result.success) {
+    showToast('Memory entry added!', 'success');
+    hideAddMemory();
+    loadAllMemory();
+  } else {
+    showToast(result?.message || 'Failed to add memory', 'error');
+  }
+}
+
+async function removeMemoryEntry(type, id) {
+  if (!confirm(`Remove this ${type === 'user' ? 'user' : 'system'} entry?`)) return;
+  
+  const result = await apiPost('/memory/remove', { target: type, type_name: type, id });
+  if (result && result.success) {
+    showToast('Entry removed', 'success');
+    loadAllMemory();
+  } else {
+    showToast(result?.message || 'Failed to remove entry', 'error');
+  }
+}
+
+// Load config
+async function loadConfig() {
+  const [inference, system] = await Promise.all([
+    apiGet('/config/inference'),
+    apiGet('/system/status'),
+  ]);
+
+  if (inference && inference.exists) {
+    document.getElementById('inferenceConfig').innerHTML = `
+      <div class="config-item"><span>Provider</span><span>${inference.provider || 'Not set'}</span></div>
+      <div class="config-item"><span>Model</span><span>${inference.model || 'Not set'}</span></div>
+      <div class="config-item"><span>Base URL</span><span style="font-family:monospace;font-size:0.85rem;">${inference.base_url || '-'}</span></div>
+    `;
+    
+    document.getElementById('configProvider').value = inference.provider || '';
+    document.getElementById('configModel').value = inference.model || '';
+  } else {
+    document.getElementById('inferenceConfig').innerHTML = '<div class="loading">Config file not found</div>';
+  }
+
+  if (system) {
+    document.getElementById('systemInfo').innerHTML = `
+      <div class="config-item"><span>Python Version</span><span>${system.python_version || '-'}</span></div>
+      <div class="config-item"><span>Hermes Home</span><span style="font-family:monospace;font-size:0.85rem;">${system.hermes_home_windows || '-'}</span></div>
+    `;
+  }
+}
+
+// Update config
+async function updateConfig() {
+  const provider = document.getElementById('configProvider').value.trim();
+  const model = document.getElementById('configModel').value.trim();
+
+  if (!provider && !model) {
+    showToast('Please provide at least a provider or model', 'error');
+    return;
+  }
+
+  const result = await apiPost('/config/inference', { provider, model });
+  if (result && result.success) {
+    showToast('Config updated successfully!', 'success');
+    loadConfig();
+  } else {
+    showToast(result?.message || 'Failed to update config', 'error');
+  }
+}
+
+// Execute terminal command
+async function execCommand(cmd) {
+  document.getElementById('terminalOutput').textContent = `Running: ${cmd}\n\nLoading...`;
+  
+  const result = await apiPost('/terminal/run', { command: cmd });
+  if (result) {
+    let output = '';
+    if (result.success) {
+      output = result.output || '(no output)';
+    } else {
+      output = `Error:\n${result.error_output || 'Unknown error'}`;
+    }
+    document.getElementById('terminalOutput').textContent = output;
+  } else {
+    document.getElementById('terminalOutput').textContent = 'Failed to execute command (API unreachable)';
+  }
+}
+
+async function runTerminal() {
+  const cmd = document.getElementById('terminalCmd').value.trim();
+  if (!cmd) return;
+  await execCommand(cmd);
+  document.getElementById('terminalCmd').value = '';
+}
+
+// Quick actions
+function rebuildNewsSite() {
+  showToast('Rebuilding news site...', 'info');
+  apiPost('/news-site/rebuild', {}).then(result => {
+    if (result && result.success) {
+      showToast('News site rebuilt!', 'success');
+    } else {
+      showToast(result?.message || 'Build failed', 'error');
+    }
+  });
+}
+
+function triggerWatchdog() {
+  // Use the Calgary air quality watchdog job ID from memory
+  const jobId = 'b2ad35609460';
+  showToast('Triggering air quality watchdog...', 'info');
+  apiPost('/watchdog/trigger', { job_id: jobId }).then(result => {
+    if (result && result.success) {
+      showToast('Watchdog triggered!', 'success');
+    } else {
+      showToast(result?.message || 'Failed to trigger watchdog', 'error');
+    }
+  });
+}
+
+// Load all data on page load
+async function loadAllData() {
+  if (await checkApiHealth()) {
+    await Promise.all([loadOverview(), loadCronJobs(), loadAllMemory(), loadConfig()]);
+    showToast('Dashboard refreshed', 'success');
+  }
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', loadAllData);
+</script>
+</body>
+</html>
