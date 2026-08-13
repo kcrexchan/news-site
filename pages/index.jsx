@@ -206,7 +206,7 @@ export default function Home() {
             <p style={s.subtitle}>News · Games · Tools — all running locally</p>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '8px 20px', borderRadius: 24, background: 'rgba(134, 196, 118, 0.02371615110147546)', border: '1px solid rgba(134, 196, 118, 0.15)', fontSize: 13, color: v.textSecondary }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(181.25, 70%, 55%)', boxShadow: '0 0 12px hsla(181.25, 70%, 55%, 0.6)' }} />
-              <span style={{ fontWeight: 600, color: v.textPrimary }}>Saturday, August 1, 2026 · Updated at 09:01:47 AM PDT</span>
+              <span style={{ fontWeight: 600, color: v.textPrimary }}>Thursday, August 13, 2026 · Updated at 09:33:49 AM PDT</span>
             </div>
           </header>
 
