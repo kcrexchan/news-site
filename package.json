@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/postbuild.js",
-    "start": "next start"
+    "start": "next start",
+    "deploy:cf": "npm run build && wrangler pages deploy out/"
   },
   "dependencies": {
     "next": "14.2.5",
