@@ -521,9 +521,9 @@ function movePiece(dx, dy) {
 function rotatePiece() {
   if (!current || gameOver || paused || clearingLines) return;
   const rotated = rotate(current.shape);
-  const kicks = [0, -1, 1, -2, 2];
+  const kicks = [0, -1, 1, -2, 2, -3, 3];
   for (const kx of kicks)
-    for (const ky of [0, -1, -2])
+    for (const ky of [0, -1, -2, 1])
       if (!collide(rotated, current.x + kx, current.y + ky)) {
         current.shape = rotated;
         current.x += kx;

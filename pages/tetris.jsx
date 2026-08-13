@@ -7,7 +7,7 @@ export default function TetrisPage() {
     <>
       <Head><title>Tetris 🌿</title></Head>
       <div style={{position:'relative', width:'100vw', height:'100vh'}}>
-        <button onClick={() => router.push('/')} style={{position:'absolute',top:12,left:12,zIndex:10,padding:'8px 16px',fontSize:'16px',background:'rgba(0,0,0,0.7)',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>
+        <button onClick={() => router.push('/')} style={{position:'fixed',top:16,left:16,zIndex:9999,padding:'10px 20px',fontSize:'18px',fontWeight:'bold',background:'rgba(0,0,0,0.85)',color:'#fff',border:'2px solid rgba(255,255,255,0.3)',borderRadius:'10px',cursor:'pointer',boxShadow:'0 2px 8px rgba(0,0,0,0.5)'}}>
           ← Home
         </button>
         <iframe src="/tetris-game.html" style={{width:'100%',height:'100%',border:'none'}} title="Tetris Game" />
