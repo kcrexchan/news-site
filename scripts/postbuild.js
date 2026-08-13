@@ -8,7 +8,7 @@ const path = require('path');
 const OUT_DIR = path.join(__dirname, '..', 'out');
 
 // Pages that should become directory-based routes (not just flat .html files)
-const DIR_ROUTES = ['digest', 'tetris', 'breakout', 'reddit', 'income', 'heads-up', 'edmonton'];
+const DIR_ROUTES = ['digest', 'tetris', 'breakout', 'reddit', 'income', 'heads-up'];
 
 for (const route of DIR_ROUTES) {
   const flatPath = path.join(OUT_DIR, `${route}.html`);

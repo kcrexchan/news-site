@@ -168,9 +168,7 @@ export default function Home() {
     { icon: '🎮', title: 'Games', desc: "Tetris & Breakout - Classic arcade games with mobile touch controls.", href: '/games' },
     { icon: '📰', title: 'Digest', desc: "Curated updates on local models, on-device AI, and the latest in edge computing.", href: '/digest' },
     { icon: '🔁', title: 'Round up', desc: 'Top stories from r/LocalLLaMA & r/localllm — curated & summarized daily.', href: '/reddit' },
-    { icon: '🏙️', title: 'Edmonton', desc: "Things to do, eat, and explore in Edmonton, Alberta.", href: '/edmonton' },
     { icon: '⚙️', title: 'Admin', desc: 'Hermes Agent admin dashboard - manage cron jobs, memory, and configuration.', href: '/admin.html' },
-    { icon: '🛍️', title: 'Product Roundup', desc: 'Curated product summaries and images.', href: '/product-roundup' },
   ]
 
   const digestSummary = `Local LLM tooling keeps maturing fast: Ollama 0.30 shipped with improved GGUF/llama.cpp compatibility alongside its MLX engine, while both Ollama and LM Studio added Anthropic-compatible endpoints letting local models drop into agent workflows. On-device AI is spreading too — AI browsers like Puma run Qwen/Gemma fully offline on phones, and NPU advances (Qualcomm/CXMT 3D DRAM, VeriSilicon 40+ TOPS IP) push billion-parameter models to real-time speeds.`
