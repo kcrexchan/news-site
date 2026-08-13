@@ -84,6 +84,15 @@ function useAnimatedGradient() {
 }
 
 /* =========================================================================== */
+/*  Static timestamp — computed once at module load, never re-renders       */
+/* =========================================================================== */
+const buildTimeStr = process.env.NEXT_PUBLIC_BUILD_TIME || '2026-08-13T00:00:00.000Z'
+const buildDate = new Date(buildTimeStr)
+const formattedBuildTime = buildDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  + ' · Updated at '
+  + buildDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+
+/* =========================================================================== */
 /*  Page                                                                    */
 /* =========================================================================== */
 export default function Home() {
@@ -91,13 +100,6 @@ export default function Home() {
   useParticles(canvasRef)
   const animGrad = useAnimatedGradient()
   const [hoveredIdx, setHoveredIdx] = useState(-1)
-
-  // Build-time timestamp — set once during build/deploy, does not tick
-  const buildTimeStr = process.env.NEXT_PUBLIC_BUILD_TIME || '2026-08-13T00:00:00.000Z'
-  const buildDate = new Date(buildTimeStr)
-  const formattedBuildTime = buildDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-    + ' · Updated at '
-    + buildDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' })
 
   function formatDate(isoStr) {
     try {
