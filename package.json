@@ -3,16 +3,17 @@
   "version": "1.0.0",
   "description": "Local LLM News Digest - Static Site",
   "scripts": {
-    "build": "next build && node scripts/postbuild.js",
+    "build": "next build",
     "dev": "next dev",
     "start": "next start",
-    "deploy:cf": "npm run build && wrangler pages deploy out/",
+    "deploy:cf": "npm run build && wrangler pages deploy out/ --project-name=news-site",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.2",
     "next": "^16.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -25,5 +26,9 @@
     "tailwindcss": "^4.3.3",
     "typescript": "7.0.2",
     "wrangler": "^4.122.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260811.1": true,
+    "esbuild@0.28.1": true
   }
 }

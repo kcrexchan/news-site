@@ -26,3 +26,7 @@ desktop.ini
 
 # Logs
 *.log
+
+# OpenNext build output
+.open-next/
+.wrangler/
