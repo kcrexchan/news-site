@@ -1,2 +1,5 @@
 name = "news-site"
 compatibility_date = "2024-01-01"
+
+[assets]
+directory = "./out"
