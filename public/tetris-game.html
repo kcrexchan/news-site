@@ -168,6 +168,15 @@ function collide(shape, px, py) {
   return false;
 }
 
+// Actual bounding box width of a piece shape (accounts for empty columns)
+function getPieceWidth(shape) {
+  let maxC = 0;
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++)
+      if (shape[r][c]) maxC = c + 1;
+  return maxC;
+}
+
 function merge() {
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++) {
@@ -615,7 +624,7 @@ canvas.addEventListener('touchmove', (e) => {
   const blockY = rect.height / ROWS;
 
   // Horizontal: piece follows finger, snapped to grid columns
-  const pieceWidth = current.shape[0].length;
+  const pieceWidth = getPieceWidth(current.shape);
   const targetCol = Math.max(0, Math.min(COLS - pieceWidth, touchStartCol + Math.round(dx / blockX)));
   const diff = targetCol - current.x;
   if (diff > 0) for (let i = 0; i < diff; i++) { if (!movePiece(1, 0)) break; }
@@ -652,7 +661,7 @@ canvas.addEventListener('mousemove', (e) => {
   if (!mouseDown || !current || gameOver || paused || clearingLines) return;
   const dx = e.clientX - mouseStartX;
   // Clamp to valid range based on actual piece width
-  const pieceWidth = current.shape[0].length;
+  const pieceWidth = getPieceWidth(current.shape);
   const targetCol = Math.max(0, Math.min(COLS - pieceWidth, mouseStartCol + Math.round(dx / BLOCK)));
   const diff = targetCol - current.x;
   if (diff > 0) for (let i = 0; i < diff; i++) { if (!movePiece(1, 0)) break; }
