@@ -91,6 +91,7 @@ const buildDate = new Date(buildTimeStr)
 const formattedBuildTime = buildDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   + ' · Updated at '
   + buildDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+const versionHash = process.env.NEXT_PUBLIC_VERSION || 'unknown'
 
 /* =========================================================================== */
 /*  Page                                                                    */
@@ -216,6 +217,8 @@ export default function Home() {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '8px 20px', borderRadius: 24, background: 'rgba(134, 196, 118, 0.02371615110147546)', border: '1px solid rgba(134, 196, 118, 0.15)', fontSize: 13, color: v.textSecondary }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(181.25, 70%, 55%)', boxShadow: '0 0 12px hsla(181.25, 70%, 55%, 0.6)' }} />
               <span style={{ fontWeight: 600, color: v.textPrimary }}>{formattedBuildTime}</span>
+              <span style={{ color: v.textMuted, margin: '0 4px' }}>·</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 12, color: v.textMuted }}>v{versionHash}</span>
             </div>
           </header>
 
