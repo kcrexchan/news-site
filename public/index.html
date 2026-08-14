@@ -259,7 +259,7 @@
     <br>
     <div class="live-badge">
       <span class="live-dot"></span>
-      <strong id="datetime" style="color: var(--text-primary); font-weight: 600;"></strong>
+      <strong id="datetime" style="color: var(--text-primary); font-weight: 600;">Friday, August 14, 2026 · Updated at 04:26 PM PDT</strong>
     </div>
   </header>
 
@@ -326,13 +326,6 @@
 </div>
 
 <script>
-// ─── Live datetime ──────────────────────
-function updateDateTime() {
-  const d = new Date();
-  document.getElementById('datetime').textContent = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' · Updated at ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' });
-}
-updateDateTime(); setInterval(updateDateTime, 1000);
-
 // ─── Mouse tracking for card glow ──────
 function trackMouse(e) { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%'); }
 function untrackMouse(el) { el.style.removeProperty('--mx'); }
