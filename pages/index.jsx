@@ -175,7 +175,7 @@ export default function Home() {
   }
 
   const navItems = [
-    { icon: '🎮', title: 'Games', desc: "Tetris & Breakout - Classic arcade games with mobile touch controls.", href: '/games' },
+    { icon: '🎮', title: 'Games', desc: "Sky Fighter ✈️ · Tetris · Breakout · Heads Up · Tank Battle — arcade games with mobile touch controls.", href: '/games' },
     { icon: '📰', title: 'Digest', desc: "Curated updates on local models, on-device AI, and the latest in edge computing.", href: '/digest' },
     { icon: '🔁', title: 'Round up', desc: 'Top stories from r/LocalLLaMA & r/localllm — curated & summarized daily.', href: '/reddit' },
   ]
