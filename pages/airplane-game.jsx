@@ -103,14 +103,203 @@ const BOSSES = [
 
 // ─── Level configs ──────────────────────────────────────────────
 const LEVELS = [
-  { enemiesToDefeat: 10, spawnInterval: 1500, enemySpeed: 1.5, enemyHp: 1, powerUpChance: 0.45 },
-  { enemiesToDefeat: 14, spawnInterval: 1300, enemySpeed: 2.0, enemyHp: 2, powerUpChance: 0.42 },
-  { enemiesToDefeat: 18, spawnInterval: 1100, enemySpeed: 2.2, enemyHp: 2, powerUpChance: 0.40 },
-  { enemiesToDefeat: 22, spawnInterval: 900, enemySpeed: 2.5, enemyHp: 3, powerUpChance: 0.38 },
-  { enemiesToDefeat: 26, spawnInterval: 750, enemySpeed: 2.8, enemyHp: 3, powerUpChance: 0.35 },
+  { enemiesToDefeat: 14, spawnInterval: 1500, enemySpeed: 1.5, enemyHp: 1, powerUpChance: 0.45 },
+  { enemiesToDefeat: 19, spawnInterval: 1300, enemySpeed: 2.0, enemyHp: 2, powerUpChance: 0.42 },
+  { enemiesToDefeat: 24, spawnInterval: 1100, enemySpeed: 2.2, enemyHp: 2, powerUpChance: 0.40 },
+  { enemiesToDefeat: 30, spawnInterval: 900, enemySpeed: 2.5, enemyHp: 3, powerUpChance: 0.38 },
+  { enemiesToDefeat: 36, spawnInterval: 750, enemySpeed: 2.8, enemyHp: 3, powerUpChance: 0.35 },
 ]
 
 const ENEMY_COLORS = ['#c0552d', '#d4432e', '#a62525', '#e67e22', '#8b0000']
+
+// ─── Web Audio sound engine (synthesized, no audio files) ───────
+let _actx = null
+let _amaster = null
+function _ensureAudio() {
+  if (_actx) return _actx
+  const AC = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext)
+  if (!AC) return null
+  _actx = new AC()
+  _amaster = _actx.createGain()
+  _amaster.gain.value = 0.35
+  _amaster.connect(_actx.destination)
+  return _actx
+}
+function initAudio() {
+  const c = _ensureAudio()
+  if (c && c.state === 'suspended') c.resume()
+  return !!c
+}
+// one-shot oscillator tone with exponential decay envelope
+function _tone(freq, dur, opts = {}) {
+  const c = _ensureAudio()
+  if (!c) return
+  const { type = 'sine', vol = 0.3, delay = 0, freqEnd = null } = opts
+  const t0 = c.currentTime + delay
+  const osc = c.createOscillator()
+  const g = c.createGain()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, t0)
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), t0 + dur)
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012)
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+  osc.connect(g)
+  g.connect(_amaster)
+  osc.start(t0)
+  osc.stop(t0 + dur + 0.02)
+}
+// white-noise burst for explosions / impacts
+function _noise(dur, opts = {}) {
+  const c = _ensureAudio()
+  if (!c) return
+  const { vol = 0.4, delay = 0, lowpass = 1200 } = opts
+  const t0 = c.currentTime + delay
+  const len = Math.max(1, Math.floor(c.sampleRate * dur))
+  const buf = c.createBuffer(1, len, c.sampleRate)
+  const d = buf.getChannelData(0)
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len)
+  const src = c.createBufferSource()
+  src.buffer = buf
+  const g = c.createGain()
+  g.gain.setValueAtTime(vol, t0)
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+  const filt = c.createBiquadFilter()
+  filt.type = 'lowpass'
+  filt.frequency.value = lowpass
+  src.connect(filt)
+  filt.connect(g)
+  g.connect(_amaster)
+  src.start(t0)
+  src.stop(t0 + dur + 0.02)
+}
+const sfx = {
+  shoot()        { _tone(880, 0.06, { type: 'square', vol: 0.06, freqEnd: 520 }) },
+  hitEnemy()     { _tone(300, 0.07, { type: 'triangle', vol: 0.14, freqEnd: 160 }) },
+  explosion()    { _noise(0.35, { vol: 0.45, lowpass: 1600 }); _tone(120, 0.3, { type: 'sawtooth', vol: 0.18, freqEnd: 40 }) },
+  bossExplosion(){ _noise(0.7, { vol: 0.6, lowpass: 2200 }); _tone(90, 0.6, { type: 'sawtooth', vol: 0.28, freqEnd: 30 }) },
+  playerHit()    { _tone(180, 0.16, { type: 'square', vol: 0.22, freqEnd: 70 }); _noise(0.12, { vol: 0.15, lowpass: 900 }) },
+  shieldHit()    { _tone(520, 0.12, { type: 'sine', vol: 0.18, freqEnd: 720 }) },
+  powerup()      { [523, 659, 784, 1047].forEach((f, i) => _tone(f, 0.1, { type: 'triangle', vol: 0.18, delay: i * 0.06 })) },
+  levelUp()      { [392, 523, 659, 784, 1047].forEach((f, i) => _tone(f, 0.14, { type: 'sine', vol: 0.2, delay: i * 0.08 })) },
+  bossWarn()     { [110, 98, 87].forEach((f, i) => _tone(f, 0.3, { type: 'sawtooth', vol: 0.22, delay: i * 0.22, freqEnd: f * 0.85 })) },
+  gameOver()     { [440, 349, 294, 220].forEach((f, i) => _tone(f, 0.28, { type: 'triangle', vol: 0.22, delay: i * 0.18, freqEnd: f * 0.9 })) },
+  victory()      { [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => _tone(f, 0.22, { type: 'sine', vol: 0.22, delay: i * 0.1 })) },
+}
+
+// ─── Chiptune background music (looping 8-bar pattern, scheduled ahead of time) ───
+// Am – F – C – G progression (2 bars each), bass + arp + kick + hi-hat.
+const _MUSIC = {
+  step: 0,
+  nextTime: 0,
+  timer: null,
+  playing: false,
+  master: null,
+}
+const _MIDI = { A2: 45, F2: 41, C2: 36, G2: 43 }
+// 4-chord progression (Am – F – C – G), one chord per 4/4 bar (8 eighth-note steps).
+const _PROG = [
+  { bass: 45, arp: [57, 60, 64, 69] },  // Am
+  { bass: 41, arp: [53, 57, 60, 65] },  // F
+  { bass: 36, arp: [48, 52, 55, 60] },  // C
+  { bass: 43, arp: [55, 59, 62, 67] },  // G
+]
+const _LOOP_STEPS = _PROG.length * 8 // 32
+function _midiToHz(m) { return 440 * Math.pow(2, (m - 69) / 12) }
+function _scheduleMusicStep(step, t0) {
+  if (!_MUSIC.master) return
+  const c = _actx
+  const bar = Math.floor(step / 8) % _PROG.length
+  const stepInBar = step % 8
+  const chord = _PROG[bar]
+  // Bass — pumping root + fifth on a driving 8th-note rhythm
+  if ([0, 3, 4, 7].includes(stepInBar)) {
+    const note = (stepInBar === 3) ? chord.bass + 7 : chord.bass
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.type = 'triangle'
+    osc.frequency.value = _midiToHz(note)
+    g.gain.setValueAtTime(0.0001, t0)
+    g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.02)
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2)
+    osc.connect(g); g.connect(_MUSIC.master)
+    osc.start(t0); osc.stop(t0 + 0.22)
+  }
+  // Arp — one chord tone per 8th note, cycling up the chord
+  const a = chord.arp[stepInBar % chord.arp.length] + 12 // one octave up
+  const oscA = c.createOscillator()
+  const gA = c.createGain()
+  oscA.type = 'square'
+  oscA.frequency.value = _midiToHz(a)
+  gA.gain.setValueAtTime(0.0001, t0)
+  gA.gain.exponentialRampToValueAtTime(0.045, t0 + 0.01)
+  gA.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12)
+  oscA.connect(gA); gA.connect(_MUSIC.master)
+  oscA.start(t0); oscA.stop(t0 + 0.14)
+  // Kick — beats 1 and 3 (steps 0 and 4 of the bar)
+  if (stepInBar === 0 || stepInBar === 4) {
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(120, t0)
+    osc.frequency.exponentialRampToValueAtTime(40, t0 + 0.12)
+    g.gain.setValueAtTime(0.32, t0)
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15)
+    osc.connect(g); g.connect(_MUSIC.master)
+    osc.start(t0); osc.stop(t0 + 0.16)
+  }
+  // Hi-hat — on the off-beats (steps 2 and 6)
+  if (stepInBar === 2 || stepInBar === 6) {
+    const len = Math.max(1, Math.floor(c.sampleRate * 0.04))
+    const buf = c.createBuffer(1, len, c.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len)
+    const src = c.createBufferSource()
+    src.buffer = buf
+    const g = c.createGain()
+    g.gain.value = 0.05
+    const filt = c.createBiquadFilter()
+    filt.type = 'highpass'
+    filt.frequency.value = 6000
+    src.connect(filt); filt.connect(g); g.connect(_MUSIC.master)
+    src.start(t0)
+  }
+}
+function startMusic() {
+  const c = _ensureAudio()
+  if (!c) return
+  if (c.state === 'suspended') c.resume()
+  if (_MUSIC.playing) return
+  _MUSIC.playing = true
+  _MUSIC.step = 0
+  if (!_MUSIC.master) {
+    _MUSIC.master = c.createGain()
+    _MUSIC.master.gain.value = 0.5
+    _MUSIC.master.connect(_amaster)
+  }
+  const stepDur = 60 / (_MUSIC.bpm || 132) / 2 // 8th notes
+  _MUSIC.nextTime = c.currentTime + 0.05
+  _MUSIC.timer = setInterval(() => {
+    while (_MUSIC.nextTime < c.currentTime + 0.12) {
+      _scheduleMusicStep(_MUSIC.step, _MUSIC.nextTime)
+      _MUSIC.step = (_MUSIC.step + 1) % 32
+      _MUSIC.nextTime += stepDur
+    }
+  }, 30)
+}
+function setMusicTempo(level) {
+  // Faster, denser music as levels ramp up (132 → 176 BPM by level 5)
+  _MUSIC.bpm = 132 + (level - 1) * 11
+  if (_MUSIC.playing) {
+    stopMusic()
+    startMusic()
+  }
+}
+function stopMusic() {
+  if (!_MUSIC.playing) return
+  _MUSIC.playing = false
+  if (_MUSIC.timer) { clearInterval(_MUSIC.timer); _MUSIC.timer = null }
+}
 
 // ─── Background themes per level ────────────────────────────────
 const BG_THEMES = [
@@ -145,6 +334,26 @@ function drawBackground(ctx, W, H, timestamp, level) {
     ctx.fill()
   }
 
+  // ── Forward-flight speed streaks (all levels) ──
+  // Vertical wind lines rushing top→bottom to sell "the plane is flying forward"
+  const streakCount = 26
+  for (let s = 0; s < streakCount; s++) {
+    const seedA = 97 * (s + 1)
+    const seedB = 61 * (s + 1)
+    const sx = (seedA * 1.7) % W
+    // Each streak scrolls down at a slightly different speed (depth illusion)
+    const speed = 0.14 + (s % 5) * 0.03
+    const len = 30 + (s % 6) * 18
+    const sy = ((timestamp * speed + seedB * 3.3) % (H + len * 2)) - len
+    const alpha = 0.05 + (s % 4) * 0.02
+    ctx.strokeStyle = `rgba(190, 215, 255, ${alpha})`
+    ctx.lineWidth = 1 + (s % 3) * 0.5
+    ctx.beginPath()
+    ctx.moveTo(sx, sy)
+    ctx.lineTo(sx, sy + len)
+    ctx.stroke()
+  }
+
   // ── Level-specific animated elements ──
   switch (level) {
     case 1: drawLevel1Background(ctx, W, H, timestamp); break
@@ -173,20 +382,20 @@ function drawLevel1Background(ctx, W, H, timestamp) {
     ctx.stroke()
   }
 
-  // Scrolling clouds
+  // Scrolling clouds — drift DOWNWARD to sell forward flight
   for (let c = 0; c < 5; c++) {
-    const cx = ((timestamp * 0.015 + c * 120) % (W + 160)) - 80
-    const cy = 100 + c * 60 + Math.sin(timestamp * 0.001 + c * 3) * 10
-    const cloudAlpha = 0.04 + Math.sin(timestamp * 0.002 + c) * 0.015
+    const cx = (c * 120 + 40) % (W + 160)
+    const cy = ((timestamp * (0.06 + c * 0.012) + c * 90) % (H + 120)) - 60
+    const cloudAlpha = 0.05 + Math.sin(timestamp * 0.002 + c) * 0.02
     ctx.fillStyle = `rgba(180, 200, 230, ${cloudAlpha})`
     ctx.beginPath()
-    ctx.ellipse(cx, cy, 60 + c * 5, 12 + Math.sin(c) * 4, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx, cy, 60 + c * 5, 14 + Math.sin(c) * 4, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.beginPath()
-    ctx.ellipse(cx + 30, cy - 5, 35, 10, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx + 30, cy - 6, 35, 10, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.beginPath()
-    ctx.ellipse(cx - 25, cy + 3, 40, 8, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx - 25, cy + 4, 40, 8, 0, 0, Math.PI * 2)
     ctx.fill()
   }
 
@@ -1526,6 +1735,7 @@ export default function AirplaneGame() {
   const [levelIntroText, setLevelIntroText] = useState('')
   const [levelIntroBoss, setLevelIntroBoss] = useState('')
   const [started, setStarted] = useState(false)
+  const [musicOn, setMusicOn] = useState(true)
 
   useEffect(() => {
     if (!started) return
@@ -1571,6 +1781,33 @@ export default function AirplaneGame() {
       levelTransition: false,
       levelTransitionTimer: 0,
       frameCount: 0,
+      shake: 0,
+      flashAlpha: 0,
+      rings: [],
+    }
+
+    // ── FX helpers ──
+    function shakeScreen(gs, amt) {
+      gs.shake = Math.max(gs.shake, amt)
+    }
+    function damageFlash(gs, amt) {
+      gs.flashAlpha = Math.max(gs.flashAlpha, amt)
+    }
+    function addRing(gs, x, y, color, maxR, width) {
+      gs.rings.push({ x, y, r: 6, maxR: maxR || 60, color: color || '#ffd166', w: width || 3, life: 1 })
+    }
+    function sparkBurst(gs, x, y, color, count, speed) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2
+        const s = (0.5 + Math.random()) * (speed || 3)
+        gs.particles.push({
+          x, y,
+          vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+          life: 0.4 + Math.random() * 0.4,
+          color, size: 1 + Math.random() * 1.5,
+          type: 'spark',
+        })
+      }
     }
 
     // ── Start level ──
@@ -1586,13 +1823,16 @@ export default function AirplaneGame() {
       gs.powerUps = []
       gs.bullets = []
       gs.missiles = []
-      gs.upgrades = {
-        fireRate: 200,
-        bulletSpread: 1,
-        bulletDamage: 1,
-        shield: false,
-        speedMultiplier: 1,
-        scoreMultiplier: 1,
+      // Power-ups carry over between levels — only reset on a brand-new game (level 1)
+      if (levelNum === 1) {
+        gs.upgrades = {
+          fireRate: 200,
+          bulletSpread: 1,
+          bulletDamage: 1,
+          shield: false,
+          speedMultiplier: 1,
+          scoreMultiplier: 1,
+        }
       }
       gs.player.hp = Math.min(gs.player.maxHp, gs.player.hp + 30)
       setHp(gs.player.hp)
@@ -1604,10 +1844,12 @@ export default function AirplaneGame() {
       setShowLevelIntro(true)
       gs.levelTransition = true
       gs.levelTransitionTimer = 120
+      gs.lastSpawnTime = performance.now() // defer first spawn until after the intro
 
       setTimeout(() => {
         setShowLevelIntro(false)
         gs.levelTransition = false
+        gs.lastSpawnTime = performance.now() // start the spawn clock only now
       }, 2000)
     }
 
@@ -1629,6 +1871,19 @@ export default function AirplaneGame() {
       gs.bossActive = true
       gs.spawnInterval = 999999
       addFloatingText(`⚠️ ${bossDef.name} ⚠️`, W / 2, H / 2 - 40, bossDef.accentColor)
+      // Boss spawn: warning ring + red flash
+      addRing(gs, W / 2, H / 2, '#ff4444', 180)
+      addRing(gs, W / 2, H / 2, bossDef.accentColor || '#ff8800', 260)
+      damageFlash(gs, 0.5)
+      shakeScreen(gs, 10)
+      for (let i = 0; i < 20; i++) {
+        gs.particles.push({
+          x: W / 2, y: H / 2,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
+          life: 1, color: bossDef.accentColor || '#ff8800', size: 3, type: 'spark',
+        })
+      }
     }
 
     // ── Input handling ──
@@ -1698,10 +1953,30 @@ export default function AirplaneGame() {
       }
 
       // Fire bullets
+      const firedBefore = gs.bullets.length
       fireBullets(gs, timestamp)
+      if (gs.bullets.length > firedBefore) {
+        // Muzzle flash on the frames where a shot actually fires
+        sparkBurst(gs, gs.player.x, gs.player.y - 22, '#7fdbca', 3, 2.2)
+        sfx.shoot()
+      }
 
-      // Spawn regular enemies
-      if (!gs.bossActive && gs.enemiesRemaining > 0) {
+      // Player engine trail (subtle, every 2nd frame)
+      if (gs.frameCount % 2 === 0 && gs.player.hp > 0) {
+        gs.particles.push({
+          x: gs.player.x + (Math.random() - 0.5) * 4,
+          y: gs.player.y + 14,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: 1.2 + Math.random() * 1.2,
+          life: 0.5,
+          color: gs.upgrades.shield ? '#7fdbca' : '#ffb74d',
+          size: 1.5 + Math.random() * 1.5,
+          type: 'trail',
+        })
+      }
+
+      // Spawn regular enemies (not during level intro / boss)
+      if (!gs.bossActive && !gs.levelTransition && gs.enemiesRemaining > 0) {
         if (timestamp - gs.lastSpawnTime >= gs.spawnInterval) {
           gs.lastSpawnTime = timestamp
           spawnRegularEnemy(gs, W, LEVELS[gs.currentLevel - 1])
@@ -1838,6 +2113,8 @@ export default function AirplaneGame() {
           if (Math.abs(b.x - e.x) < 16 && Math.abs(b.y - e.y) < 16) {
             e.hp -= b.damage
             gs.bullets.splice(bi, 1)
+            sparkBurst(gs, b.x, b.y, '#e0fff8', 5, 3)
+            sfx.hitEnemy()
             if (e.hp <= 0) {
               destroyEnemy(e, gs)
               gs.enemies.splice(ei, 1)
@@ -1914,10 +2191,18 @@ export default function AirplaneGame() {
           if (!gs.upgrades.shield) {
             gs.player.hp -= 10
             setHp(gs.player.hp)
+            damageFlash(gs, 0.35)
+            shakeScreen(gs, 6)
+            sfx.playerHit()
             if (gs.player.hp <= 0) {
               runningRef.current = false
               setGameOver(true)
             }
+          } else {
+            // Shield absorbed the hit — cyan ripple
+            addRing(gs, gs.player.x, gs.player.y, '#7fdbca', 34)
+            sparkBurst(gs, b.x, b.y, '#7fdbca', 4, 3)
+            sfx.shieldHit()
           }
           gs.enemyBullets.splice(i, 1)
           for (let p = 0; p < 4; p++) {
@@ -1938,10 +2223,17 @@ export default function AirplaneGame() {
           if (!gs.upgrades.shield) {
             gs.player.hp -= 20
             setHp(gs.player.hp)
+            damageFlash(gs, 0.5)
+            shakeScreen(gs, 9)
+            sfx.playerHit()
             if (gs.player.hp <= 0) {
               runningRef.current = false
               setGameOver(true)
             }
+          } else {
+            addRing(gs, gs.player.x, gs.player.y, '#7fdbca', 40)
+            sparkBurst(gs, e.x, e.y, '#7fdbca', 6, 3.5)
+            sfx.shieldHit()
           }
           enemyExplosion(e.x, e.y, gs)
           gs.enemies.splice(i, 1)
@@ -1955,6 +2247,9 @@ export default function AirplaneGame() {
           if (!gs.upgrades.shield) {
             gs.player.hp -= 15
             setHp(gs.player.hp)
+            damageFlash(gs, 0.45)
+            shakeScreen(gs, 8)
+            sfx.playerHit()
             if (gs.player.hp <= 0) {
               runningRef.current = false
               setGameOver(true)
@@ -1973,7 +2268,19 @@ export default function AirplaneGame() {
           if (puDef) {
             puDef.apply(gs)
             setHp(gs.player.hp)
+            sfx.powerup()
             addFloatingText(`${puDef.icon} ${puDef.name}`, p.x, p.y, puDef.color)
+            // Pickup burst: shockwave ring + radial sparks
+            addRing(gs, p.x, p.y, puDef.color, 60)
+            for (let s = 0; s < 12; s++) {
+              const ang = (s / 12) * Math.PI * 2
+              gs.particles.push({
+                x: p.x, y: p.y,
+                vx: Math.cos(ang) * 4,
+                vy: Math.sin(ang) * 4,
+                life: 1, color: puDef.color, size: 2.5, type: 'spark',
+              })
+            }
             for (let s = 0; s < 6; s++) {
               gs.particles.push({
                 x: p.x, y: p.y,
@@ -1992,9 +2299,35 @@ export default function AirplaneGame() {
         const p = gs.particles[i]
         p.x += p.vx
         p.y += p.vy
-        p.life -= 0.03
+        if (p.type === 'spark') {
+          p.vx *= 0.92
+          p.vy = p.vy * 0.92 + 0.08
+        } else if (p.type === 'fire') {
+          p.vx *= 0.96
+          p.vy = p.vy * 0.96 + 0.04
+        } else if (p.type === 'smoke') {
+          p.vx *= 0.98
+          p.vy *= 0.98
+        } else if (p.type === 'trail') {
+          p.vy += 0.05
+        }
+        p.life -= p.type === 'trail' ? 0.05 : 0.03
         if (p.life <= 0) gs.particles.splice(i, 1)
       }
+
+      // Update shockwave rings
+      for (let i = gs.rings.length - 1; i >= 0; i--) {
+        const r = gs.rings[i]
+        r.r += (r.maxR - r.r) * 0.22
+        r.life -= 0.07
+        if (r.life <= 0) gs.rings.splice(i, 1)
+      }
+
+      // Decay screen shake + damage flash
+      gs.shake *= 0.85
+      if (gs.shake < 0.3) gs.shake = 0
+      gs.flashAlpha *= 0.88
+      if (gs.flashAlpha < 0.02) gs.flashAlpha = 0
 
       // Update floating texts
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
@@ -2026,12 +2359,32 @@ export default function AirplaneGame() {
       }
 
       if (gs.enemiesRemaining <= 0 && !gs.bossActive) {
+        // Wave clear celebration — teal sweep before the boss warning
+        sfx.levelUp()
+        addRing(gs, W / 2, H / 2, '#7fdbca', 200)
+        addRing(gs, W / 2, H / 2, '#f5b041', 320)
+        addFloatingText('WAVE CLEAR!', W / 2, H / 2 + 20, '#7fdbca')
+        for (let i = 0; i < 18; i++) {
+          gs.particles.push({
+            x: gs.player.x, y: gs.player.y,
+            vx: (Math.random() - 0.5) * 9,
+            vy: (Math.random() - 0.5) * 9,
+            life: 1.2, color: '#7fdbca', size: 2.5, type: 'spark',
+          })
+        }
         spawnBoss(gs.currentLevel)
+        sfx.bossWarn()
       }
     }
 
     // ── Helper: boss destroyed ──
     function bossDestroyed(gs) {
+      // Screen flash + big shake for the kill
+      sfx.bossExplosion()
+      damageFlash(gs, 0.85)
+      shakeScreen(gs, 16)
+      addRing(gs, gs.boss.x, gs.boss.y, gs.boss.accentColor, 90, 5)
+      addRing(gs, gs.boss.x, gs.boss.y, '#ffffff', 130, 3)
       for (let ring = 0; ring < 3; ring++) {
         setTimeout(() => {
           for (let p = 0; p < 30; p++) {
@@ -2066,6 +2419,8 @@ export default function AirplaneGame() {
       } else {
         setTimeout(() => {
           runningRef.current = false
+          sfx.victory()
+          stopMusic()
           setGameWon(true)
         }, 2500)
       }
@@ -2073,33 +2428,64 @@ export default function AirplaneGame() {
 
     // ── Helper: explosion effects ──
     function enemyExplosion(x, y, gs) {
-      for (let p = 0; p < 12; p++) {
+      sfx.explosion()
+      for (let p = 0; p < 14; p++) {
         gs.particles.push({
           x, y,
-          vx: (Math.random() - 0.5) * 6,
-          vy: (Math.random() - 0.5) * 6,
+          vx: (Math.random() - 0.5) * 7,
+          vy: (Math.random() - 0.5) * 7,
           life: 1,
-          color: ['#f5b041', '#f39c12', '#e67e22', '#c0552d'][Math.floor(Math.random() * 4)],
+          color: ['#f5b041', '#f39c12', '#e67e22', '#c0552d', '#fff3d6'][Math.floor(Math.random() * 5)],
           size: 2 + Math.random() * 3,
+          type: 'fire',
         })
       }
+      // Smoke puff
+      for (let p = 0; p < 5; p++) {
+        gs.particles.push({
+          x, y,
+          vx: (Math.random() - 0.5) * 2,
+          vy: -0.5 - Math.random() * 1,
+          life: 0.9,
+          color: 'rgba(90,90,100,0.5)',
+          size: 3 + Math.random() * 4,
+          type: 'smoke',
+        })
+      }
+      addRing(gs, x, y, '#ffd166', 46, 3)
+      sparkBurst(gs, x, y, '#fff3d6', 8, 4)
+      shakeScreen(gs, 5)
     }
 
     function missileExplosion(x, y, gs) {
-      for (let p = 0; p < 8; p++) {
+      sfx.explosion()
+      for (let p = 0; p < 12; p++) {
         gs.particles.push({
           x, y,
-          vx: (Math.random() - 0.5) * 5,
-          vy: (Math.random() - 0.5) * 5,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
           life: 0.8,
-          color: ['#ff6b6b', '#ff4444', '#ff8888'][Math.floor(Math.random() * 3)],
-          size: 2 + Math.random() * 2,
+          color: ['#ff6b6b', '#ff4444', '#ff8888', '#ffe082'][Math.floor(Math.random() * 4)],
+          size: 2 + Math.random() * 3,
+          type: 'fire',
         })
       }
+      addRing(gs, x, y, '#ff8a65', 56, 3)
+      sparkBurst(gs, x, y, '#ffe0b2', 10, 5)
+      shakeScreen(gs, 7)
     }
 
     // ── Draw ──
     function draw(timestamp) {
+      ctx.save()
+
+      // Screen shake offset
+      if (gs.shake > 0) {
+        const sx = (Math.random() - 0.5) * gs.shake
+        const sy = (Math.random() - 0.5) * gs.shake
+        ctx.translate(sx, sy)
+      }
+
       // Background
       drawBackground(ctx, W, H, timestamp || 0, gs.currentLevel)
 
@@ -2249,10 +2635,24 @@ export default function AirplaneGame() {
       // Particles (circles with fade)
       for (const p of gs.particles) {
         const alpha = Math.max(0, p.life)
-        ctx.fillStyle = p.color + Math.round(alpha * 255).toString(16).padStart(2, '0')
+        if (p.color && p.color.startsWith('rgba')) {
+          ctx.fillStyle = p.color
+        } else {
+          ctx.fillStyle = p.color + Math.round(alpha * 255).toString(16).padStart(2, '0')
+        }
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2)
         ctx.fill()
+      }
+
+      // Shockwave rings
+      for (const r of gs.rings) {
+        const alpha = Math.max(0, r.life)
+        ctx.strokeStyle = r.color + Math.round(alpha * 220).toString(16).padStart(2, '0')
+        ctx.lineWidth = r.w * alpha
+        ctx.beginPath()
+        ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2)
+        ctx.stroke()
       }
 
       // Player
@@ -2274,6 +2674,13 @@ export default function AirplaneGame() {
 
       // HUD
       drawModernHUD(ctx, gs, W, H)
+
+      // Damage flash overlay (drawn on top, not shaken)
+      ctx.restore()
+      if (gs.flashAlpha > 0) {
+        ctx.fillStyle = 'rgba(255, 40, 40, ' + Math.min(0.6, gs.flashAlpha) + ')'
+        ctx.fillRect(0, 0, W, H)
+      }
     }
 
     // ── Game loop ──
@@ -2297,12 +2704,28 @@ export default function AirplaneGame() {
     return () => { runningRef.current = false }
   }, [started, gameOver, gameWon])
 
+  useEffect(() => {
+    if (gameOver) { sfx.gameOver(); stopMusic() }
+  }, [gameOver])
+
+  useEffect(() => {
+    if (started && !gameOver && !gameWon && musicOn) setMusicTempo(currentLevel)
+  }, [currentLevel])
+
+  useEffect(() => {
+    if (!musicOn) { stopMusic(); return }
+    if (started && !gameOver && !gameWon) { _MUSIC.bpm = 132 + (currentLevel - 1) * 11; startMusic() }
+  }, [musicOn])
+
   function handleStart() {
+    initAudio()
+    if (musicOn) { _MUSIC.bpm = 132; startMusic() }
     floatingTexts = []
     setStarted(true)
   }
 
   function handleRestart() {
+    initAudio()
     floatingTexts = []
     setScore(0)
     setHp(100)
@@ -2326,6 +2749,22 @@ export default function AirplaneGame() {
           <a href="/" style={styles.backLink}>← News Digest</a>
           <a href="/games" style={styles.backLink}>← Arcade</a>
           <span style={styles.title}>✈️ SKY FIGHTER</span>
+          <button
+            onClick={() => setMusicOn(m => !m)}
+            style={{
+              ...styles.backLink,
+              marginLeft: 'auto',
+              cursor: 'pointer',
+              border: '1px solid rgba(127,219,202,0.4)',
+              borderRadius: 8,
+              padding: '4px 12px',
+              opacity: musicOn ? 1 : 0.45,
+              userSelect: 'none',
+            }}
+            title={musicOn ? 'Mute music' : 'Unmute music'}
+          >
+            {musicOn ? '🎵 ON' : '🔇 OFF'}
+          </button>
         </div>
 
         <canvas ref={canvasRef} style={styles.canvas} />
