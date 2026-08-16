@@ -33,7 +33,6 @@ if (fs.existsSync(homepage)) {
 }
 
 const nextConfig = {
-  output: 'export',
   env: {
     NEXT_PUBLIC_BUILD_TIME: buildTime,
     NEXT_PUBLIC_VERSION: gitHash,
