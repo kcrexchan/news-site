@@ -175,6 +175,8 @@ function _noise(dur, opts = {}) {
 }
 const sfx = {
   shoot()        { _tone(880, 0.06, { type: 'square', vol: 0.06, freqEnd: 520 }) },
+  missileVolley(){ _noise(0.18, { vol: 0.3, lowpass: 2400 }); _tone(300, 0.28, { type: 'sawtooth', vol: 0.16, freqEnd: 980 }) },
+  bombBlast()    { _noise(0.6, { vol: 0.55, lowpass: 900 }); _tone(70, 0.5, { type: 'sine', vol: 0.3, freqEnd: 28 }) },
   hitEnemy()     { _tone(300, 0.07, { type: 'triangle', vol: 0.14, freqEnd: 160 }) },
   explosion()    { _noise(0.35, { vol: 0.45, lowpass: 1600 }); _tone(120, 0.3, { type: 'sawtooth', vol: 0.18, freqEnd: 40 }) },
   bossExplosion(){ _noise(0.7, { vol: 0.6, lowpass: 2200 }); _tone(90, 0.6, { type: 'sawtooth', vol: 0.28, freqEnd: 30 }) },
@@ -1560,6 +1562,10 @@ function addFloatingText(text, x, y, color) {
   floatingTexts.push({ text, x, y, color, life: 1, vy: -1.5 })
 }
 
+// Cooldowns for the player's special attacks (module scope so the HUD can read them)
+const MISSILE_CD = 12000  // 12s
+const BOMB_CD = 20000     // 20s
+
 // ─── Game mechanics ─────────────────────────────────────────────
 function fireBullets(gs, timestamp) {
   if (timestamp - gs.lastFireTime < gs.upgrades.fireRate) return
@@ -1775,6 +1781,17 @@ export default function AirplaneGame() {
       spawnInterval: LEVELS[0].spawnInterval,
       dragTarget: null,
       isDragging: false,
+      // Special attacks (player-side only)
+      missileCooldownUntil: 0,
+      bombCooldownUntil: 0,
+      bombs: [],
+      lastTapTime: 0,
+      lastTapX: 0,
+      lastTapY: 0,
+      pressStartTime: 0,
+      pressStartX: 0,
+      pressStartY: 0,
+      longPressFired: false,
       boss: null,
       bossActive: false,
       bossIntroTimer: 0,
@@ -1808,6 +1825,42 @@ export default function AirplaneGame() {
           type: 'spark',
         })
       }
+    }
+
+    // ── Player special attacks ──
+    function tryFireMissiles(gs, timestamp) {
+      if (timestamp < gs.missileCooldownUntil) return false
+      gs.missileCooldownUntil = timestamp + MISSILE_CD
+      const cx = gs.player.x, cy = gs.player.y - 14
+      // Fan of 5 homing missiles
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i - 2) * 0.42
+        gs.missiles.push({
+          x: cx, y: cy,
+          vx: Math.cos(a) * 5, vy: Math.sin(a) * 5,
+          speed: 5, damage: 8, lifetime: 260,
+        })
+      }
+      addRing(gs, cx, cy, '#ff5566', 40)
+      shakeScreen(gs, 4)
+      sfx.missileVolley()
+      addFloatingText('🚀 MISSILE VOLLEY', cx, cy - 30, '#ff8899')
+      return true
+    }
+
+    function tryFireBomb(gs, timestamp) {
+      if (timestamp < gs.bombCooldownUntil) return false
+      gs.bombCooldownUntil = timestamp + BOMB_CD
+      // Radial plasma wave centered on player
+      const cx = gs.player.x, cy = gs.player.y
+      gs.bombs.push({ x: cx, y: cy, r: 0, maxR: Math.max(W, H) * 0.85, speed: 5.2, damage: 25, life: 1 })
+      addRing(gs, cx, cy, '#9b5dff', 120)
+      addRing(gs, cx, cy, '#5db8ff', 180)
+      shakeScreen(gs, 10)
+      damageFlash(gs, 0.2)
+      sfx.bombBlast()
+      addFloatingText('💥 PLASMA BOMB', cx, cy - 34, '#c79bff')
+      return true
     }
 
     // ── Start level ──
@@ -1895,11 +1948,48 @@ export default function AirplaneGame() {
       }
     }
 
+    // Gesture detection shared by touch + mouse:
+    //   double-tap  → missile volley
+    //   long-press  (hold ~1.5s, little movement) → plasma bomb
+    function beginPress(x, y) {
+      gs.pressStartTime = performance.now()
+      gs.pressStartX = x
+      gs.pressStartY = y
+      gs.longPressFired = false
+      gs.longPressTimer = setTimeout(() => {
+        // Only fire if the finger never left and barely moved
+        if (gs.isDragging && !gs.longPressFired && gs.dragTarget) {
+          const moved = Math.hypot(gs.pressStartX - gs.dragTarget.x, gs.pressStartY - gs.dragTarget.y)
+          if (moved < 26) {
+            gs.longPressFired = true
+            tryFireBomb(gs, performance.now())
+          }
+        }
+      }, 1500)
+
+      const now = performance.now()
+      if (now - gs.lastTapTime < 300) {
+        const moved = Math.hypot(x - (gs.lastTapX ?? x), y - (gs.lastTapY ?? y))
+        if (moved < 45) {
+          tryFireMissiles(gs, now)
+          gs.lastTapTime = 0  // prevent triple-tap re-firing
+        }
+      }
+      gs.lastTapTime = now
+      gs.lastTapX = x
+      gs.lastTapY = y
+    }
+
+    function endPress() {
+      if (gs.longPressTimer) { clearTimeout(gs.longPressTimer); gs.longPressTimer = null }
+    }
+
     canvas.addEventListener('touchstart', (e) => {
       e.preventDefault()
       const touch = e.touches[0]
       gs.isDragging = true
       gs.dragTarget = getCanvasPos(touch.clientX, touch.clientY)
+      beginPress(gs.dragTarget.x, gs.dragTarget.y)
     }, { passive: false })
 
     canvas.addEventListener('touchmove', (e) => {
@@ -1910,6 +2000,7 @@ export default function AirplaneGame() {
     }, { passive: false })
 
     canvas.addEventListener('touchend', () => {
+      endPress()
       gs.isDragging = false
       gs.dragTarget = null
     })
@@ -1917,6 +2008,7 @@ export default function AirplaneGame() {
     canvas.addEventListener('mousedown', (e) => {
       gs.isDragging = true
       gs.dragTarget = getCanvasPos(e.clientX, e.clientY)
+      beginPress(gs.dragTarget.x, gs.dragTarget.y)
     })
 
     canvas.addEventListener('mousemove', (e) => {
@@ -1925,11 +2017,13 @@ export default function AirplaneGame() {
     })
 
     canvas.addEventListener('mouseup', () => {
+      endPress()
       gs.isDragging = false
       gs.dragTarget = null
     })
 
     canvas.addEventListener('mouseleave', () => {
+      endPress()
       gs.isDragging = false
       gs.dragTarget = null
     })
@@ -2182,6 +2276,52 @@ export default function AirplaneGame() {
             }
           }
         }
+      }
+
+      // ── Plasma bomb wave: expand & hit everything it reaches ──
+      for (let bi = gs.bombs.length - 1; bi >= 0; bi--) {
+        const wave = gs.bombs[bi]
+        if (!wave) continue
+        wave.r += wave.speed
+        if (!wave.hitEnemies) wave.hitEnemies = new Set()
+
+        const hit = (ex, ey, rad) => Math.hypot(ex - wave.x, ey - wave.y) < wave.r + rad
+
+        for (let ei2 = gs.enemies.length - 1; ei2 >= 0; ei2--) {
+          const en = gs.enemies[ei2]
+          if (!en) continue
+          if (hit(en.x, en.y, 14) && !wave.hitEnemies.has(en)) {
+            wave.hitEnemies.add(en)
+            en.hp -= wave.damage
+            addRing(gs, en.x, en.y, '#9b5dff', 30)
+            sfx.hitEnemy()
+            if (en.hp <= 0) {
+              destroyEnemy(en, gs)
+              gs.enemies.splice(ei2, 1)
+            }
+          }
+        }
+
+        if (gs.boss && gs.boss.hp > 0 && gs.boss.visible && !wave.hitBoss) {
+          if (hit(gs.boss.x, gs.boss.y, 26)) {
+            wave.hitBoss = true
+            gs.boss.hp -= wave.damage
+            addRing(gs, gs.boss.x, gs.boss.y, '#9b5dff', 60)
+            sfx.hitEnemy()
+            if (gs.boss.hp <= 0) bossDestroyed(gs)
+          }
+        }
+
+        // Clear enemy bullets the wave has passed through
+        for (let ebi = gs.enemyBullets.length - 1; ebi >= 0; ebi--) {
+          const eb = gs.enemyBullets[ebi]
+          if (hit(eb.x, eb.y, 4)) {
+            sparkBurst(gs, eb.x, eb.y, '#5db8ff', 3, 2)
+            gs.enemyBullets.splice(ebi, 1)
+          }
+        }
+
+        if (wave.r >= wave.maxR) gs.bombs.splice(bi, 1)
       }
 
       // ── Enemy bullet - player collision ──
@@ -2564,6 +2704,33 @@ export default function AirplaneGame() {
         ctx.restore()
       }
 
+      // Plasma bomb shockwaves (player special)
+      for (const wave of gs.bombs) {
+        const t = wave.r / wave.maxR
+        const alpha = Math.max(0, 1 - t)
+        ctx.save()
+        ctx.shadowColor = '#9b5dff'
+        ctx.shadowBlur = 24
+        // Outer ring
+        ctx.strokeStyle = `rgba(155, 93, 255, ${alpha * 0.9})`
+        ctx.lineWidth = 5
+        ctx.beginPath()
+        ctx.arc(wave.x, wave.y, wave.r, 0, Math.PI * 2)
+        ctx.stroke()
+        // Inner ring
+        ctx.strokeStyle = `rgba(93, 184, 255, ${alpha * 0.7})`
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(wave.x, wave.y, wave.r * 0.88, 0, Math.PI * 2)
+        ctx.stroke()
+        // Fading fill just behind the ring
+        ctx.fillStyle = `rgba(155, 93, 255, ${alpha * 0.10})`
+        ctx.beginPath()
+        ctx.arc(wave.x, wave.y, wave.r, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
       // Regular enemies
       for (const e of gs.enemies) {
         drawEnemyJet(ctx, e.x, e.y, e.color, e.isMini)
@@ -2842,7 +3009,7 @@ export default function AirplaneGame() {
         )}
 
         <div style={styles.footer}>
-          Drag to move · Auto-fire · 5 Levels · 5 Bosses
+          Drag to move · Auto-fire · 🚀 Double-tap = Missiles · 💥 Hold = Plasma Bomb
         </div>
       </div>
     </>
@@ -2935,6 +3102,52 @@ function drawModernHUD(ctx, gs, W, H) {
     ctx.font = '600 10px "Rajdhani", sans-serif'
     ctx.fillText(`ENEMIES: ${Math.max(0, gs.enemiesRemaining)}`, 12, H - 8)
   }
+
+  // ── Special attack cooldowns (bottom-right) ──
+  const now = performance.now()
+  const drawCooldownIcon = (x, icon, ready, readyColor, readyLabel, remainingMs, totalMs) => {
+    const r = 15
+    const cy = H - 34
+    // Background circle
+    ctx.fillStyle = ready ? 'rgba(20, 26, 40, 0.85)' : 'rgba(255, 255, 255, 0.06)'
+    ctx.beginPath()
+    ctx.arc(x, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    // Progress arc — sweeps full as the cooldown completes
+    const frac = ready ? 1 : Math.max(0, 1 - remainingMs / totalMs)
+    ctx.strokeStyle = ready ? readyColor : 'rgba(255,255,255,0.2)'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(x, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac)
+    ctx.stroke()
+    // Icon
+    ctx.fillStyle = ready ? readyColor : 'rgba(255,255,255,0.35)'
+    ctx.font = '600 15px "Rajdhani", sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(icon, x, cy + 5)
+    // Ready pulse ring
+    if (ready) {
+      ctx.globalAlpha = 0.5
+      ctx.strokeStyle = readyColor
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(x, cy, r + 3, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+    // Label: name when ready, seconds left otherwise
+    ctx.fillStyle = ready ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)'
+    ctx.font = '600 8px "Rajdhani", sans-serif'
+    ctx.fillText(ready ? readyLabel : `${Math.ceil(remainingMs / 1000)}s`, x, H - 6)
+    ctx.textAlign = 'left'
+  }
+
+  const mLeft = Math.max(0, gs.missileCooldownUntil - now)
+  const mReady = mLeft <= 0
+  const bLeft = Math.max(0, gs.bombCooldownUntil - now)
+  const bReady = bLeft <= 0
+  drawCooldownIcon(W - 78, '🚀', mReady, '#ff5566', 'MISSILES', mLeft, MISSILE_CD)
+  drawCooldownIcon(W - 32, '💥', bReady, '#9b5dff', 'BOMB', bLeft, BOMB_CD)
 }
 
 // ─── Styles ─────────────────────────────────────────────────────

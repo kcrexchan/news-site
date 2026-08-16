@@ -21,13 +21,87 @@ export default function Breakout() {
     canvas.width = W
     canvas.height = H
 
-    // Level config
+    // Level config — each level has a distinct brick PATTERN (0 = gap, 1-9 = brick HP)
     const lvl = level || 1
     const levels = {
-      1: { name: 'Forest', rows: 6, speed: 4, colors: ['#3a6b1e','#5a9e3f','#7ab850','#c8a951','#d4923a','#c0552d'], paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e', special: false },
-      2: { name: 'Ocean', rows: 7, speed: 5, colors: ['#1a3a5c','#1e5a8a','#2980b9','#3498db','#5dade2','#85c1e9','#aed6f1'], paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2', special: false },
-      3: { name: 'Volcano', rows: 8, speed: 5.5, colors: ['#6b1010','#a62525','#d4432e','#e67e22','#f39c12','#f5b041','#f7dc6f','#fdebd0'], paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22', special: true },
-      4: { name: 'Cosmos', rows: 9, speed: 6, colors: ['#2d1b69','#4a2c82','#6c3483','#8e44ad','#a569bd','#bb8fce','#d2b4de','#e8daef','#f5eef8'], paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd', special: true },
+      1: {
+        name: 'Forest', speed: 4, paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e',
+        colors: ['#3a6b1e','#5a9e3f','#7ab850','#c8a951','#d4923a','#c0552d'],
+        pattern: [
+          '111111111111',
+          '111111111111',
+          '111111111111',
+          '111111111111',
+          '111111111111',
+          '111111111111',
+        ],
+      },
+      2: {
+        name: 'Checker', speed: 4.5, paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2',
+        colors: ['#1a3a5c','#1e5a8a','#2980b9','#3498db','#5dade2','#85c1e9'],
+        pattern: [
+          '101010101010',
+          '010101010101',
+          '101010101010',
+          '010101010101',
+          '101010101010',
+          '010101010101',
+          '101010101010',
+          '010101010101',
+        ],
+      },
+      3: {
+        name: 'Pyramid', speed: 5, paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22',
+        colors: ['#6b1010','#a62525','#d4432e','#e67e22','#f39c12','#f5b041'],
+        pattern: [
+          '.....22.....',
+          '....2222....',
+          '...222222...',
+          '..22222222..',
+          '.2222222222.',
+          '222222222222',
+        ],
+      },
+      4: {
+        name: 'Diamond', speed: 5, paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd',
+        colors: ['#2d1b69','#4a2c82','#6c3483','#8e44ad','#a569bd','#bb8fce'],
+        pattern: [
+          '.....11.....',
+          '....1111....',
+          '...111111...',
+          '..11111111..',
+          '..11111111..',
+          '...111111...',
+          '....1111....',
+          '.....11.....',
+        ],
+      },
+      5: {
+        name: 'Pillars', speed: 5.5, paddleColor: '#b7950b', ballColor: '#fef9e7', bg: '#141007', hudColor: '#f4d03f', subColor: '#d4ac0d',
+        colors: ['#7d6608','#b7950b','#d4ac0d','#f1c40f','#f7dc6f','#fdebd0'],
+        pattern: [
+          '110011001100',
+          '110011001100',
+          '110011001100',
+          '110011001100',
+          '110011001100',
+          '110011001100',
+          '110011001100',
+        ],
+      },
+      6: {
+        name: 'Fortress', speed: 6, paddleColor: '#c0392b', ballColor: '#fdedec', bg: '#150505', hudColor: '#f1948a', subColor: '#e74c3c',
+        colors: ['#78281f','#922b21','#c0392b','#e74c3c','#ec7063','#f5b7b1'],
+        pattern: [
+          '333333333333',
+          '3..........3',
+          '3..222222..3',
+          '3..222222..3',
+          '3..222222..3',
+          '3..........3',
+          '333333333333',
+        ],
+      },
     }
     const cfg = levels[lvl] || levels[1]
 
@@ -42,10 +116,10 @@ export default function Breakout() {
     let dx = cfg.speed * (Math.random() > 0.5 ? 1 : -1)
     let dy = -cfg.speed
 
-    // Bricks
-    const brickRows = cfg.rows
-    const brickCols = Math.min(10, Math.floor(W / 70))
-    const brickW = W / brickCols - 8
+    // Bricks — built from the level's pattern (0 = gap, 1-9 = HP). Pattern width = number of columns.
+    const brickRows = cfg.pattern.length
+    const brickCols = Math.max(1, cfg.pattern[0].replace(/\s/g, '').length)
+    const brickW = Math.max(24, W / brickCols - 8)
     const brickH = 24
     const brickPad = 4
     const bricks = []
@@ -54,12 +128,15 @@ export default function Breakout() {
 
     for (let r = 0; r < brickRows; r++) {
       bricks[r] = []
+      const rowStr = (cfg.pattern[r] || '').replace(/\s/g, '')
       for (let c = 0; c < brickCols; c++) {
-        let hp = 1
-        // Special levels: some bricks need 2 or 3 hits
-        if (cfg.special && r < 3) hp = 3
-        else if (cfg.special && r < 5) hp = 2
-        bricks[r][c] = { x: c * (brickW + brickPad) + 4, y: r * (brickH + brickPad) + 60, alive: true, hp }
+        const ch = rowStr[c] !== undefined ? rowStr[c] : '0'
+        const hp = parseInt(ch, 10)  // 0 = gap, 1-9 = brick HP
+        if (isNaN(hp) || hp <= 0) {
+          bricks[r][c] = { alive: false, hp: 0 }  // gap cell
+        } else {
+          bricks[r][c] = { x: c * (brickW + brickPad) + 4, y: r * (brickH + brickPad) + 60, alive: true, hp }
+        }
       }
     }
 
@@ -121,7 +198,7 @@ export default function Breakout() {
           ctx.roundRect(b.x, b.y, brickW, brickH, r2)
           ctx.fill()
           // Show HP for multi-hit bricks
-          if (cfg.special && b.hp > 1) {
+          if (b.hp > 1) {
             ctx.shadowBlur = 0
             ctx.fillStyle = 'rgba(255,255,255,0.8)'
             ctx.font = 'bold 11px Inter, sans-serif'
@@ -286,7 +363,7 @@ export default function Breakout() {
 
       if (aliveCount === 0 && runningRef.current) {
         runningRef.current = false
-        if (lvl < 4) {
+        if (lvl < 6) {
           // Level complete — advance
           drawPaddle()
           drawBricks()
@@ -305,7 +382,7 @@ export default function Breakout() {
           drawPaddle()
           drawBricks()
           drawHUD()
-          drawOverlay('You Win! 🏆', `All 4 levels cleared · Final Score: ${score_}`)
+          drawOverlay('You Win! 🏆', `All 6 levels cleared · Final Score: ${score_}`)
         }
         return
       }
@@ -356,13 +433,13 @@ export default function Breakout() {
         {(gameOver || won) && (
           <button onClick={restart} style={{
             marginTop: 20, padding: '12px 36px', borderRadius: 8, border: 'none',
-            background: level === 1 ? '#6b9e4a' : level === 2 ? '#2980b9' : level === 3 ? '#d4432e' : '#8e44ad',
+            background: ['#6b9e4a','#2980b9','#d4432e','#8e44ad','#b7950b','#c0392b'][Math.min(level, 6) - 1],
             color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer',
           }}>Play Again</button>
         )}
 
         {/* Footer */}
-        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Built with Canvas API · 4 Levels · Arrow keys / mouse / touch</div>
+        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Built with Canvas API · 6 Levels · Arrow keys / mouse / touch</div>
       </div>
     </>
   )
