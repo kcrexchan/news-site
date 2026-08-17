@@ -68,6 +68,19 @@ const games = [
       'Power-up drops: health, speed, damage, special',
     ],
   },
+  {
+    name: 'Rube Goldberg',
+    emoji: '⚙️',
+    description: 'A Rube Goldberg chain-reaction machine! A ball rolls down the ramp, topples a domino, and lands in the basin. Verified by physics simulation — it works every time.',
+    route: '/rube',
+    accent: '#8e5ad8',
+    features: [
+      'Ball rolls down ramp & plows through a domino',
+      'Balloon rises in a fan wind zone',
+      'Goal basin catches the ball in a wide funnel',
+      'Win condition: ball in basin + domino toppled',
+    ],
+  },
 ];
 
 export default function Games() {

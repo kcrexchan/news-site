@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Rube Goldberg — Chain Reaction</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#0b1020;font-family:'Segoe UI',system-ui,sans-serif;color:#dfe6f5}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:linear-gradient(180deg,#141a30,#0e1326);border-bottom:2px solid #232a48;flex-shrink:0}
+header h1{font-size:18px;letter-spacing:3px;color:#fff;text-shadow:0 0 14px rgba(120,140,255,.4)}
+header h1 em{font-style:normal;font-size:12px;color:#8ea0ff;letter-spacing:1px;margin-left:8px}
+.btns{display:flex;gap:8px}
+button{padding:9px 18px;font-size:14px;font-weight:700;letter-spacing:1px;border:none;border-radius:8px;cursor:pointer;background:linear-gradient(135deg,#4f5fd8,#7b5cf6);color:#fff;box-shadow:0 3px 14px rgba(100,110,240,.35);transition:transform .12s}
+button:hover{transform:scale(1.05)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+button.ghost{background:#232a48;box-shadow:none}
+main{flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:8px}
+#stage{position:relative;width:900px;max-width:100%}
+canvas{display:block;width:100%;height:auto;border-radius:10px;box-shadow:0 0 40px rgba(80,100,255,.18);background:#0d1226}
+#hud{position:absolute;top:12px;left:12px;display:flex;gap:10px;z-index:4;pointer-events:none}
+.chip{padding:7px 14px;border-radius:20px;background:rgba(12,16,36,.72);border:1px solid #2a335c;font-size:13px;font-weight:600;color:#9fb0e0;backdrop-filter:blur(4px)}
+.chip.done{color:#7dffb0;border-color:#2f7d54;background:rgba(16,44,30,.72)}
+#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,8,20,.85);z-index:10;border-radius:10px;transition:opacity .3s}
+#overlay.hidden{opacity:0;pointer-events:none}
+#overlay h2{font-size:42px;letter-spacing:5px;margin-bottom:8px;color:#fff;text-shadow:0 0 24px rgba(120,140,255,.6)}
+#overlay p{font-size:14px;color:#93a4d0;margin-bottom:22px;text-align:center;line-height:1.7;max-width:320px}
+#go-btn{padding:14px 44px;font-size:17px}
+.hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:11px;color:#5a689a;letter-spacing:1px;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ RUBE GOLDBERG<em>chain reaction machine</em></h1>
+  <div class="btns">
+    <button class="ghost" id="reset-btn" title="R">↺ Reset</button>
+    <button id="go-btn" title="Space">▶ GO!</button>
+  </div>
+</header>
+<main>
+  <div id="stage">
+    <canvas id="c" width="900" height="600"></canvas>
+    <div id="hud">
+      <div class="chip" id="chip-dom">🁢 Domino</div>
+      <div class="chip" id="chip-goal">🎯 Goal</div>
+    </div>
+    <div id="overlay">
+      <h2 id="ov-title">RUBE GOLDBERG</h2>
+      <p id="ov-sub">A rolling ball knocks a domino, then sails into the basin.<br>Press GO and watch the machine work.</p>
+      <button id="go-btn2">▶ GO!</button>
+    </div>
+    <div class="hint">Press SPACE or GO to start · R to reset</div>
+  </div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+const { Engine, Bodies, Body, Composite } = Matter;
+const W = 900, H = 600;
+const RAMP = { cx: 260, cy: 230, w: 420, h: 16, angle: 0.62 };
+const BALL_R = 22;
+const DOMINO = { t: 0.60, h: 44, w: 26 };
+const BASIN = { C: 620, bedY: 470, W: 460, D: 60, bedT: 12 };
+const BALLOON = { sx: 120, sy: 455, r: 26 };
+const FAN_STRENGTH = 0.0011;
+const GOAL = { x: 620, y: 465, r: 70 };
+
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const overlay = document.getElementById('overlay');
+const ovTitle = document.getElementById('ov-title'), ovSub = document.getElementById('ov-sub');
+const chipDom = document.getElementById('chip-dom'), chipGoal = document.getElementById('chip-goal');
+const goBtn = document.getElementById('go-btn');
+
+let world = null, engine = null, ball = null, balloon = null, domino = null, dominoStartAngle = 0;
+let running = false, won = false, goalFrames = 0, raf = null, lastTs = 0;
+let fanAngle = 0, particles = [];
+
+function makeBody(d) {
+  const c = { isStatic: !!d.isStatic, label: d.label,
+    density: d.density ?? 0.001, restitution: d.restitution ?? 0.25,
+    friction: d.friction ?? 0.05, frictionAir: d.frictionAir ?? 0.005 };
+  return d.type === 'circle'
+    ? Bodies.circle(d.x, d.y, d.r, c)
+    : Bodies.rectangle(d.x, d.y, d.w, d.h, { ...c, angle: d.angle || 0 });
+}
+
+function buildWorld() {
+  const e = Engine.create({ gravity: { x: 0, y: 1, scale: 0.001 } });
+  engine = e;
+  const w = e.world, add = (d) => { const b = makeBody(d); Composite.add(w, b); return b; };
+  add({ type: 'rect', x: 450, y: 585, w: 900, h: 30, isStatic: true, label: 'floor' });
+  add({ type: 'rect', x: 15, y: 300, w: 30, h: 600, isStatic: true, label: 'leftWall' });
+  add({ type: 'rect', x: 885, y: 300, w: 30, h: 600, isStatic: true, label: 'rightWall' });
+  add({ type: 'rect', x: RAMP.cx, y: RAMP.cy, w: RAMP.w, h: RAMP.h, angle: RAMP.angle, isStatic: true, label: 'ramp' });
+  const half = RAMP.w / 2, cosA = Math.cos(RAMP.angle), sinA = Math.sin(RAMP.angle);
+  const s = -half + DOMINO.t * RAMP.w;
+  const dx = RAMP.cx + s * cosA, dy = RAMP.cy + s * sinA;
+  domino = add({ type: 'rect', x: dx, y: dy - DOMINO.h / 2 - 4, w: DOMINO.w, h: DOMINO.h, label: 'domino', density: 0.002, friction: 0.1 });
+  dominoStartAngle = domino.angle;
+  add({ type: 'rect', x: BASIN.C, y: BASIN.bedY, w: BASIN.W * 0.5, h: BASIN.bedT, isStatic: true, label: 'bed' });
+  const wl = Math.hypot(BASIN.W / 2, BASIN.D), lAngle = Math.atan2(BASIN.D, BASIN.W / 2);
+  add({ type: 'rect', x: BASIN.C - BASIN.W / 4, y: BASIN.bedY - BASIN.D / 2, w: wl, h: BASIN.bedT, angle: lAngle, isStatic: true, label: 'basinL' });
+  add({ type: 'rect', x: BASIN.C + BASIN.W / 4, y: BASIN.bedY - BASIN.D / 2, w: wl, h: BASIN.bedT, angle: -lAngle, isStatic: true, label: 'basinR' });
+  add({ type: 'rect', x: BALLOON.sx, y: 500, w: 70, h: 12, isStatic: true, label: 'pedestal' });
+  balloon = add({ type: 'circle', x: BALLOON.sx, y: BALLOON.sy, r: BALLOON.r, label: 'balloon', density: 0.00002, frictionAir: 0.02 });
+  const bx = RAMP.cx - half * cosA + 40, by = RAMP.cy - half * sinA - 30;
+  ball = add({ type: 'circle', x: bx, y: by, r: BALL_R, label: 'ball', density: 0.001, restitution: 0.2 });
+  return e.world;
+}
+
+function applyFan() {
+  Body.applyForce(balloon, balloon.position, { x: 0, y: Math.sin(-Math.PI / 2) * FAN_STRENGTH * balloon.mass });
+}
+
+// ── Drawing ──────────────────────────────────────────
+function drawStatic(b, color, stroke) {
+  ctx.save();
+  ctx.translate(b.position.x, b.position.y);
+  ctx.rotate(b.angle);
+  const hw = b.bounds.max.x - b.position.x;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = stroke; ctx.lineWidth = 2;
+  if (b.label === 'floor' || b.label === 'leftWall' || b.label === 'rightWall') { ctx.globalAlpha = .18; ctx.fillRect(-b.vertices[0].x, -hw * 0 + (b.bounds.max.y - b.bounds.min.y) / 2 - b.bounds.min.y, 0, 0); ctx.globalAlpha = 1; }
+  const w = b.bounds.max.x - b.bounds.min.x, h = b.bounds.max.y - b.bounds.min.y;
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+function drawFan() {
+  const fx = BALLOON.sx, fy = 548;
+  ctx.save(); ctx.translate(fx, fy);
+  ctx.fillStyle = '#2a3358'; ctx.strokeStyle = '#4a5688'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.rotate(fanAngle);
+  ctx.fillStyle = '#7f92d8';
+  for (let i = 0; i < 3; i++) {
+    ctx.rotate(Math.PI * 2 / 3);
+    ctx.beginPath(); ctx.ellipse(9, 0, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#cdd8ff'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawBall() {
+  ctx.save();
+  const g = ctx.createRadialGradient(ball.position.x - 7, ball.position.y - 8, 3, ball.position.x, ball.position.y, BALL_R);
+  g.addColorStop(0, '#ffd9a0'); g.addColorStop(.5, '#ff9f43'); g.addColorStop(1, '#c96a1e');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(ball.position.x, ball.position.y, BALL_R, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+function drawBalloon() {
+  ctx.save();
+  const bx = balloon.position.x, by = balloon.position.y;
+  ctx.strokeStyle = 'rgba(200,210,255,.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx, by + BALLOON.r); ctx.lineTo(BALLOON.sx, 498); ctx.stroke();
+  const g = ctx.createRadialGradient(bx - 8, by - 9, 3, bx, by, BALLOON.r);
+  g.addColorStop(0, '#ffb3c8'); g.addColorStop(.6, '#ff5d8f'); g.addColorStop(1, '#c22e63');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(bx, by, BALLOON.r, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(bx - 5, by + BALLOON.r); ctx.lineTo(bx + 5, by + BALLOON.r); ctx.lineTo(bx, by + BALLOON.r + 7); ctx.closePath();
+  ctx.fillStyle = '#c22e63'; ctx.fill();
+  ctx.restore();
+}
+function drawGoal() {
+  const t = performance.now() / 400;
+  ctx.save();
+  const pulse = 0.55 + 0.35 * Math.sin(t);
+  ctx.strokeStyle = `rgba(110,255,170,${pulse})`; ctx.lineWidth = 3;
+  ctx.setLineDash([10, 8]);
+  ctx.beginPath(); ctx.arc(GOAL.x, GOAL.y + 30, GOAL.r, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = `rgba(110,255,170,${pulse * 0.8})`;
+  ctx.font = 'bold 15px Segoe UI, system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('🎯 GOAL', GOAL.x, GOAL.y + 30 + 4);
+  ctx.restore();
+}
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function burst(x, y, n, color) {
+  for (let i = 0; i < n; i++) particles.push({
+    x, y, vx: (Math.random() - .5) * 7, vy: (Math.random() - .9) * 6,
+    life: 1, decay: .02 + Math.random() * .03, size: 2 + Math.random() * 3, color
+  });
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  // backdrop
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#101731'); bg.addColorStop(1, '#0b0f22');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(70,90,160,.14)'; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 45) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 45) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // statics
+  for (const b of Composite.allBodies(world)) {
+    if (!b.isStatic) continue;
+    if (b.label === 'floor') { ctx.fillStyle = '#1d2647'; ctx.fillRect(0, 570, W, 30); ctx.strokeStyle = '#3a4a8a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 570); ctx.lineTo(W, 570); ctx.stroke(); }
+    else if (b.label === 'leftWall' || b.label === 'rightWall') { ctx.fillStyle = '#171f3c'; const x = b.position.x; const w2 = 30; ctx.fillRect(x - w2 / 2, 0, w2, H); }
+    else if (b.label === 'ramp') { drawStatic(b, '#2c3a72', '#4a5db0'); }
+    else if (b.label === 'bed' || b.label === 'basinL' || b.label === 'basinR') { drawStatic(b, '#1f5c40', '#3fae7d'); }
+    else if (b.label === 'pedestal') { drawStatic(b, '#33406e', '#5568a8'); }
+  }
+  drawGoal(); drawFan(); drawBall(); drawBalloon();
+  // domino
+  ctx.save();
+  ctx.translate(domino.position.x, domino.position.y); ctx.rotate(domino.angle);
+  const w = DOMINO.w, h = DOMINO.h;
+  const dg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  dg.addColorStop(0, '#ff8a3d'); dg.addColorStop(1, '#e05a10');
+  ctx.fillStyle = dg; ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2; ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  for (let i = -1; i <= 1; i += 2) { ctx.beginPath(); ctx.arc(i * 5, i * 6, 2, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+  drawParticles();
+  // HUD chips
+  const dDeg = Math.abs(domino.angle - dominoStartAngle) * 180 / Math.PI;
+  if (dDeg > 20) chipDom.classList.add('done'); else chipDom.classList.remove('done');
+  chipDom.textContent = dDeg > 20 ? '🁢 Domino ✓' : '🁢 Domino';
+  if (won) chipGoal.classList.add('done'); else chipGoal.classList.remove('done');
+  chipGoal.textContent = won ? '🎯 Goal ✓' : '🎯 Goal';
+}
+
+// ── Loop & win logic ────────────────────────────────
+function step(ts) {
+  if (!running) return;
+  const dt = 1000 / 60;
+  applyFan();
+  Engine.update(engine, dt);
+  fanAngle += 0.45;
+  const dg = Math.hypot(ball.position.x - GOAL.x, ball.position.y - GOAL.y);
+  if (dg < GOAL.r) {
+    goalFrames++;
+    if (goalFrames > 8 && ball.speed < 3) {
+      won = true; running = false;
+      burst(GOAL.x, GOAL.y + 20, 60, '#7dffb0');
+      setTimeout(showWin, 900);
+      return;
+    }
+  } else goalFrames = 0;
+  if (ball.speed < 0.25 && dg > GOAL.r + 30 && ts - startTs > 12000) { showLose(); return; }
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += .15; p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  draw();
+  raf = requestAnimationFrame(step);
+}
+let startTs = 0;
+function start() {
+  if (running || won) return;
+  running = true; startTs = performance.now();
+  overlay.classList.add('hidden');
+  raf = requestAnimationFrame(step);
+}
+function showWin() {
+  ovTitle.textContent = '🎉 CHAIN COMPLETE!';
+  ovSub.innerHTML = 'The machine works — domino toppled, ball in the basin!<br>Every time, no luck involved.';
+  showOverlay('Play again');
+}
+function showLose() {
+  running = false;
+  ovTitle.textContent = '⚙️ JAMMED';
+  ovSub.innerHTML = 'The machine stalled this time.<br>Reset and try the machine again.';
+  showOverlay('Retry');
+}
+function showOverlay(btnTxt) {
+  document.getElementById('go-btn2').textContent = '▶ ' + btnTxt;
+  overlay.classList.remove('hidden');
+}
+function reset() {
+  if (raf) cancelAnimationFrame(raf);
+  running = false; won = false; goalFrames = 0; particles = [];
+  Composite.clear(world, false);
+  buildWorld();
+  chipDom.classList.remove('done'); chipGoal.classList.remove('done');
+  draw();
+  overlay.classList.add('hidden');
+}
+
+// ── Input ────────────────────────────────────────────
+document.getElementById('go-btn2').addEventListener('click', start);
+goBtn.addEventListener('click', start);
+document.getElementById('reset-btn').addEventListener('click', reset);
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); (running || won) ? reset() : start(); }
+  if (e.key === 'r' || e.key === 'R') reset();
+});
+
+// ── Boot ─────────────────────────────────────────────
+world = buildWorld();
+draw();
+</script>
+</body>
+</html>

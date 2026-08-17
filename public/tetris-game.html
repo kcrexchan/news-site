@@ -168,13 +168,14 @@ function collide(shape, px, py) {
   return false;
 }
 
-// Actual bounding box width of a piece shape (accounts for empty columns)
-function getPieceWidth(shape) {
-  let maxC = 0;
+// Actual content column bounds of a piece shape [leftmost, rightmost] (accounts for empty columns)
+function getPieceBounds(shape) {
+  let minC = Infinity, maxC = -1;
   for (let r = 0; r < shape.length; r++)
     for (let c = 0; c < shape[r].length; c++)
-      if (shape[r][c]) maxC = c + 1;
-  return maxC;
+      if (shape[r][c]) { if (c < minC) minC = c; if (c > maxC) maxC = c; }
+  if (maxC < 0) return [0, 0];
+  return [minC, maxC];
 }
 
 function merge() {
@@ -624,8 +625,8 @@ canvas.addEventListener('touchmove', (e) => {
   const blockY = rect.height / ROWS;
 
   // Horizontal: piece follows finger, snapped to grid columns
-  const pieceWidth = getPieceWidth(current.shape);
-  const targetCol = Math.max(0, Math.min(COLS - pieceWidth, touchStartCol + Math.round(dx / blockX)));
+  const [minC, maxC] = getPieceBounds(current.shape);
+  const targetCol = Math.max(-minC, Math.min(COLS - 1 - maxC, touchStartCol + Math.round(dx / blockX)));
   const diff = targetCol - current.x;
   if (diff > 0) for (let i = 0; i < diff; i++) { if (!movePiece(1, 0)) break; }
   if (diff < 0) for (let i = 0; i < Math.abs(diff); i++) { if (!movePiece(-1, 0)) break; }
@@ -660,9 +661,9 @@ canvas.addEventListener('mousedown', (e) => {
 canvas.addEventListener('mousemove', (e) => {
   if (!mouseDown || !current || gameOver || paused || clearingLines) return;
   const dx = e.clientX - mouseStartX;
-  // Clamp to valid range based on actual piece width
-  const pieceWidth = getPieceWidth(current.shape);
-  const targetCol = Math.max(0, Math.min(COLS - pieceWidth, mouseStartCol + Math.round(dx / BLOCK)));
+  // Clamp to valid range based on the piece's actual content column bounds
+  const [minC, maxC] = getPieceBounds(current.shape);
+  const targetCol = Math.max(-minC, Math.min(COLS - 1 - maxC, mouseStartCol + Math.round(dx / BLOCK)));
   const diff = targetCol - current.x;
   if (diff > 0) for (let i = 0; i < diff; i++) { if (!movePiece(1, 0)) break; }
   if (diff < 0) for (let i = 0; i < Math.abs(diff); i++) { if (!movePiece(-1, 0)) break; }
