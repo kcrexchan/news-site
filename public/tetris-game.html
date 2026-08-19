@@ -83,6 +83,14 @@ canvas#game-canvas { display:block; border-radius:4px; box-shadow:0 0 30px rgba(
   transition: transform 0.15s;
 }
 #lb-save-btn:hover { transform:scale(1.06); }
+#consent-row {
+  max-width:280px; margin:12px auto 0;
+  font-size:11px; line-height:1.5; color:#9aa0b8; text-align:left;
+}
+#consent-row label { display:flex; gap:8px; align-items:flex-start; cursor:pointer; }
+#consent-row input[type=checkbox] { margin-top:2px; accent-color:#6366f1; flex-shrink:0; }
+#consent-row a { color:#9aa0ff; text-decoration:none; }
+#consent-row a:hover { text-decoration:underline; }
 #lb-new-badge {
   color:#ffd700; font-weight:700; font-size:14px; letter-spacing:1px;
   margin-bottom:12px; text-shadow:0 0 12px rgba(255,215,0,0.6);
@@ -114,6 +122,12 @@ body { display:flex; flex-direction:column; height:100vh; }
     <div id="lb-input-row" class="hide">
       <input id="lb-name" type="text" maxlength="12" placeholder="YOUR NAME" autocomplete="off">
       <button id="lb-save-btn">SAVE</button>
+    </div>
+    <div id="consent-row" class="hide">
+      <label>
+        <input id="consent-check" type="checkbox">
+        <span>I agree that my IP address, browser info &amp; timestamp are stored with my score (GDPR/CCPA) · <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></span>
+      </label>
     </div>
     <div id="lb-panel">
       <h4>🏆 Leaderboard</h4>
@@ -638,6 +652,55 @@ let pendingEntry = null; // {score, level, lines} awaiting a name
 let lbList = [];         // in-memory shared board (from the API), or local fallback
 let lbSource = 'local';  // 'server' | 'local' — which store the board came from
 
+// ── GDPR/CCPA consent (required before a score may be saved) ──
+const CONSENT_KEY = 'tetris_consent_v1';
+let consentAccepted = false;
+try { consentAccepted = localStorage.getItem(CONSENT_KEY) === '1'; } catch {}
+
+function dismissConsentUI() {
+  // In-game consent row (this document).
+  const row = document.getElementById('consent-row');
+  if (row) row.classList.add('hide');
+  const saveBtn = document.getElementById('lb-save-btn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'SAVE'; }
+  // Footer text on the parent /tetris page (we run inside an iframe).
+  try {
+    const f = window.parent && window.parent.document
+      && window.parent.document.getElementById('consent-footer');
+    if (f) f.classList.add('consent-accepted');
+  } catch {}
+}
+function requireConsent() {
+  // Show the checkbox row and hold SAVE until it is ticked.
+  const row = document.getElementById('consent-row');
+  const check = document.getElementById('consent-check');
+  const saveBtn = document.getElementById('lb-save-btn');
+  if (!consentAccepted) {
+    check.checked = false;
+    row.classList.remove('hide');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'AGREE TO SAVE';
+  } else {
+    check.checked = true;
+    row.classList.add('hide');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'SAVE';
+  }
+}
+document.getElementById('consent-check').addEventListener('change', (e) => {
+  if (e.target.checked) {
+    consentAccepted = true;
+    try { localStorage.setItem(CONSENT_KEY, '1'); } catch {}
+    dismissConsentUI();
+  } else {
+    const saveBtn = document.getElementById('lb-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'AGREE TO SAVE';
+  }
+});
+// If consent was already given, dismiss the footer text on load.
+if (consentAccepted) dismissConsentUI();
+
 // ── local (offline) fallback ────────────────────────────────
 function localLoad() {
   try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
@@ -738,10 +801,17 @@ function recordScore() {
   row.classList.remove('hide');
   const input = document.getElementById('lb-name');
   input.value = '';
+  requireConsent();
   setTimeout(() => input.focus(), 60);
 }
 async function commitScore(name) {
   if (!pendingEntry) return;
+  // Consent is required before any score is written to the shared board.
+  if (!consentAccepted) {
+    const btn = document.getElementById('lb-save-btn');
+    btn.textContent = '⚠ ACCEPT THE PRIVACY CONSENT FIRST';
+    return;
+  }
   const entry = {
     name: (name || 'PLAYER').trim().slice(0, 12) || 'PLAYER',
     score: pendingEntry.score,
