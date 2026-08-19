@@ -1,90 +1,57 @@
 import React, { useRef, useEffect, useState } from 'react'
 import Head from 'next/head'
 
-// Level config — each level has a distinct brick PATTERN ('.' or '0' = gap, 1-9 = brick HP)
+// Level config — each level spells a name with bricks ('.' = gap, 1-9 = brick HP).
+// 12-column grid, each letter 3 columns wide, 5 rows tall.
 const LEVELS = {
   1: {
-    name: 'Forest', speed: 4, paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e',
-    colors: ['#3a6b1e','#5a9e3f','#7ab850','#c8a951','#d4923a','#c0552d'],
+    name: 'N I C', speed: 4, paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e',
+    colors: ['#5a9e3f','#7ab850','#c8a951','#5a9e3f','#7ab850'],
     pattern: [
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
+      '1.1.111.111',
+      '111..1..1..',
+      '1.1..1..1..',
+      '1.1..1..1..',
+      '1.1.111.111',
     ],
   },
   2: {
-    name: 'Checker', speed: 4.5, paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2',
-    colors: ['#1a3a5c','#1e5a8a','#2980b9','#3498db','#5dade2','#85c1e9'],
+    name: 'C O R Y', speed: 4.5, paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2',
+    colors: ['#2980b9','#3498db','#5dade2','#85c1e9','#2980b9'],
     pattern: [
-      '101010101010',
-      '010101010101',
-      '101010101010',
-      '010101010101',
-      '101010101010',
-      '010101010101',
-      '101010101010',
-      '010101010101',
+      '111.111.111.1.1',
+      '1...1.1.1.1.1.1',
+      '1...1.1.111..1.',
+      '1...1.1.1.1..1.',
+      '111.111.1.1..1.',
     ],
   },
   3: {
-    name: 'Pyramid', speed: 5, paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22',
-    colors: ['#6b1010','#a62525','#d4432e','#e67e22','#f39c12','#f5b041'],
+    name: 'L I S A', speed: 5, paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22',
+    colors: ['#d4432e','#f39c12','#e67e22','#f5b041','#d4432e'],
     pattern: [
-      '.....22.....',
-      '....2222....',
-      '...222222...',
-      '..22222222..',
-      '.2222222222.',
-      '222222222222',
+      '1...111.111.111',
+      '1....1..1...1.1',
+      '1....1..111.111',
+      '1....1....1.1.1',
+      '111.111.111.1.1',
     ],
   },
   4: {
-    name: 'Diamond', speed: 5, paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd',
-    colors: ['#2d1b69','#4a2c82','#6c3483','#8e44ad','#a569bd','#bb8fce'],
+    name: 'R E X', speed: 5.5, paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd',
+    colors: ['#8e44ad','#a569bd','#bb8fce','#8e44ad','#a569bd'],
     pattern: [
-      '.....11.....',
-      '....1111....',
-      '...111111...',
-      '..11111111..',
-      '..11111111..',
-      '...111111...',
-      '....1111....',
-      '.....11.....',
-    ],
-  },
-  5: {
-    name: 'Pillars', speed: 5.5, paddleColor: '#b7950b', ballColor: '#fef9e7', bg: '#141007', hudColor: '#f4d03f', subColor: '#d4ac0d',
-    colors: ['#7d6608','#b7950b','#d4ac0d','#f1c40f','#f7dc6f','#fdebd0'],
-    pattern: [
-      '110011001100',
-      '110011001100',
-      '110011001100',
-      '110011001100',
-      '110011001100',
-      '110011001100',
-      '110011001100',
-    ],
-  },
-  6: {
-    name: 'Fortress', speed: 6, paddleColor: '#c0392b', ballColor: '#fdedec', bg: '#150505', hudColor: '#f1948a', subColor: '#e74c3c',
-    colors: ['#78281f','#922b21','#c0392b','#e74c3c','#ec7063','#f5b7b1'],
-    pattern: [
-      '333333333333',
-      '3..........3',
-      '3..222222..3',
-      '3..222222..3',
-      '3..222222..3',
-      '3..........3',
-      '333333333333',
+      '111.111.1.1',
+      '1.1.1...1.1',
+      '111.111..1.',
+      '1.1.1...1.1',
+      '1.1.111.1.1',
     ],
   },
 }
 
-const MAX_LEVEL = 6
-const LEVEL_BTN_COLORS = ['#6b9e4a','#2980b9','#d4432e','#8e44ad','#b7950b','#c0392b']
+const MAX_LEVEL = 4
+const LEVEL_BTN_COLORS = ['#6b9e4a','#2980b9','#d4432e','#8e44ad']
 
 export default function Breakout() {
   const canvasRef = useRef(null)
@@ -393,7 +360,7 @@ export default function Breakout() {
           phase = 'won'
           setWon(true)
           drawPaddle(); drawBricks(); drawHUD()
-          drawOverlay('You Win! 🏆', `All 6 levels cleared · Final Score: ${scoreRef.current}`)
+          drawOverlay('You Win! 🏆', `All 4 levels cleared · Final Score: ${scoreRef.current}`)
         }
         return
       }
@@ -446,7 +413,7 @@ export default function Breakout() {
           }}>Play Again</button>
         )}
 
-        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Built with Canvas API · 6 Levels · Arrow keys / mouse / touch</div>
+        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Built with Canvas API · 4 Levels · Arrow keys / mouse / touch</div>
       </div>
     </>
   )

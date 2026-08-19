@@ -1,0 +1,65 @@
+{
+  "summary": "The local LLM landscape is heating up: vLLM v0.25.0 and Ollama v0.32.5 bring major performance boosts for quantized model inference. Tether QVAC released open-weight edge-optimized vision-language models for consumer smartphones, while MSI launched a dedicated PRO MAX EDGE AI+ desktop for offline 120B-parameter LLM deployment. On the hardware front, RTX 5090 benchmarks reveal that short generation, long context, and code tasks each need separate speed measurements for accurate sizing.",
+  "details": [
+    {
+      "title": "vLLM v0.25.0 & Ollama v0.32.5 Boost Local AI Performance",
+      "description": "vLLM v0.25.0 brings improved foundational LLM inference with enhanced quantized-model support, while Ollama v0.32.5 adds performance optimizations for local model runners. Together they represent significant upgrades for the open-source local AI ecosystem.",
+      "url": "https://media.patentllm.org/news/local-ai/vllm-v0-25-0-ollama-v0-32-5-boost-local-ai-katago-gets-new-t-20260730",
+      "source": "PatentLLM Blog"
+    },
+    {
+      "title": "Local LLM 2026: Every Major Model Release + Ollama Status",
+      "description": "As of July 2026, ten releases have moved past the Q1 2026 wave and now define the current state of the art for locally-runnable models, led by GLM-5.2 for raw capability, Kimi K2.6 and Laguna XS 2.1 for coding, and gpt-oss:20b for small-footprint deployment.",
+      "url": "https://www.promptquorum.com/local-llms/local-llm-model-updates-2026",
+      "source": "PromptQuorum"
+    },
+    {
+      "title": "The Best Open Source and Open-Weight LLM Models to Run Locally in 2026",
+      "description": "Hugging Face's curated guide covers the top open-weight models suitable for local deployment as of July 2026. Alibaba's Qwen3 is highlighted as the leading default choice for most developers, with DeepSeek R1 and Kimi K2.6 also featured for strong reasoning and capability.",
+      "url": "https://huggingface.co/blog/daya-shankar/open-source-llm-models-to-run-locally",
+      "source": "Hugging Face Blog"
+    },
+    {
+      "title": "Expanding on-device AI in Microsoft Edge: New Models and APIs for the Web",
+      "description": "Microsoft Edge introduces a developer preview of the Aion-1.0-Instruct small language model in Canary and Dev channels, alongside updated Phi-4-mini-powered Prompt and Writing Assistance APIs. These features enable on-device AI for web developers without cloud dependencies.",
+      "url": "https://blogs.windows.com/msedgedev/2026/06/02/expanding-on-device-ai-in-microsoft-edge-new-models-and-apis-for-the-web/",
+      "source": "Microsoft Edge Blog"
+    },
+    {
+      "title": "Local LLMs Are Getting Easier: The Complete Guide (2026)",
+      "description": "Running local LLMs has shifted from a hobbyist pursuit to a practical engineering decision as cloud API costs climb and rate limits throttle production workloads. The guide covers the full landscape of local inference tools, hardware requirements, and on-device deployment strategies.",
+      "url": "https://www.sitepoint.com/local-llms-are-getting-easier-the-complete-guide-2026/",
+      "source": "SitePoint"
+    },
+    {
+      "title": "On-Device AI Inference in 2026: Sub-20ms on Android, Real Benchmarks, and When to Go Edge",
+      "description": "Measured sub-20ms AI inference on a $400 Android device using 2025 chipsets, with ExecuTorch vs ONNX Runtime benchmarks for real-time production deployments. The article provides a 5-factor decision matrix for determining when on-device inference beats cloud-based alternatives.",
+      "url": "https://www.alephzerolabs.com/blog/on-device-ai-2026-sub-20ms",
+      "source": "AlephZero Labs"
+    },
+    {
+      "title": "On-Device AI Inference Trends in 2026: What's Actually Shipping",
+      "description": "Five trends making on-device AI the default in 2026: NPU stability on Snapdragon 8 Elite and Dimensity 9400, sub-1B LLMs at 12-15 tok/s, vision-camera pipelines, on-device RAG, and framework convergence. Covers what is already in production deployment.",
+      "url": "https://www.alephzerolabs.com/blog/on-device-ai-inference-trends-2026/",
+      "source": "AlephZero Labs"
+    },
+    {
+      "title": "Edge AI IoT devices are hitting mass market in 2026 — Here is why it is happening now",
+      "description": "Edge AI IoT devices are moving from pilot to mass-market in 2026, driven by rising cloud costs, memory shortages, and silicon that finally makes on-device intelligence affordable at scale. The inflection point arrives as NPUs become standard in consumer hardware.",
+      "url": "https://iottechnews.com/news/edge-ai-iot-devices-mass-market-inflection-2026/",
+      "source": "IoT Tech News"
+    },
+    {
+      "title": "Embedded World 2026: Bringing Edge AI Into The Real World",
+      "description": "The Synaptics Coral Dev Board showcases efficient on-device inference for both generative and perception-based AI, powered by Astra SL2610 and Google's Coral NPU. Pre-configured with the Gemma model and an open MLIR-based toolchain, it streamlines the path from prototyping to production.",
+      "url": "https://semiengineering.com/embedded-world-2026-bringing-edge-ai-into-the-real-world/",
+      "source": "SemiEngineering"
+    },
+    {
+      "title": "Edge AI in 2026: Running LLMs and Vision Models On-Device",
+      "description": "Apple Neural Engine, Qualcomm Hexagon NPU, MediaTek APU, and consumer GPUs have collectively made on-device AI not just feasible but often preferable. The guide covers how to quantize and deploy models effectively, and when to choose edge inference over cloud APIs in 2026.",
+      "url": "https://devstarsj.github.io/2026/02/21/edge-ai-on-device-inference-guide/",
+      "source": "DevStarsJ"
+    }
+  ]
+}

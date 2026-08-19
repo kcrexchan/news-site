@@ -12,7 +12,7 @@ const games = [
     features: [
       'Arrow keys or mouse to control paddle',
       'Ball speeds up with each paddle hit',
-      '6 rows of bricks to clear',
+      '4 levels — each one spells a name in bricks',
       '3 lives — don\'t let the ball drop!',
     ],
   },
