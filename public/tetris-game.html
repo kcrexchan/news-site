@@ -52,6 +52,44 @@ canvas#game-canvas { display:block; border-radius:4px; box-shadow:0 0 30px rgba(
 }
 #hard-drop-btn:active { background:radial-gradient(circle,rgba(90,90,160,0.7),rgba(50,50,100,0.8)); }
 
+/* ── Leaderboard ── */
+.hide { display:none !important; }
+#lb-panel {
+  width:280px; max-height:210px; overflow-y:auto;
+  background:rgba(20,20,42,0.85); border:1px solid #2a2a55; border-radius:10px;
+  margin-bottom:18px; padding:10px 12px;
+}
+#lb-panel h4 { font-size:12px; letter-spacing:2px; text-transform:uppercase; color:#a5b4fc; margin-bottom:8px; text-align:center; }
+.lb-row { display:flex; align-items:center; gap:8px; padding:4px 6px; font-size:13px; border-radius:6px; }
+.lb-row .rank { width:22px; color:#889; font-weight:700; text-align:center; flex-shrink:0; }
+.lb-row .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lb-row .sc { font-weight:700; color:#fff; }
+.lb-row .dt { font-size:10px; color:#667; flex-shrink:0; }
+.lb-row.me { background:rgba(99,102,241,0.25); box-shadow:0 0 12px rgba(99,102,241,0.3); }
+.lb-row .rank.gold { color:#ffd700; }
+.lb-row .rank.silver { color:#c0c0c0; }
+.lb-row .rank.bronze { color:#cd7f32; }
+.lb-empty { color:#667; font-size:13px; text-align:center; padding:8px; }
+#lb-input-row { display:flex; gap:8px; width:280px; margin-bottom:14px; }
+#lb-name {
+  flex:1; padding:10px 12px; font-size:15px; border-radius:8px;
+  border:1px solid #3a3a6a; background:#14142a; color:#fff; outline:none;
+  text-transform:uppercase; font-family:inherit;
+}
+#lb-name:focus { border-color:#6366f1; box-shadow:0 0 10px rgba(99,102,241,0.4); }
+#lb-save-btn {
+  padding:10px 18px; font-size:14px; font-weight:700; border:none; border-radius:8px;
+  cursor:pointer; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff;
+  transition: transform 0.15s;
+}
+#lb-save-btn:hover { transform:scale(1.06); }
+#lb-new-badge {
+  color:#ffd700; font-weight:700; font-size:14px; letter-spacing:1px;
+  margin-bottom:12px; text-shadow:0 0 12px rgba(255,215,0,0.6);
+  animation:lbPulse 1s ease-in-out infinite;
+}
+@keyframes lbPulse { 50% { opacity:0.55; } }
+
 body { display:flex; flex-direction:column; height:100vh; }
 @media (pointer:coarse) { #hard-drop-btn { display:block; } }
 </style>
@@ -62,6 +100,7 @@ body { display:flex; flex-direction:column; height:100vh; }
   <div class="top-stat"><h3>Score</h3><div class="val" id="score">0</div></div>
   <div class="top-stat"><h3>Level</h3><div class="val" id="level">1</div></div>
   <div class="top-stat"><h3>Lines</h3><div class="val" id="lines">0</div></div>
+  <div class="top-stat"><h3>Best</h3><div class="val" id="best">0</div></div>
   <div class="top-stat"><h3>Next</h3><canvas id="next-canvas" width="80" height="80"></canvas></div>
 </div>
 
@@ -71,6 +110,15 @@ body { display:flex; flex-direction:column; height:100vh; }
   <div id="overlay">
     <h1>🎮 TETRIS</h1>
     <div class="subtitle">Arrow keys / swipe to play<br>Space to hard drop · P to pause</div>
+    <div id="lb-new-badge" class="hide"></div>
+    <div id="lb-input-row" class="hide">
+      <input id="lb-name" type="text" maxlength="12" placeholder="YOUR NAME" autocomplete="off">
+      <button id="lb-save-btn">SAVE</button>
+    </div>
+    <div id="lb-panel">
+      <h4>🏆 Leaderboard</h4>
+      <div id="lb-rows"></div>
+    </div>
     <button id="start-btn">START</button>
   </div>
 </div>
@@ -197,6 +245,7 @@ function spawnPiece() {
     gameOver = true;
     running = false;
     showOverlay('GAME OVER', `Score: ${score.toLocaleString()}  •  Level ${level}`);
+    recordScore();
     return;
   }
 
@@ -578,7 +627,99 @@ function updateUI() {
   document.getElementById('score').textContent = score.toLocaleString();
   document.getElementById('level').textContent = level;
   document.getElementById('lines').textContent = lines;
+  document.getElementById('best').textContent = getBest().toLocaleString();
 }
+
+// ─── Leaderboard ─────────────────────────────────────────
+const LB_KEY = 'tetris_leaderboard';
+const LB_MAX = 10;
+let pendingEntry = null; // {score, level, lines} awaiting a name
+
+function loadLB() {
+  try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
+  catch { return []; }
+}
+function saveLB(list) {
+  try { localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0, LB_MAX))); } catch {}
+}
+function getBest() {
+  const list = loadLB();
+  return list.length ? list[0].score : 0;
+}
+function qualifies(s) {
+  const list = loadLB();
+  if (list.length < LB_MAX) return s > 0;
+  return s > list[list.length - 1].score;
+}
+function rankClass(i) {
+  if (i === 0) return 'gold';
+  if (i === 1) return 'silver';
+  if (i === 2) return 'bronze';
+  return '';
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderLB(meScore) {
+  const rows = document.getElementById('lb-rows');
+  const list = loadLB();
+  if (!list.length) {
+    rows.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>';
+    return;
+  }
+  rows.innerHTML = list.map((e, i) => {
+    const me = meScore != null && e.score === meScore && e.me ? ' me' : '';
+    return `<div class="lb-row${me}">
+      <span class="rank ${rankClass(i)}">${i + 1}</span>
+      <span class="nm">${escapeHtml(e.name)}</span>
+      <span class="sc">${e.score.toLocaleString()}</span>
+      <span class="dt">L${e.level}</span>
+    </div>`;
+  }).join('');
+}
+function recordScore() {
+  if (score <= 0) return;
+  if (!qualifies(score)) {
+    renderLB();
+    return;
+  }
+  pendingEntry = { score, level, lines };
+  const badge = document.getElementById('lb-new-badge');
+  badge.textContent = `★ NEW TOP SCORE — ${score.toLocaleString()} ★`;
+  badge.classList.remove('hide');
+  const row = document.getElementById('lb-input-row');
+  row.classList.remove('hide');
+  const input = document.getElementById('lb-name');
+  input.value = '';
+  setTimeout(() => input.focus(), 60);
+}
+function commitScore(name) {
+  if (!pendingEntry) return;
+  const list = loadLB();
+  const entry = {
+    name: (name || 'PLAYER').trim().slice(0, 12) || 'PLAYER',
+    score: pendingEntry.score,
+    level: pendingEntry.level,
+    lines: pendingEntry.lines,
+    me: true
+  };
+  list.forEach(e => e.me = false);
+  list.push(entry);
+  list.sort((a, b) => b.score - a.score);
+  saveLB(list);
+  pendingEntry = null;
+  document.getElementById('lb-new-badge').classList.add('hide');
+  document.getElementById('lb-input-row').classList.add('hide');
+  renderLB(entry.score);
+  document.getElementById('best').textContent = getBest().toLocaleString();
+}
+document.getElementById('lb-save-btn').addEventListener('click', () => {
+  commitScore(document.getElementById('lb-name').value);
+});
+document.getElementById('lb-name').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') commitScore(e.target.value);
+});
 
 // Keyboard
 document.addEventListener('keydown', (e) => {
@@ -679,6 +820,8 @@ function showOverlay(title, subtitle) {
   ov.querySelector('h1').textContent = title;
   ov.querySelector('.subtitle').textContent = subtitle || '';
   document.getElementById('start-btn').textContent = 'PLAY';
+  // Show the leaderboard (unless recordScore already opened the name entry)
+  if (!pendingEntry) renderLB();
 }
 
 // ─── Start / Reset ───────────────────────────────────────
@@ -697,6 +840,11 @@ function startGame() {
   clearFlash = 0;
   bag = [];
 
+  // Reset any pending leaderboard name-entry from a previous game
+  pendingEntry = null;
+  document.getElementById('lb-new-badge').classList.add('hide');
+  document.getElementById('lb-input-row').classList.add('hide');
+
   // Pick the first next piece from a fresh bag
   nextType = nextFromBag();
 
@@ -714,6 +862,8 @@ document.getElementById('start-btn').addEventListener('click', startGame);
 // Initial draw (empty board behind overlay)
 board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
 draw();
+renderLB();
+document.getElementById('best').textContent = getBest().toLocaleString();
 </script>
 </body>
 </html>
