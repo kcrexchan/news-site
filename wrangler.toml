@@ -7,3 +7,9 @@ compatibility_flags = [ "nodejs_compat" ]
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+
+# R2 bucket for the shared Tetris leaderboard (API route reads/writes here).
+# Reuses the same bucket OpenNext auto-creates for its incremental cache.
+[[r2_buckets]]
+binding = "TETRIS_LEADERBOARD"
+bucket_name = "news-site-opennext-cache"

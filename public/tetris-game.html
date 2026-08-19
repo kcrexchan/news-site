@@ -633,21 +633,67 @@ function updateUI() {
 // ─── Leaderboard ─────────────────────────────────────────
 const LB_KEY = 'tetris_leaderboard';
 const LB_MAX = 10;
+const LB_API = '/api/tetris/leaderboard';
 let pendingEntry = null; // {score, level, lines} awaiting a name
+let lbList = [];         // in-memory shared board (from the API), or local fallback
+let lbSource = 'local';  // 'server' | 'local' — which store the board came from
 
-function loadLB() {
+// ── local (offline) fallback ────────────────────────────────
+function localLoad() {
   try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
   catch { return []; }
 }
-function saveLB(list) {
+function localSave(list) {
   try { localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0, LB_MAX))); } catch {}
 }
+
+// ── shared board via the R2-backed API ──────────────────────
+async function fetchBoard() {
+  const r = await fetch(LB_API, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const data = await r.json();
+  const list = Array.isArray(data.scores) ? data.scores : (Array.isArray(data) ? data : []);
+  lbList = list.map(e => ({
+    name: String(e.name ?? 'PLAYER').slice(0, 12) || 'PLAYER',
+    score: Number(e.score) || 0,
+    level: Number(e.level) || 1,
+    lines: Number(e.lines) || 0,
+    me: false,
+  }));
+  lbSource = 'server';
+  return lbList;
+}
+
+async function submitBoard(entry) {
+  const r = await fetch(LB_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const data = await r.json();
+  const list = Array.isArray(data.scores) ? data.scores : (Array.isArray(data) ? data : []);
+  lbList = list.map(e => ({
+    name: String(e.name ?? 'PLAYER').slice(0, 12) || 'PLAYER',
+    score: Number(e.score) || 0,
+    level: Number(e.level) || 1,
+    lines: Number(e.lines) || 0,
+    me: false,
+  }));
+  lbSource = 'server';
+  return lbList;
+}
+
+// Best score currently visible (shared board first, local as a floor).
 function getBest() {
-  const list = loadLB();
-  return list.length ? list[0].score : 0;
+  const local = localLoad();
+  const bestLocal = local.length ? local[0].score : 0;
+  const bestServer = lbList.length ? lbList[0].score : 0;
+  return Math.max(bestLocal, bestServer);
 }
 function qualifies(s) {
-  const list = loadLB();
+  if (lbList.length === 0) return s > 0; // board not loaded yet — let them try
+  const list = lbList.length < LB_MAX ? lbList : lbList.slice(0, LB_MAX);
   if (list.length < LB_MAX) return s > 0;
   return s > list[list.length - 1].score;
 }
@@ -663,7 +709,7 @@ function escapeHtml(s) {
 }
 function renderLB(meScore) {
   const rows = document.getElementById('lb-rows');
-  const list = loadLB();
+  const list = lbList;
   if (!list.length) {
     rows.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>';
     return;
@@ -694,25 +740,56 @@ function recordScore() {
   input.value = '';
   setTimeout(() => input.focus(), 60);
 }
-function commitScore(name) {
+async function commitScore(name) {
   if (!pendingEntry) return;
-  const list = loadLB();
   const entry = {
     name: (name || 'PLAYER').trim().slice(0, 12) || 'PLAYER',
     score: pendingEntry.score,
     level: pendingEntry.level,
     lines: pendingEntry.lines,
-    me: true
   };
-  list.forEach(e => e.me = false);
-  list.push(entry);
-  list.sort((a, b) => b.score - a.score);
-  saveLB(list);
   pendingEntry = null;
-  document.getElementById('lb-new-badge').classList.add('hide');
-  document.getElementById('lb-input-row').classList.add('hide');
-  renderLB(entry.score);
-  document.getElementById('best').textContent = getBest().toLocaleString();
+
+  // Prevent double-submits while the request is in flight.
+  const saveBtn = document.getElementById('lb-save-btn');
+  if (saveBtn.disabled) return;
+  saveBtn.disabled = true;
+  const prevLabel = saveBtn.textContent;
+  saveBtn.textContent = 'SAVING…';
+
+  let ok = false;
+  try {
+    await submitBoard(entry);
+    ok = true;
+  } catch (err) {
+    // Server unreachable — fall back to the local board so the score isn't lost.
+    try {
+      const list = localLoad();
+      list.push({ ...entry, me: true });
+      list.sort((a, b) => b.score - a.score);
+      const top = list.slice(0, LB_MAX);
+      localSave(top);
+      lbList = top;
+      lbSource = 'local';
+      ok = true;
+    } catch {}
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = prevLabel;
+  }
+
+  if (ok) {
+    // Highlight the row we just submitted (match on score + name).
+    lbList.forEach(e => { e.me = (e.score === entry.score && e.name === entry.name); });
+    document.getElementById('lb-new-badge').classList.add('hide');
+    document.getElementById('lb-input-row').classList.add('hide');
+    renderLB(entry.score);
+    document.getElementById('best').textContent = getBest().toLocaleString();
+  } else {
+    // Both stores failed (very unusual) — keep the prompt so they can retry.
+    document.getElementById('lb-new-badge').textContent =
+      '⚠ Could not save — tap SAVE to retry';
+  }
 }
 document.getElementById('lb-save-btn').addEventListener('click', () => {
   commitScore(document.getElementById('lb-name').value);
@@ -720,6 +797,20 @@ document.getElementById('lb-save-btn').addEventListener('click', () => {
 document.getElementById('lb-name').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') commitScore(e.target.value);
 });
+
+// Load the shared board on startup so the "top 10" + qualifies() are accurate.
+fetchBoard()
+  .then(() => {
+    renderLB();
+    document.getElementById('best').textContent = getBest().toLocaleString();
+  })
+  .catch(() => {
+    // Offline / API down — seed the in-memory board from local storage.
+    lbList = localLoad().map(e => ({ ...e, me: false }));
+    lbSource = 'local';
+    renderLB();
+    document.getElementById('best').textContent = getBest().toLocaleString();
+  });
 
 // Keyboard
 document.addEventListener('keydown', (e) => {
