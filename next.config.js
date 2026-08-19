@@ -24,9 +24,9 @@ if (fs.existsSync(homepage)) {
   if (html.includes('__BUILD_TIME__')) {
     const d = new Date()
     const stamp =
-      d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) +
+      d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' }) +
       ' \u00b7 Updated at ' +
-      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: 'America/Los_Angeles' })
     fs.writeFileSync(homepage, html.split('__BUILD_TIME__').join(stamp), 'utf-8')
     console.log(`\u2713 stamped public/index.html build time: ${stamp}`)
   }
