@@ -19,6 +19,30 @@ function emptyBoard() {
   return { updated: new Date(0).toISOString(), scores: [] };
 }
 
+// ── request metadata (stored backend-side only, never returned) ──
+function clientIp(req) {
+  const h = req.headers || {};
+  return (
+    h["cf-connecting-ip"] ||
+    (h["x-forwarded-for"] || "").split(",")[0].trim() ||
+    ""
+  );
+}
+function captureMeta(req) {
+  return {
+    ip: clientIp(req),
+    ua: String(req.headers?.["user-agent"] || "").slice(0, 300),
+    ts: new Date().toISOString(),
+  };
+}
+// Strip server-only fields before sending a board to any client.
+function publicBoard(board) {
+  return {
+    updated: board.updated,
+    scores: board.scores.map(({ meta, ...rest }) => rest),
+  };
+}
+
 function normalizeBoard(raw) {
   if (!raw || typeof raw !== "object") return emptyBoard();
   const scores = Array.isArray(raw.scores) ? raw.scores : Array.isArray(raw) ? raw : [];
@@ -28,6 +52,7 @@ function normalizeBoard(raw) {
       score: Math.max(0, Math.floor(Number(e?.score) || 0)),
       level: Math.max(1, Math.floor(Number(e?.level) || 1)),
       lines: Math.max(0, Math.floor(Number(e?.lines) || 0)),
+      ...(e?.meta && typeof e.meta === "object" ? { meta: e.meta } : {}),
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_ENTRIES);
@@ -37,13 +62,14 @@ function normalizeBoard(raw) {
   };
 }
 
-function mergeEntry(board, entry) {
+function mergeEntry(board, entry, meta) {
   const scores = board.scores.map((s) => ({ ...s }));
   scores.push({
     name: String(entry.name ?? "PLAYER").trim().slice(0, 12) || "PLAYER",
     score: Math.max(0, Math.floor(Number(entry.score) || 0)),
     level: Math.max(1, Math.floor(Number(entry.level) || 1)),
     lines: Math.max(0, Math.floor(Number(entry.lines) || 0)),
+    ...(meta ? { meta } : {}),
   });
   scores.sort((a, b) => b.score - a.score);
   return { updated: new Date().toISOString(), scores: scores.slice(0, MAX_ENTRIES) };
@@ -87,7 +113,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const { board } = await readBoard(bkt);
-      return json(res, 200, board);
+      return json(res, 200, publicBoard(board));
     }
 
     if (req.method === "POST") {
@@ -102,11 +128,12 @@ export default async function handler(req, res) {
         level: body.level,
         lines: body.lines,
       };
+      const meta = captureMeta(req);
 
       // Optimistic-concurrency loop: read -> merge -> conditional put.
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         const { board, etag } = await readBoard(bkt);
-        const next = mergeEntry(board, entry);
+        const next = mergeEntry(board, entry, meta);
         const putOpts = {
           httpMetadata: { contentType: "application/json" },
         };
@@ -115,7 +142,7 @@ export default async function handler(req, res) {
         if (etag) putOpts.httpEtag = etag;
         try {
           await bkt.put(OBJECT_KEY, JSON.stringify(next), putOpts);
-          return json(res, 200, next);
+          return json(res, 200, publicBoard(next));
         } catch (err) {
           // 412 Precondition Failed == someone else wrote first -> retry.
           const status = err?.status ?? err?.statusCode;
