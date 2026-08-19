@@ -6,11 +6,15 @@ export default function TetrisPage() {
   return (
     <>
       <Head><title>Tetris 🌿</title></Head>
-      <div style={{position:'relative', width:'100vw', height:'100vh'}}>
+      <div style={{position:'relative', width:'100vw', height:'100vh', display:'flex', flexDirection:'column'}}>
         <button onClick={() => router.push('/')} style={{position:'fixed',top:16,left:16,zIndex:9999,padding:'10px 20px',fontSize:'18px',fontWeight:'bold',background:'rgba(0,0,0,0.85)',color:'#fff',border:'2px solid rgba(255,255,255,0.3)',borderRadius:'10px',cursor:'pointer',boxShadow:'0 2px 8px rgba(0,0,0,0.5)'}}>
           ← Home
         </button>
-        <iframe src="/tetris-game.html" style={{width:'100%',height:'100%',border:'none'}} title="Tetris Game" />
+        <iframe src="/tetris-game.html" style={{width:'100%',flex:'1 1 auto',border:'none',minHeight:0}} title="Tetris Game" />
+        <footer style={{flexShrink:0,padding:'8px 16px 10px',textAlign:'center',fontSize:'11px',lineHeight:'1.5',color:'#8b90a0',background:'rgba(10,10,10,0.95)',borderTop:'1px solid rgba(128,128,128,0.15)'}}>
+          By submitting a score you consent to us storing your IP address, browser user-agent, and timestamp with your entry (GDPR/CCPA).
+          See our <a href="/privacy" style={{color:'#9aa0ff',textDecoration:'none'}}><u>Privacy Policy</u></a>.
+        </footer>
       </div>
     </>
   )
