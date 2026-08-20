@@ -177,6 +177,121 @@ const SHAPES = {
 };
 const SHAPE_NAMES = Object.keys(SHAPES);
 
+// ─── Audio Engine (Web Audio, no assets) ─────────────────
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function noiseBuffer(ctx, dur) {
+  const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+}
+
+// Explosion: filtered noise burst + sub thump. pitch 0..1 (sweep position → rising pitch L→R)
+function playExplosion(pitch, big) {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  // Noise crackle
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(ctx, 0.25);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  const base = 400 + pitch * 1800 + (big ? 800 : 0);
+  lp.frequency.setValueAtTime(base * 3, t);
+  lp.frequency.exponentialRampToValueAtTime(200, t + 0.22);
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(big ? 0.5 : 0.3, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  src.connect(lp).connect(ng).connect(ctx.destination);
+  src.start(t); src.stop(t + 0.26);
+  // Sub thump
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(120 + pitch * 60, t);
+  osc.frequency.exponentialRampToValueAtTime(40, t + 0.18);
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(big ? 0.6 : 0.35, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  osc.connect(og).connect(ctx.destination);
+  osc.start(t); osc.stop(t + 0.22);
+}
+
+// Line-clear fanfare: rising arpeggio, one note per cleared line + Tetris chord
+function playLineClear(n, isTetris) {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 D5 G5 C6
+  for (let i = 0; i < n && i < 4; i++) {
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = notes[i];
+    const g = ctx.createGain();
+    const st = t + i * 0.07;
+    g.gain.setValueAtTime(0.001, st);
+    g.gain.exponentialRampToValueAtTime(0.25, st + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, st + 0.3);
+    o.connect(g).connect(ctx.destination);
+    o.start(st); o.stop(st + 0.32);
+  }
+  if (isTetris) {
+    // Big chord blast
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f;
+      const g = ctx.createGain();
+      const st = t + 0.35 + i * 0.03;
+      g.gain.setValueAtTime(0.001, st);
+      g.gain.exponentialRampToValueAtTime(0.18, st + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, st + 0.9);
+      o.connect(g).connect(ctx.destination);
+      o.start(st); o.stop(st + 0.95);
+    });
+  }
+}
+
+// Small UI/game sounds
+function playHardDrop() {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator();
+  o.type = 'square';
+  o.frequency.setValueAtTime(180, t);
+  o.frequency.exponentialRampToValueAtTime(60, t + 0.08);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.2, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  o.connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + 0.12);
+}
+
+function playLock() {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(220, t);
+  o.frequency.exponentialRampToValueAtTime(110, t + 0.06);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.12, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+  o.connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + 0.1);
+}
+
 // ─── 7-Bag Randomizer ───────────────────────────────────
 let bag = [];
 
@@ -197,7 +312,7 @@ let board, current, nextType;
 let score, level, lines;
 let gameOver, paused, running;
 let dropInterval, dropTimer;
-let particles = [], rings = [], shakeIntensity = 0, shakeX = 0, shakeY = 0;
+let particles = [], rings = [], shakeIntensity = 0, shakeX = 0, shakeY = 0, screenFlash = 0;
 let clearingLines = false, clearRows = [], clearProgress = 0, explosionDone = new Set(), clearTetris = false;
 let debugMode = false, fpsCounter = 0, fpsTime = 0, currentFps = 0;
 let levelUpFlash = 0, previousLevel = 0;
@@ -297,6 +412,7 @@ function spawnPiece() {
 // ─── Lock a piece and handle the aftermath ───────────────
 function lockPiece() {
   merge();
+  playLock();
   scanLines();
   // If no lines are being cleared, spawn the next piece right away
   // (If lines are clearing, spawn happens in removeClearedRows after the animation)
@@ -315,6 +431,8 @@ function scanLines() {
 
   const isTetris = filled.length === 4;
 
+  playLineClear(filled.length, isTetris);
+  screenFlash = isTetris ? 0.85 : 0.45 + filled.length * 0.08;
   shakeIntensity = isTetris ? 15 : filled.length * 3;
   clearingLines = true;
   clearRows = filled;
@@ -478,6 +596,12 @@ function draw() {
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
 
+  // Line-clear screen flash (full-canvas white burst)
+  if (screenFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${screenFlash * (clearTetris ? 0.9 : 0.6)})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
   // Pause overlay
   if (paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -584,6 +708,10 @@ function explodeBlock(r, c) {
 }
 
 function updateEffects() {
+  if (screenFlash > 0) {
+    screenFlash *= 0.8;
+    if (screenFlash < 0.02) screenFlash = 0;
+  }
   if (shakeIntensity > 0) {
     shakeX = (Math.random() - 0.5) * shakeIntensity;
     shakeY = (Math.random() - 0.5) * shakeIntensity;
@@ -604,7 +732,7 @@ function updateEffects() {
     if (rg.life <= 0) rings.splice(i, 1);
   }
   if (clearingLines) {
-    clearProgress += 1 / 60;
+    clearProgress += 2 / 60; // 500ms total (2x the 1s baseline)
     // Explode each block as the left→right sweep passes it (sweep covers 0..0.85, done by 1.0)
     for (const r of clearRows) {
       for (let c = 0; c < COLS; c++) {
@@ -696,6 +824,7 @@ function hardDrop() {
   }
   score += dropped * 2;
   updateUI();
+  playHardDrop();
 
   // Impact particles along the bottom row of the piece
   const bottomRow = current.y + current.shape.length - 1;
@@ -1079,6 +1208,7 @@ function startGame() {
   particles = [];
   rings = [];
   shakeIntensity = 0;
+  screenFlash = 0;
   clearingLines = false;
   clearRows = [];
   clearProgress = 0;
