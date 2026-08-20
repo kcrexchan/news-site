@@ -353,10 +353,10 @@ export default function Breakout() {
       ctx.fillRect(0, 0, W, H)
 
       let targetX = paddleX
-      if (keysDown['ArrowRight']) targetX = paddleX + 12
-      else if (keysDown['ArrowLeft']) targetX = paddleX - 12
+      if (keysDown['ArrowRight']) targetX = paddleX + 18
+      else if (keysDown['ArrowLeft']) targetX = paddleX - 18
       else if (mouseX !== null) targetX = mouseX - paddleW / 2
-      paddleX += (targetX - paddleX) * 0.3
+      paddleX += (targetX - paddleX) * 0.45
       paddleX = Math.max(0, Math.min(W - paddleW, paddleX))
 
       const targetW = wideHits > 0 ? paddleBaseW * 1.5 : paddleBaseW
