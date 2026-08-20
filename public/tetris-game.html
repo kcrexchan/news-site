@@ -8,18 +8,13 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 html,body { height:100%; overflow:hidden; background:#0a0a1a; font-family:'Segoe UI',system-ui,sans-serif; color:#e0e0e0; }
 
-#top-bar {
-  display:flex; align-items:center; justify-content:space-around;
-  padding:8px 12px; background:linear-gradient(180deg,#14142a,#0e0e20);
-  border-bottom:2px solid #252545; min-height:56px; flex-shrink:0; box-shadow:0 2px 20px rgba(0,0,0,0.5);
-}
 .top-stat { text-align:center; }
 .top-stat h3 { font-size:11px; text-transform:uppercase; letter-spacing:2px; color:#889; margin-bottom:3px; }
 .top-stat .val { font-size:20px; font-weight:700; color:#fff; text-shadow:0 0 10px rgba(120,120,255,0.3); }
 
 #game-area {
   flex:1; display:flex; align-items:stretch; justify-content:center;
-  position:relative; overflow:hidden; gap:14px;
+  position:relative; overflow:hidden; gap:10px;
 }
 #board-wrap {
   position:relative; flex:1; min-width:0;
@@ -27,10 +22,20 @@ html,body { height:100%; overflow:hidden; background:#0a0a1a; font-family:'Segoe
 }
 .side-panel {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:16px; padding:10px 16px; flex-shrink:0;
+  gap:14px; padding:8px 10px; flex-shrink:0;
   background:linear-gradient(180deg,#14142a,#0e0e20);
   border:2px solid #252545; border-radius:10px;
   box-shadow:0 2px 20px rgba(0,0,0,0.5);
+}
+.side-panel .top-stat h3 { font-size:10px; letter-spacing:1px; }
+.side-panel .top-stat .val { font-size:17px; }
+.side-panel #next-canvas { width:56px; height:56px; }
+@media (min-width:700px) {
+  #game-area { gap:14px; }
+  .side-panel { gap:16px; padding:10px 16px; }
+  .side-panel .top-stat h3 { font-size:11px; letter-spacing:2px; }
+  .side-panel .top-stat .val { font-size:20px; }
+  .side-panel #next-canvas { width:80px; height:80px; }
 }
 
 canvas#game-canvas { display:block; border-radius:4px; box-shadow:0 0 30px rgba(99,102,241,0.15); }
@@ -115,16 +120,12 @@ body { display:flex; flex-direction:column; height:100vh; }
 </head>
 <body>
 
-<div id="top-bar">
-  <div class="top-stat"><h3>Score</h3><div class="val" id="score">0</div></div>
-  <div class="top-stat"><h3>Level</h3><div class="val" id="level">1</div></div>
-  <div class="top-stat"><h3>Lines</h3><div class="val" id="lines">0</div></div>
-  <div class="top-stat"><h3>Best</h3><div class="val" id="best">0</div></div>
-  <div class="top-stat"><h3>Next</h3><canvas id="next-canvas" width="80" height="80"></canvas></div>
-</div>
-
 <div id="game-area">
-  <div class="side-panel" id="panel-left"></div>
+  <div class="side-panel" id="panel-left">
+    <div class="top-stat"><h3>Score</h3><div class="val" id="score">0</div></div>
+    <div class="top-stat"><h3>Level</h3><div class="val" id="level">1</div></div>
+    <div class="top-stat"><h3>Lines</h3><div class="val" id="lines">0</div></div>
+  </div>
   <div id="board-wrap">
     <canvas id="game-canvas"></canvas>
     <button id="hard-drop-btn">⬇</button>
@@ -149,7 +150,10 @@ body { display:flex; flex-direction:column; height:100vh; }
     <button id="start-btn">START</button>
     </div>
   </div>
-  <div class="side-panel" id="panel-right"></div>
+  <div class="side-panel" id="panel-right">
+    <div class="top-stat"><h3>Best</h3><div class="val" id="best">0</div></div>
+    <div class="top-stat"><h3>Next</h3><canvas id="next-canvas" width="80" height="80"></canvas></div>
+  </div>
 </div>
 
 <script>
@@ -206,45 +210,18 @@ const nextCanvas = document.getElementById('next-canvas');
 const nextCtx = nextCanvas.getContext('2d');
 let BLOCK = 30;
 
-// ─── Responsive layout: side panels when there's room, top bar otherwise ───
-const topBar = document.getElementById('top-bar');
+// ─── Responsive layout: stats always on the sides of the board ───
 const panelLeft = document.getElementById('panel-left');
 const panelRight = document.getElementById('panel-right');
-const statScore = document.getElementById('score').closest('.top-stat');
-const statLevel = document.getElementById('level').closest('.top-stat');
-const statLines = document.getElementById('lines').closest('.top-stat');
-const statBest = document.getElementById('best').closest('.top-stat');
-const statNext = document.getElementById('next-canvas').closest('.top-stat');
-const PANEL_W = 132, GAP = 14;
 
 function applyLayout() {
   const area = document.getElementById('game-area');
   const areaW = area.clientWidth, areaH = area.clientHeight;
   const maxH = areaH - 10;
-  const blockFull = Math.max(18, Math.min(Math.floor(maxH / ROWS), Math.floor((areaW - 10) / COLS)));
-  const boardW = blockFull * COLS;
-  const fits = boardW + 2 * PANEL_W + 2 * GAP <= areaW - 10;
-  let block;
-  if (fits) {
-    // Stats on the sides: Score/Level/Lines left, Best/Next right
-    topBar.classList.add('hide');
-    panelLeft.classList.remove('hide');
-    panelRight.classList.remove('hide');
-    statScore.remove(); statLevel.remove(); statLines.remove();
-    statBest.remove(); statNext.remove();
-    panelLeft.append(statScore, statLevel, statLines);
-    panelRight.append(statBest, statNext);
-    const maxW = areaW - 10 - 2 * PANEL_W - 2 * GAP;
-    block = Math.max(18, Math.min(Math.floor(maxH / ROWS), Math.floor(maxW / COLS)));
-  } else {
-    // Not enough width — fall back to the top bar
-    topBar.classList.remove('hide');
-    panelLeft.classList.add('hide');
-    panelRight.classList.add('hide');
-    [statScore, statLevel, statLines, statBest, statNext].forEach(el => topBar.appendChild(el));
-    block = blockFull;
-  }
-  BLOCK = block;
+  const leftW = panelLeft.offsetWidth, rightW = panelRight.offsetWidth;
+  const gapW = 2 * 14; // worst-case gap (14px each side)
+  const maxW = areaW - leftW - rightW - gapW - 6;
+  BLOCK = Math.max(14, Math.min(Math.floor(maxH / ROWS), Math.floor(maxW / COLS)));
   canvas.width = COLS * BLOCK;
   canvas.height = ROWS * BLOCK;
 }
