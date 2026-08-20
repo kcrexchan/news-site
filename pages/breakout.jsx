@@ -20,7 +20,7 @@ const POWERUPS = {
   S: { color: '#ff5252', label: 'S' },
 }
 const PU_KEYS = ['W', 'B', 'F', 'S']
-const FAST_MULT = 1.5
+const FAST_MULT = 1.2
 const FAST_COLOR = '#00e5ff'
 const WIDE_HITS = 15
 const SHOOT_TIME = 10
