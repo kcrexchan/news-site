@@ -312,7 +312,7 @@ let board, current, nextType;
 let score, level, lines;
 let gameOver, paused, running;
 let dropInterval, dropTimer;
-let particles = [], rings = [], shakeIntensity = 0, shakeX = 0, shakeY = 0, screenFlash = 0;
+let particles = [], shakeIntensity = 0, shakeX = 0, shakeY = 0, screenFlash = 0;
 let clearingLines = false, clearRows = [], clearProgress = 0, explosionDone = new Set(), clearTetris = false;
 let debugMode = false, fpsCounter = 0, fpsTime = 0, currentFps = 0;
 let levelUpFlash = 0, previousLevel = 0;
@@ -582,20 +582,6 @@ function draw() {
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
 
-  // Explosion shockwave rings
-  for (const rg of rings) {
-    ctx.globalAlpha = rg.life * 0.9;
-    ctx.strokeStyle = rg.color;
-    ctx.lineWidth = 3;
-    ctx.shadowColor = rg.glow || rg.color;
-    ctx.shadowBlur = 14;
-    ctx.beginPath();
-    ctx.arc(rg.x, rg.y, rg.radius, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
-
   // Line-clear screen flash (full-canvas white burst)
   if (screenFlash > 0) {
     ctx.fillStyle = `rgba(255,255,255,${screenFlash * (clearTetris ? 0.9 : 0.6)})`;
@@ -692,17 +678,6 @@ function explodeBlock(r, c) {
       color: '#ffffff', glow: 'rgba(255,255,255,0.8)'
     });
   }
-  // Double shockwave rings (fast inner + slow outer)
-  rings.push({
-    x: cx, y: cy,
-    radius: BLOCK * 0.2, vr: big ? 2.6 : 1.8,
-    life: 1.0, decay: 0.05, color: '#ffffff', glow: 'rgba(255,255,255,0.9)'
-  });
-  rings.push({
-    x: cx, y: cy,
-    radius: BLOCK * 0.4, vr: big ? 1.8 : 1.2,
-    life: 1.0, decay: 0.04, color, glow
-  });
   // Per-block screen kick
   shakeIntensity = Math.max(shakeIntensity, big ? 6 : 4);
 }
@@ -724,12 +699,6 @@ function updateEffects() {
     p.vy += 0.12;
     p.life -= p.decay;
     if (p.life <= 0) particles.splice(i, 1);
-  }
-  for (let i = rings.length - 1; i >= 0; i--) {
-    const rg = rings[i];
-    rg.radius += rg.vr;
-    rg.life -= rg.decay;
-    if (rg.life <= 0) rings.splice(i, 1);
   }
   if (clearingLines) {
     clearProgress += 2 / 60; // 500ms total (2x the 1s baseline)
@@ -1206,7 +1175,6 @@ function startGame() {
   gameOver = false;
   paused = false;
   particles = [];
-  rings = [];
   shakeIntensity = 0;
   screenFlash = 0;
   clearingLines = false;
