@@ -457,7 +457,7 @@ function draw() {
   for (const p of particles) {
     ctx.globalAlpha = p.life;
     ctx.shadowColor = p.glow || p.color;
-    ctx.shadowBlur = 4;
+    ctx.shadowBlur = 10;
     ctx.fillStyle = p.color;
     ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
   }
@@ -468,9 +468,9 @@ function draw() {
   for (const rg of rings) {
     ctx.globalAlpha = rg.life * 0.9;
     ctx.strokeStyle = rg.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.shadowColor = rg.glow || rg.color;
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 14;
     ctx.beginPath();
     ctx.arc(rg.x, rg.y, rg.radius, 0, Math.PI * 2);
     ctx.stroke();
@@ -540,24 +540,47 @@ function explodeBlock(r, c) {
   const colorIdx = board[r][c];
   const color = COLORS[colorIdx] || '#fff', glow = GLOW[colorIdx];
   const big = clearTetris;
-  const n = big ? 8 : 5;
+  // Core particle burst
+  const n = big ? 18 : 12;
   for (let i = 0; i < n; i++) {
     const ang = Math.random() * Math.PI * 2;
-    const spd = (Math.random() * 0.7 + 0.3) * (big ? 9 : 6);
+    const spd = (Math.random() * 0.8 + 0.4) * (big ? 13 : 9);
     particles.push({
       x: cx, y: cy,
       vx: Math.cos(ang) * spd,
-      vy: Math.sin(ang) * spd - 1.5,
-      life: 1.0, decay: 0.02 + Math.random() * 0.03,
-      size: big ? 4 : 3,
+      vy: Math.sin(ang) * spd - 2,
+      life: 1.0, decay: 0.015 + Math.random() * 0.025,
+      size: big ? 5 : 4,
       color, glow
     });
   }
+  // White-hot spark burst
+  const ns = big ? 10 : 6;
+  for (let i = 0; i < ns; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = (Math.random() * 0.6 + 0.5) * (big ? 16 : 11);
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd,
+      life: 0.8, decay: 0.03 + Math.random() * 0.03,
+      size: 3,
+      color: '#ffffff', glow: 'rgba(255,255,255,0.8)'
+    });
+  }
+  // Double shockwave rings (fast inner + slow outer)
   rings.push({
     x: cx, y: cy,
-    radius: BLOCK * 0.3, vr: big ? 1.6 : 1.1,
-    life: 1.0, decay: 0.06, color, glow
+    radius: BLOCK * 0.2, vr: big ? 2.6 : 1.8,
+    life: 1.0, decay: 0.05, color: '#ffffff', glow: 'rgba(255,255,255,0.9)'
   });
+  rings.push({
+    x: cx, y: cy,
+    radius: BLOCK * 0.4, vr: big ? 1.8 : 1.2,
+    life: 1.0, decay: 0.04, color, glow
+  });
+  // Per-block screen kick
+  shakeIntensity = Math.max(shakeIntensity, big ? 6 : 4);
 }
 
 function updateEffects() {
