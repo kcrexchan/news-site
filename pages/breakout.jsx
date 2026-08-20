@@ -1,51 +1,67 @@
 import React, { useRef, useEffect, useState } from 'react'
 import Head from 'next/head'
 
-// Level config — each level spells a name with bricks ('.' = gap, 1-9 = brick HP).
-// 12-column grid, each letter 3 columns wide, 5 rows tall.
+// Classic Breakout levels — full brick walls, harder each level.
+// '.' = gap, 1-9 = brick HP. Row colors follow the original Atari palette.
 const LEVELS = {
   1: {
-    name: 'N I C', speed: 4, paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e',
-    colors: ['#5a9e3f','#7ab850','#c8a951','#5a9e3f','#7ab850'],
+    speed: 4, paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e',
+    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c'],
     pattern: [
-      '1.1.111.111',
-      '111..1..1..',
-      '1.1..1..1..',
-      '1.1..1..1..',
-      '1.1.111.111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
     ],
   },
   2: {
-    name: 'C O R Y', speed: 4.5, paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2',
-    colors: ['#2980b9','#3498db','#5dade2','#85c1e9','#2980b9'],
+    speed: 4.5, paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2',
+    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c'],
     pattern: [
-      '111.111.111.1.1',
-      '1...1.1.1.1.1.1',
-      '1...1.1.111..1.',
-      '1...1.1.1.1..1.',
-      '111.111.1.1..1.',
+      '2222222222',
+      '2222222222',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
+      '1111111111',
     ],
   },
   3: {
-    name: 'L I S A', speed: 5, paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22',
-    colors: ['#d4432e','#f39c12','#e67e22','#f5b041','#d4432e'],
+    speed: 5, paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22',
+    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c','#f5b041','#7f8c8d'],
     pattern: [
-      '1...111.111.111',
-      '1....1..1...1.1',
-      '1....1..111.111',
-      '1....1....1.1.1',
-      '111.111.111.1.1',
+      '222222222222',
+      '222222222222',
+      '111111111111',
+      '111111111111',
+      '111111111111',
+      '111111111111',
+      '111111111111',
+      '111111111111',
+      '111111111111',
+      '111111111111',
     ],
   },
   4: {
-    name: 'R E X', speed: 5.5, paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd',
-    colors: ['#8e44ad','#a569bd','#bb8fce','#8e44ad','#a569bd'],
+    speed: 5.5, paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd',
+    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c','#f5b041','#7f8c8d'],
     pattern: [
-      '111.111.1.1',
-      '1.1.1...1.1',
-      '111.111..1.',
-      '1.1.1...1.1',
-      '1.1.111.1.1',
+      '333333333333',
+      '1.1.1.1.1.1.1.',
+      '111111111111',
+      '1.1.1.1.1.1.1.',
+      '111111111111',
+      '1.1.1.1.1.1.1.',
+      '111111111111',
+      '1.1.1.1.1.1.1.',
+      '111111111111',
+      '1.1.1.1.1.1.1.',
     ],
   },
 }
@@ -239,7 +255,7 @@ export default function Breakout() {
     function drawHUD() {
       ctx.fillStyle = cfg.hudColor
       ctx.font = '16px Inter, sans-serif'
-      ctx.fillText(`Lvl ${lvl} · ${cfg.name} · Score: ${scoreRef.current}`, 12, 30)
+      ctx.fillText(`Lvl ${lvl} · Score: ${scoreRef.current}`, 12, 30)
 
       for (let i = 0; i < lives_; i++) {
         const lx = W - 40 + i * 22
@@ -354,7 +370,7 @@ export default function Breakout() {
         if (lvl < MAX_LEVEL) {
           phase = 'levelup'
           drawPaddle(); drawBricks(); drawHUD()
-          drawOverlay(`Level ${lvl} Complete! 🎉`, `Next: Level ${lvl + 1} — ${LEVELS[lvl + 1]?.name} · Score: ${scoreRef.current}`)
+          drawOverlay(`Level ${lvl} Complete! 🎉`, `Next: Level ${lvl + 1} · Score: ${scoreRef.current}`)
           levelTimeout = setTimeout(() => setLevel(lvl + 1), 2500)
         } else {
           phase = 'won'
@@ -413,7 +429,7 @@ export default function Breakout() {
           }}>Play Again</button>
         )}
 
-        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Built with Canvas API · 4 Levels · Arrow keys / mouse / touch</div>
+        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Classic Breakout · 4 Levels · Arrow keys / mouse / touch</div>
       </div>
     </>
   )
