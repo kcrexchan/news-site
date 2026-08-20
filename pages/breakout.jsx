@@ -1,73 +1,57 @@
 import React, { useRef, useEffect, useState } from 'react'
 import Head from 'next/head'
 
-// Classic Breakout levels — full brick walls, harder each level.
-// '.' = gap, 1-9 = brick HP. Row colors follow the original Atari palette.
-const LEVELS = {
-  1: {
-    speed: 4, paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e',
-    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c'],
-    pattern: [
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-    ],
-  },
-  2: {
-    speed: 4.5, paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2',
-    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c'],
-    pattern: [
-      '2222222222',
-      '2222222222',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-      '1111111111',
-    ],
-  },
-  3: {
-    speed: 5, paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22',
-    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c','#f5b041','#7f8c8d'],
-    pattern: [
-      '222222222222',
-      '222222222222',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-      '111111111111',
-    ],
-  },
-  4: {
-    speed: 5.5, paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd',
-    colors: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e8c','#f5b041','#7f8c8d'],
-    pattern: [
-      '333333333333',
-      '1.1.1.1.1.1.1.',
-      '111111111111',
-      '1.1.1.1.1.1.1.',
-      '111111111111',
-      '1.1.1.1.1.1.1.',
-      '111111111111',
-      '1.1.1.1.1.1.1.',
-      '111111111111',
-      '1.1.1.1.1.1.1.',
-    ],
-  },
-}
+// ── Brick types: name printed on the brick, HP = hits needed ─────────────────
+// Higher HP bricks drop power-ups more often.
+const BRICK_TYPES = [
+  { id: 'lisa', name: 'LISA', hp: 1, color: '#2ecc71', drop: 0.05 },
+  { id: 'rex',  name: 'REX',  hp: 2, color: '#e67e22', drop: 0.10 },
+  { id: 'cory', name: 'CORY', hp: 3, color: '#3498db', drop: 0.15 },
+  { id: 'nic',  name: 'NIC',  hp: 4, color: '#9b59b6', drop: 0.20 },
+]
+const BT = {}
+BRICK_TYPES.forEach(b => { BT[b.id] = b })
 
+// ── Power-ups ─────────────────────────────────────────────────────────────────
+const POWERUPS = {
+  W: { color: '#f1c40f', label: 'W' },
+  B: { color: '#ecfccb', label: 'B' },
+  F: { color: '#00e5ff', label: 'F' },
+  S: { color: '#ff5252', label: 'S' },
+}
+const PU_KEYS = ['W', 'B', 'F', 'S']
+const FAST_MULT = 1.6
+const FAST_COLOR = '#00e5ff'
+const WIDE_HITS = 15
+const SHOOT_TIME = 10
+const SHOOT_COOLDOWN = 0.5
+const BULLET_SPEED = 12
+const PU_FALL = 2.2
+
+// ── Levels (full walls, tougher mix per level) ────────────────────────────────
+const LEVELS = {
+  1: { speed: 4, paddleColor: '#6b9e4a', ballColor: '#ecfccb', bg: '#0f1a0f', hudColor: '#a7c4a0', subColor: '#7a8f6e',
+       weights: { lisa: 40, rex: 30, cory: 20, nic: 10 } },
+  2: { speed: 4.5, paddleColor: '#2980b9', ballColor: '#d6eaf8', bg: '#0a1628', hudColor: '#85c1e9', subColor: '#5dade2',
+       weights: { lisa: 30, rex: 30, cory: 25, nic: 15 } },
+  3: { speed: 5, paddleColor: '#d4432e', ballColor: '#fdebd0', bg: '#1a0a0a', hudColor: '#f5b041', subColor: '#e67e22',
+       weights: { lisa: 20, rex: 30, cory: 30, nic: 20 } },
+  4: { speed: 5.5, paddleColor: '#8e44ad', ballColor: '#f5eef8', bg: '#0a0a1a', hudColor: '#bb8fce', subColor: '#a569bd',
+       weights: { lisa: 15, rex: 25, cory: 30, nic: 30 } },
+}
 const MAX_LEVEL = 4
-const LEVEL_BTN_COLORS = ['#6b9e4a','#2980b9','#d4432e','#8e44ad']
+const LEVEL_BTN_COLORS = ['#6b9e4a', '#2980b9', '#d4432e', '#8e44ad']
+const ROWS = 8, COLS = 10
+
+function pickType(w) {
+  const total = w.lisa + w.rex + w.cory + w.nic
+  let r = Math.random() * total
+  for (const id of ['lisa', 'rex', 'cory', 'nic']) {
+    r -= w[id]
+    if (r < 0) return id
+  }
+  return 'lisa'
+}
 
 export default function Breakout() {
   const canvasRef = useRef(null)
@@ -78,11 +62,9 @@ export default function Breakout() {
   const [level, setLevel] = useState(1)
   const [runId, setRunId] = useState(0)
 
-  // Persisted across level-up effect re-runs (score is cumulative; resets on new game)
   const scoreRef = useRef(0)
   const restartRef = useRef(null)
 
-  // Stable restart — safe to call from inside the game loop / key handlers
   restartRef.current = () => {
     scoreRef.current = 0
     setScore(0)
@@ -99,7 +81,6 @@ export default function Breakout() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Fallback for older browsers without ctx.roundRect
     if (typeof ctx.roundRect !== 'function') {
       ctx.roundRect = function (x, y, w, h, r) {
         const rr = (typeof r === 'number' ? [r, r, r, r] : [r, r, r, r])
@@ -112,7 +93,6 @@ export default function Breakout() {
       }
     }
 
-    // Responsive sizing (internal coord space fixed; CSS scales the element)
     const W = Math.min(800, window.innerWidth - 40)
     const H = 600
     canvas.width = W
@@ -121,84 +101,124 @@ export default function Breakout() {
     const lvl = level || 1
     const cfg = LEVELS[lvl] || LEVELS[1]
 
-    // New game (level 1) resets the cumulative score
     if (lvl === 1) scoreRef.current = 0
 
-    // Game objects
-    const paddleW = Math.max(100, W * 0.2)
+    // ── Game state ───────────────────────────────────────────────────────────
+    const paddleBaseW = Math.max(100, W * 0.2)
+    let paddleW = paddleBaseW
     const paddleH = 14
     let paddleX = (W - paddleW) / 2
+    let wideHits = 0, shootTimer = 0, lastShot = 0
 
-    const ballR = 8
-    let ballX = W / 2
-    let ballY = H - paddleH - 30
-    let dx = cfg.speed * (Math.random() > 0.5 ? 1 : -1)
-    let dy = -cfg.speed
+    const newBall = (x, y, vx, vy, color) => ({ x, y, vx, vy, r: 8, color, stuck: false })
+    let balls = [newBall(W / 2, H - 40, cfg.speed * (Math.random() > 0.5 ? 1 : -1), -cfg.speed, cfg.ballColor)]
+    balls[0].stuck = true
+    let bullets = []
+    let powerups = []
 
-    // Bricks — built from the level's pattern ('.'/'0' = gap, 1-9 = HP)
-    const brickRows = cfg.pattern.length
-    const brickCols = Math.max(1, cfg.pattern[0].replace(/\s/g, '').length)
-    const brickW = Math.max(24, W / brickCols - 8)
+    // Bricks
+    const brickW = Math.max(24, W / COLS - 8)
     const brickH = 24
     const brickPad = 4
     const bricks = []
-    const rowColors = cfg.colors
-
-    for (let r = 0; r < brickRows; r++) {
+    for (let r = 0; r < ROWS; r++) {
       bricks[r] = []
-      const rowStr = (cfg.pattern[r] || '').replace(/\s/g, '')
-      for (let c = 0; c < brickCols; c++) {
-        const ch = rowStr[c] !== undefined ? rowStr[c] : '.'
-        const hp = parseInt(ch, 10)
-        if (isNaN(hp) || hp <= 0) {
-          bricks[r][c] = { alive: false, hp: 0 }
-        } else {
-          bricks[r][c] = { x: c * (brickW + brickPad) + 4, y: r * (brickH + brickPad) + 60, alive: true, hp }
+      for (let c = 0; c < COLS; c++) {
+        const t = BT[pickType(cfg.weights)]
+        bricks[r][c] = {
+          x: c * (brickW + brickPad) + (W - COLS * (brickW + brickPad) + brickPad) / 2,
+          y: r * (brickH + brickPad) + 56,
+          w: brickW, h: brickH,
+          type: t, hp: t.hp, alive: true,
         }
       }
     }
 
     let lives_ = 3
-    let phase = 'playing' // playing | levelup | over | won
+    let phase = 'playing'
     let running = true
     let animId = 0
     let levelTimeout = 0
+    let mouseX = null
 
     const addScore = (pts) => {
       scoreRef.current += pts
       setScore(scoreRef.current)
     }
 
-    // Input — keyboard
+    // ── Input ────────────────────────────────────────────────────────────────
     const keysDown = {}
-    const onKeyDown = (e) => {
-      if (['ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault()
-      if (e.key === ' ' && (phase === 'over' || phase === 'won')) {
-        restartRef.current()
+    function launchOrShoot() {
+      if (phase === 'over' || phase === 'won') { restartRef.current(); return }
+      if (phase !== 'playing') return
+      const now = performance.now() / 1000
+      if (balls.some(b => b.stuck)) {
+        for (const b of balls) {
+          if (b.stuck) {
+            b.stuck = false
+            const sp = Math.hypot(b.vx, b.vy) || cfg.speed
+            b.vx = sp * (Math.random() > 0.5 ? 1 : -1)
+            b.vy = -sp
+          }
+        }
         return
       }
+      if (shootTimer > 0 && now - lastShot >= SHOOT_COOLDOWN) {
+        lastShot = now
+        bullets.push({ x: paddleX + paddleW / 2, y: H - paddleH - 14, r: 3 })
+      }
+    }
+    const onKeyDown = (e) => {
+      if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault()
+      if (e.key === ' ') { launchOrShoot(); return }
       keysDown[e.key] = true
     }
     const onKeyUp = (e) => { keysDown[e.key] = false }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
 
-    // Input — mouse/touch (scale CSS pixels into canvas coord space)
-    let mouseX = null
     const toCanvasX = (clientX) => {
       const rect = canvas.getBoundingClientRect()
-      const scaleX = canvas.width / rect.width
-      return (clientX - rect.left) * scaleX
+      return (clientX - rect.left) * (canvas.width / rect.width)
     }
     const onMouseMove = (e) => { mouseX = toCanvasX(e.clientX) }
-    const onTouchMove = (e) => {
-      e.preventDefault()
-      mouseX = toCanvasX(e.touches[0].clientX)
-    }
+    const onTouchMove = (e) => { e.preventDefault(); mouseX = toCanvasX(e.touches[0].clientX) }
+    const onMouseDown = () => launchOrShoot()
+    const onTouchStart = (e) => launchOrShoot()
     canvas.addEventListener('mousemove', onMouseMove)
     canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+    canvas.addEventListener('mousedown', onMouseDown)
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true })
 
-    // Drawing
+    // ── Power-up logic ───────────────────────────────────────────────────────
+    function maybeDrop(b) {
+      if (Math.random() < b.type.drop) {
+        const k = PU_KEYS[Math.floor(Math.random() * PU_KEYS.length)]
+        powerups.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, k, r: 11 })
+      }
+    }
+    function applyPower(k) {
+      scoreRef.current += 50; setScore(scoreRef.current)
+      if (k === 'W') {
+        wideHits = WIDE_HITS
+      } else if (k === 'B') {
+        const src = balls[0]
+        if (src) balls.push(newBall(src.x, src.y, src.vx, src.vy, src.color))
+      } else if (k === 'F') {
+        const src = balls[0]
+        const fb = newBall(src.x, src.y, src.vx, src.vy, FAST_COLOR)
+        const sp = Math.hypot(fb.vx, fb.vy) || cfg.speed
+        fb.vx = sp * FAST_MULT * Math.sign(fb.vx || 1)
+        fb.vy = sp * FAST_MULT * (fb.vy >= 0 ? 1 : -1)
+        fb.fast = true
+        balls.push(fb)
+      } else if (k === 'S') {
+        shootTimer = SHOOT_TIME
+        lastShot = 0
+      }
+    }
+
+    // ── Drawing ──────────────────────────────────────────────────────────────
     function drawPaddle() {
       ctx.fillStyle = cfg.paddleColor
       ctx.shadowColor = cfg.paddleColor + '80'
@@ -208,55 +228,88 @@ export default function Breakout() {
       ctx.roundRect(paddleX, H - paddleH - 6, paddleW, paddleH, r)
       ctx.fill()
       ctx.shadowBlur = 0
+      if (shootTimer > 0) {
+        ctx.fillStyle = POWERUPS.S.color
+        ctx.beginPath()
+        ctx.roundRect(paddleX + paddleW / 2 - 4, H - paddleH - 18, 8, 10, 2)
+        ctx.fill()
+      }
     }
-
-    function drawBall() {
-      ctx.fillStyle = cfg.ballColor
-      ctx.shadowColor = cfg.ballColor + '90'
-      ctx.shadowBlur = 15
+    function drawBall(b) {
+      ctx.fillStyle = b.color
+      ctx.shadowColor = b.color + '90'
+      ctx.shadowBlur = b.fast ? 22 : 15
       ctx.beginPath()
-      ctx.arc(ballX, ballY, ballR, 0, Math.PI * 2)
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2)
       ctx.fill()
       ctx.shadowBlur = 0
     }
-
     function drawBricks() {
-      for (let r = 0; r < brickRows; r++) {
-        for (let c = 0; c < brickCols; c++) {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
           const b = bricks[r][c]
           if (!b.alive) continue
-          ctx.fillStyle = rowColors[r % rowColors.length]
-          ctx.shadowColor = rowColors[r % rowColors.length] + '60'
+          const col = b.type.color
+          ctx.fillStyle = col
+          ctx.shadowColor = col + '60'
           ctx.shadowBlur = 4
           ctx.beginPath()
-          ctx.roundRect(b.x, b.y, brickW, brickH, 3)
+          ctx.roundRect(b.x, b.y, b.w, b.h, 3)
           ctx.fill()
+          ctx.shadowBlur = 0
+          ctx.fillStyle = 'rgba(10,10,10,0.85)'
+          ctx.font = 'bold 11px Inter, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(b.type.name, b.x + b.w / 2, b.y + b.h / 2 + 4)
           if (b.hp > 1) {
-            ctx.shadowBlur = 0
-            ctx.fillStyle = 'rgba(255,255,255,0.8)'
-            ctx.font = 'bold 11px Inter, sans-serif'
-            ctx.textAlign = 'center'
-            ctx.fillText(b.hp, b.x + brickW / 2, b.y + brickH / 2 + 4)
-            ctx.textAlign = 'left'
+            ctx.fillStyle = 'rgba(255,255,255,0.9)'
+            const pw = 5, gap = 2
+            const totalW = b.hp * pw + (b.hp - 1) * gap
+            for (let i = 0; i < b.hp; i++) {
+              ctx.fillRect(b.x + b.w / 2 - totalW / 2 + i * (pw + gap), b.y + b.h - 6, pw, 3)
+            }
           }
+          ctx.textAlign = 'left'
         }
+      }
+    }
+    function drawBullets() {
+      ctx.fillStyle = POWERUPS.S.color
+      ctx.shadowColor = POWERUPS.S.color
+      ctx.shadowBlur = 8
+      for (const bl of bullets) {
+        ctx.beginPath()
+        ctx.roundRect(bl.x - 2, bl.y - 7, 4, 12, 2)
+        ctx.fill()
       }
       ctx.shadowBlur = 0
     }
-
-    function bricksLeft() {
-      let total = 0
-      for (let r = 0; r < brickRows; r++)
-        for (let c = 0; c < brickCols; c++)
-          if (bricks[r][c].alive) total++
-      return total
+    function drawPowerups() {
+      for (const p of powerups) {
+        const def = POWERUPS[p.k]
+        ctx.fillStyle = def.color
+        ctx.shadowColor = def.color
+        ctx.shadowBlur = 10
+        ctx.beginPath()
+        ctx.roundRect(p.x - p.r, p.y - p.r * 0.62, p.r * 2, p.r * 1.24, 5)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.fillStyle = '#101010'
+        ctx.font = 'bold 12px Inter, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(def.label, p.x, p.y + 4)
+        ctx.textAlign = 'left'
+      }
     }
-
+    function bricksLeft() {
+      let n = 0
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (bricks[r][c].alive) n++
+      return n
+    }
     function drawHUD() {
       ctx.fillStyle = cfg.hudColor
       ctx.font = '16px Inter, sans-serif'
-      ctx.fillText(`Lvl ${lvl} · Score: ${scoreRef.current}`, 12, 30)
-
+      ctx.fillText('Lvl ' + lvl + ' · Score: ' + scoreRef.current, 12, 26)
       for (let i = 0; i < lives_; i++) {
         const lx = W - 40 + i * 22
         ctx.fillStyle = cfg.ballColor
@@ -264,12 +317,20 @@ export default function Breakout() {
         ctx.arc(lx, 18, 6, 0, Math.PI * 2)
         ctx.fill()
       }
-
+      let ix = 12
+      ctx.font = 'bold 13px Inter, sans-serif'
+      if (wideHits > 0) { ctx.fillStyle = POWERUPS.W.color; ctx.fillText('W ' + wideHits, ix, 46); ix += 64 }
+      if (shootTimer > 0) { ctx.fillStyle = POWERUPS.S.color; ctx.fillText('S ' + Math.ceil(shootTimer) + 's', ix, 46); ix += 64 }
+      const fastCount = balls.filter(b => b.fast).length
+      if (fastCount > 0) { ctx.fillStyle = POWERUPS.F.color; ctx.fillText('F ×' + fastCount, ix, 46) }
+      ctx.font = '11px Inter, sans-serif'
       ctx.fillStyle = cfg.subColor
-      ctx.font = '12px Inter, sans-serif'
-      ctx.fillText(`${bricksLeft()} bricks left`, W / 2 - 30, H - 14)
+      let legend = 'LISA 1 hit'
+      for (const t of ['rex', 'cory', 'nic']) legend += '  ·  ' + BT[t].name + ' ' + BT[t].hp + ' hits'
+      ctx.textAlign = 'center'
+      ctx.fillText(legend, W / 2, H - 10)
+      ctx.textAlign = 'left'
     }
-
     function drawOverlay(text, sub) {
       ctx.fillStyle = cfg.bg + 'cc'
       ctx.fillRect(0, 0, W, H)
@@ -283,13 +344,14 @@ export default function Breakout() {
       ctx.textAlign = 'left'
     }
 
+    // ── Main loop ────────────────────────────────────────────────────────────
     function loop() {
       if (!running) return
+      const now = performance.now() / 1000
 
       ctx.fillStyle = cfg.bg
       ctx.fillRect(0, 0, W, H)
 
-      // Paddle — keyboard takes priority; mouse/touch only after first move
       let targetX = paddleX
       if (keysDown['ArrowRight']) targetX = paddleX + 12
       else if (keysDown['ArrowLeft']) targetX = paddleX - 12
@@ -297,91 +359,149 @@ export default function Breakout() {
       paddleX += (targetX - paddleX) * 0.3
       paddleX = Math.max(0, Math.min(W - paddleW, paddleX))
 
-      // Ball physics
-      ballX += dx
-      ballY += dy
+      const targetW = wideHits > 0 ? paddleBaseW * 1.5 : paddleBaseW
+      paddleW += (targetW - paddleW) * 0.2
+      if (Math.abs(paddleW - targetW) < 0.5) paddleW = targetW
 
-      // Walls
-      if (ballX + ballR > W || ballX - ballR < 0) { dx = -dx; ballX = Math.max(ballR, Math.min(W - ballR, ballX)) }
-      if (ballY - ballR < 0) dy = -dy
+      if (shootTimer > 0) shootTimer = Math.max(0, shootTimer - 1 / 60)
 
-      // Paddle
       const paddleTop = H - paddleH - 6
-      if (ballY + ballR > paddleTop && ballY + ballR < paddleTop + paddleH + 10 &&
-          ballX > paddleX && ballX < paddleX + paddleW && dy > 0) {
-        const hitPos = (ballX - paddleX) / paddleW
-        const angle = (hitPos - 0.5) * Math.PI * 0.7
-        const speed = Math.sqrt(dx * dx + dy * dy)
-        dy = -Math.abs(speed * Math.cos(angle))
-        dx = speed * Math.sin(angle)
-        ballY = paddleTop - ballR
-        if (speed < 10) { const f = 1.02; dx *= f; dy *= f }
-      }
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const b = balls[i]
+        if (b.stuck) {
+          b.x = paddleX + paddleW / 2
+          b.y = paddleTop - b.r
+          continue
+        }
+        b.x += b.vx
+        b.y += b.vy
 
-      // Bricks — at most one hit per frame, then stop checking
-      let hitBrick = false
-      for (let r = 0; r < brickRows && !hitBrick; r++) {
-        for (let c = 0; c < brickCols; c++) {
-          const b = bricks[r][c]
-          if (!b.alive) continue
-          const closestX = Math.max(b.x, Math.min(ballX, b.x + brickW))
-          const closestY = Math.max(b.y, Math.min(ballY, b.y + brickH))
-          const distX = ballX - closestX
-          const distY = ballY - closestY
-          if (distX * distX + distY * distY < ballR * ballR) {
-            b.hp--
-            if (b.hp <= 0) b.alive = false
-            addScore(b.alive ? 5 : 10)
+        if (b.x + b.r > W || b.x - b.r < 0) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)) }
+        if (b.y - b.r < 0) b.vy = -b.vy
 
-            const overlapLeft = ballX + ballR - b.x
-            const overlapRight = b.x + brickW - (ballX - ballR)
-            const overlapTop = ballY + ballR - b.y
-            const overlapBottom = b.y + brickH - (ballY - ballR)
-            if (Math.min(overlapLeft, overlapRight) < Math.min(overlapTop, overlapBottom)) dx = -dx
-            else dy = -dy
+        if (b.y + b.r > paddleTop && b.y + b.r < paddleTop + paddleH + 10 &&
+            b.x > paddleX && b.x < paddleX + paddleW && b.vy > 0) {
+          const hitPos = (b.x - paddleX) / paddleW
+          const angle = (hitPos - 0.5) * Math.PI * 0.7
+          const speed = Math.hypot(b.vx, b.vy)
+          b.vy = -Math.abs(speed * Math.cos(angle))
+          b.vx = speed * Math.sin(angle)
+          b.y = paddleTop - b.r
+          if (speed < 10) { const f = 1.02; b.vx *= f; b.vy *= f }
+        }
 
-            hitBrick = true
-            break
+        let hitBrick = false
+        for (let r = 0; r < ROWS && !hitBrick; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const br = bricks[r][c]
+            if (!br.alive) continue
+            const closestX = Math.max(br.x, Math.min(b.x, br.x + br.w))
+            const closestY = Math.max(br.y, Math.min(b.y, br.y + br.h))
+            const ddx = b.x - closestX, ddy = b.y - closestY
+            if (ddx * ddx + ddy * ddy < b.r * b.r) {
+              if (b.fast && br.hp < 3) continue
+              const dmg = b.fast ? 2 : 1
+              br.hp -= dmg
+              if (wideHits > 0) wideHits--
+              if (br.hp <= 0) {
+                br.alive = false
+                scoreRef.current += 10; setScore(scoreRef.current)
+                maybeDrop(br)
+              } else {
+                scoreRef.current += 5; setScore(scoreRef.current)
+              }
+              const overlapLeft = b.x + b.r - br.x
+              const overlapRight = br.x + br.w - (b.x - b.r)
+              const overlapTop = b.y + b.r - br.y
+              const overlapBottom = br.y + br.h - (b.y - b.r)
+              if (Math.min(overlapLeft, overlapRight) < Math.min(overlapTop, overlapBottom)) b.vx = -b.vx
+              else b.vy = -b.vy
+              hitBrick = true
+              break
+            }
+          }
+        }
+
+        if (b.y - b.r > H + 20) {
+          balls.splice(i, 1)
+          if (balls.length === 0) {
+            lives_--
+            setLives(lives_)
+            if (lives_ <= 0) {
+              phase = 'over'
+              running = false
+              setGameOver(true)
+              drawPaddle(); drawBricks(); drawHUD()
+              drawOverlay('Game Over', 'Final Score: ' + scoreRef.current + ' · Press Space or Play Again to restart')
+              return
+            }
+            balls.push(newBall(paddleX + paddleW / 2, paddleTop - 8, cfg.speed * (Math.random() > 0.5 ? 1 : -1), -cfg.speed, cfg.ballColor))
+            balls[0].stuck = true
           }
         }
       }
 
-      // Ball lost
-      if (ballY + ballR > H + 20) {
-        lives_--
-        setLives(lives_)
-        if (lives_ <= 0) {
-          phase = 'over'
-          running = false
-          setGameOver(true)
-          drawPaddle(); drawBricks(); drawHUD()
-          drawOverlay('Game Over', `Final Score: ${scoreRef.current} · Press Space or Play Again to restart`)
-          return
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const bl = bullets[i]
+        bl.y -= BULLET_SPEED
+        if (bl.x - bl.r < 0) bl.x = bl.r
+        if (bl.x + bl.r > W) bl.x = W - bl.r
+        let dead = bl.y < -10
+        if (!dead) {
+          for (let r = 0; r < ROWS && !dead; r++) {
+            for (let c = 0; c < COLS; c++) {
+              const br = bricks[r][c]
+              if (!br.alive) continue
+              if (bl.x + bl.r > br.x && bl.x - bl.r < br.x + br.w &&
+                  bl.y + bl.r > br.y && bl.y - bl.r < br.y + br.h) {
+                br.hp -= 1
+                if (wideHits > 0) wideHits--
+                if (br.hp <= 0) {
+                  br.alive = false
+                  scoreRef.current += 10; setScore(scoreRef.current)
+                  maybeDrop(br)
+                } else {
+                  scoreRef.current += 5; setScore(scoreRef.current)
+                }
+                dead = true
+                break
+              }
+            }
+          }
         }
-        ballX = paddleX + paddleW / 2
-        ballY = H - paddleH - ballR - 10
-        dx = cfg.speed * (Math.random() > 0.5 ? 1 : -1)
-        dy = -cfg.speed
+        if (dead) bullets.splice(i, 1)
       }
 
-      // Win / level up
+      for (let i = powerups.length - 1; i >= 0; i--) {
+        const p = powerups[i]
+        p.y += PU_FALL
+        if (p.y - p.r > H + 10) { powerups.splice(i, 1); continue }
+        if (p.y + p.r > paddleTop && p.y - p.r < paddleTop + paddleH + 8 &&
+            p.x > paddleX - 4 && p.x < paddleX + paddleW + 4) {
+          applyPower(p.k)
+          powerups.splice(i, 1)
+        }
+      }
+
       if (phase === 'playing' && bricksLeft() === 0) {
         running = false
         if (lvl < MAX_LEVEL) {
           phase = 'levelup'
           drawPaddle(); drawBricks(); drawHUD()
-          drawOverlay(`Level ${lvl} Complete! 🎉`, `Next: Level ${lvl + 1} · Score: ${scoreRef.current}`)
+          drawOverlay('Level ' + lvl + ' Complete! 🎉', 'Next: Level ' + (lvl + 1) + ' · Score: ' + scoreRef.current)
           levelTimeout = setTimeout(() => setLevel(lvl + 1), 2500)
         } else {
           phase = 'won'
           setWon(true)
           drawPaddle(); drawBricks(); drawHUD()
-          drawOverlay('You Win! 🏆', `All 4 levels cleared · Final Score: ${scoreRef.current}`)
+          drawOverlay('You Win! 🏆', 'All 4 levels cleared · Final Score: ' + scoreRef.current)
         }
         return
       }
 
-      drawBall()
+      drawBullets()
+      drawPowerups()
+      for (const b of balls) drawBall(b)
       drawPaddle()
       drawBricks()
       drawHUD()
@@ -399,10 +519,9 @@ export default function Breakout() {
       window.removeEventListener('keyup', onKeyUp)
       canvas.removeEventListener('mousemove', onMouseMove)
       canvas.removeEventListener('touchmove', onTouchMove)
+      canvas.removeEventListener('mousedown', onMouseDown)
+      canvas.removeEventListener('touchstart', onTouchStart)
     }
-    // Re-runs only when the level advances or a new game (runId) starts —
-    // deliberately NOT on gameOver/won, so the end screen stays put and
-    // no fresh game silently restarts behind the overlay.
   }, [level, runId])
 
   return (
@@ -416,7 +535,7 @@ export default function Breakout() {
       <div style={{ minHeight: '100vh', background: '#0f1a0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", color: '#ecfccb' }}>
         <div style={{ width: 'min(800px, 100%)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(167,139,108,0.15)' }}>
           <a href="/" style={{ color: '#a7c4a0', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>← News Digest</a>
-          <span style={{ fontSize: 13, color: '#7a8f6e' }}>Arrow keys / mouse to move · Space to restart</span>
+          <span style={{ fontSize: 13, color: '#7a8f6e' }}>Move: arrows / mouse · Launch: Space · Shoot: Space (when S active)</span>
         </div>
 
         <canvas ref={canvasRef} style={{ display: 'block', maxWidth: 'min(800px, calc(100vw - 40px))', touchAction: 'none' }} />
@@ -429,7 +548,7 @@ export default function Breakout() {
           }}>Play Again</button>
         )}
 
-        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Classic Breakout · 4 Levels · Arrow keys / mouse / touch</div>
+        <div style={{ marginTop: 24, fontSize: 12, color: '#5a6e5a' }}>Breakout · 4 Levels · W/B/F/S power-ups · Space to launch or shoot</div>
       </div>
     </>
   )
