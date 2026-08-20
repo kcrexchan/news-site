@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react'
 import Head from 'next/head'
+import { useRouter } from 'next/router'
 
 // ── Brick types: name printed on the brick, HP = hits needed ─────────────────
 // Higher HP bricks drop power-ups more often.
@@ -54,6 +55,7 @@ function pickType(w) {
 }
 
 export default function Breakout() {
+  const router = useRouter()
   const canvasRef = useRef(null)
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
@@ -206,10 +208,9 @@ export default function Breakout() {
         if (src) balls.push(newBall(src.x, src.y, src.vx, src.vy, src.color))
       } else if (k === 'F') {
         const src = balls[0]
-        const fb = newBall(src.x, src.y, src.vx, src.vy, FAST_COLOR)
-        const sp = Math.hypot(fb.vx, fb.vy) || cfg.speed
-        fb.vx = sp * FAST_MULT * Math.sign(fb.vx || 1)
-        fb.vy = sp * FAST_MULT * (fb.vy >= 0 ? 1 : -1)
+        const baseSpeed = cfg.speed * FAST_MULT
+        const angle = Math.atan2(src.vy, src.vx)
+        const fb = newBall(src.x, src.y, baseSpeed * Math.cos(angle), baseSpeed * Math.sin(angle), FAST_COLOR)
         fb.fast = true
         balls.push(fb)
       } else if (k === 'S') {
@@ -534,7 +535,7 @@ export default function Breakout() {
 
       <div style={{ minHeight: '100vh', background: '#0f1a0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", color: '#ecfccb' }}>
         <div style={{ width: 'min(800px, 100%)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(167,139,108,0.15)' }}>
-          <a href="/" style={{ color: '#a7c4a0', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>← News Digest</a>
+          <button onClick={() => router.back()} style={{ color: '#a7c4a0', background: 'none', border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#7a8f6e' }}>Move: arrows / mouse · Launch: Space · Shoot: Space (when S active)</span>
         </div>
 

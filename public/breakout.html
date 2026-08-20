@@ -232,10 +232,9 @@
       if (src) balls.push(newBall(src.x, src.y, src.vx, src.vy, src.color));
     } else if (k === 'F') {
       const src = balls[0];
-      const fb = newBall(src.x, src.y, src.vx, src.vy, FAST_COLOR);
-      const sp = Math.hypot(fb.vx, fb.vy) || cfg.speed;
-      fb.vx = sp * FAST_MULT * Math.sign(fb.vx || 1);
-      fb.vy = sp * FAST_MULT * (fb.vy >= 0 ? 1 : -1);
+      const baseSpeed = cfg.speed * FAST_MULT;
+      const angle = Math.atan2(src.vy, src.vx);
+      const fb = newBall(src.x, src.y, baseSpeed * Math.cos(angle), baseSpeed * Math.sin(angle), FAST_COLOR);
       fb.fast = true;
       balls.push(fb);
     } else if (k === 'S') {
