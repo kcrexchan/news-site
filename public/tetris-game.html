@@ -59,12 +59,11 @@ canvas#game-canvas { display:block; border-radius:4px; box-shadow:0 0 30px rgba(
 #overlay button:hover { transform:scale(1.06); box-shadow:0 6px 30px rgba(99,102,241,0.6); }
 
 #hard-drop-btn {
-  position:absolute; top:50%; right:14px; transform:translateY(-50%);
-  width:56px; height:56px; border-radius:50%;
+  width:56px; height:56px; border-radius:50%; margin:14px auto 0;
   border:2px solid rgba(100,100,200,0.3);
   background:radial-gradient(circle,rgba(60,60,120,0.4),rgba(30,30,60,0.55));
   color:rgba(220,220,255,0.7); font-size:20px; font-weight:700;
-  cursor:pointer; z-index:5; user-select:none; -webkit-user-select:none; display:none;
+  cursor:pointer; user-select:none; -webkit-user-select:none; display:none;
 }
 #hard-drop-btn:active { background:radial-gradient(circle,rgba(90,90,160,0.7),rgba(50,50,100,0.8)); }
 
@@ -128,7 +127,6 @@ body { display:flex; flex-direction:column; height:100vh; }
   </div>
   <div id="board-wrap">
     <canvas id="game-canvas"></canvas>
-    <button id="hard-drop-btn">⬇</button>
     <div id="overlay">
     <h1>🎮 TETRIS</h1>
     <div class="subtitle">Arrow keys / swipe to play<br>Space to hard drop · P to pause</div>
@@ -153,6 +151,7 @@ body { display:flex; flex-direction:column; height:100vh; }
   <div class="side-panel" id="panel-right">
     <div class="top-stat"><h3>Best</h3><div class="val" id="best">0</div></div>
     <div class="top-stat"><h3>Next</h3><canvas id="next-canvas" width="80" height="80"></canvas></div>
+    <button id="hard-drop-btn">⬇</button>
   </div>
 </div>
 
