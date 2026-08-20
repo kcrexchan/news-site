@@ -197,8 +197,8 @@ let board, current, nextType;
 let score, level, lines;
 let gameOver, paused, running;
 let dropInterval, dropTimer;
-let particles = [], shakeIntensity = 0, shakeX = 0, shakeY = 0;
-let clearingLines = false, clearRows = [], clearFlash = 0;
+let particles = [], rings = [], shakeIntensity = 0, shakeX = 0, shakeY = 0;
+let clearingLines = false, clearRows = [], clearProgress = 0, explosionDone = new Set(), clearTetris = false;
 let debugMode = false, fpsCounter = 0, fpsTime = 0, currentFps = 0;
 let levelUpFlash = 0, previousLevel = 0;
 
@@ -315,27 +315,12 @@ function scanLines() {
 
   const isTetris = filled.length === 4;
 
-  // Spawn particles for each cleared cell
-  for (const row of filled) {
-    for (let c = 0; c < COLS; c++) {
-      for (let p = 0; p < (isTetris ? 6 : 3); p++) {
-        particles.push({
-          x: c * BLOCK + BLOCK / 2,
-          y: row * BLOCK + BLOCK / 2,
-          vx: (Math.random() - 0.5) * (isTetris ? 10 : 6),
-          vy: (Math.random() - 1) * (isTetris ? 8 : 5) - 2,
-          life: 1.0, decay: 0.015 + Math.random() * 0.03,
-          size: isTetris ? 4 : 3,
-          color: COLORS[board[row][c]], glow: GLOW[board[row][c]]
-        });
-      }
-    }
-  }
-
   shakeIntensity = isTetris ? 15 : filled.length * 3;
   clearingLines = true;
   clearRows = filled;
-  clearFlash = 0;
+  clearProgress = 0;
+  explosionDone = new Set();
+  clearTetris = isTetris;
 
   // Scoring
   const pts = [0, 100, 300, 500, 800];
@@ -361,7 +346,8 @@ function removeClearedRows() {
   board = [...newRows, ...remaining];
   clearRows = [];
   clearingLines = false;
-  clearFlash = 0;
+  clearProgress = 0;
+  explosionDone = new Set();
   dropTimer = 0;
   // Reset touch/mouse drag references so the new piece doesn't inherit stale deltas
   touchStartX = 0;
@@ -436,12 +422,26 @@ function draw() {
     for (let c = 0; c < COLS; c++)
       if (board[r][c]) drawBlock(ctx, c, r, board[r][c], BLOCK);
 
-  // Line-clear flash
+  // Line-clear: left→right explosion sweep (blocks vanish as the sweep passes)
   if (clearingLines) {
     for (const r of clearRows) {
-      const bright = Math.floor(clearFlash / 2) % 2 === 0 ? 1.0 : 0.15;
-      ctx.fillStyle = `rgba(255,255,255,${bright})`;
-      ctx.fillRect(0, r * BLOCK, canvas.width, BLOCK);
+      for (let c = 0; c < COLS; c++) {
+        const start = (c / COLS) * 0.85;
+        const t = clearProgress - start; // time since this block's explosion
+        if (t >= 0.12) continue;          // already exploded → gone
+        if (t < 0) {
+          // Pre-flash: brighten the block as the sweep approaches
+          const near = 1 - Math.min(1, -t / 0.1);
+          ctx.fillStyle = `rgba(255,255,255,${near * 0.75})`;
+          ctx.fillRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
+        } else {
+          // Explosion flash: white-hot core fading out
+          const a = 1 - t / 0.12;
+          const s = BLOCK * (1 + t * 4);
+          ctx.fillStyle = `rgba(255,255,255,${a})`;
+          ctx.fillRect(c * BLOCK + BLOCK / 2 - s / 2, r * BLOCK + BLOCK / 2 - s / 2, s, s);
+        }
+      }
     }
   }
 
@@ -481,6 +481,20 @@ function draw() {
     ctx.shadowBlur = 4;
     ctx.fillStyle = p.color;
     ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // Explosion shockwave rings
+  for (const rg of rings) {
+    ctx.globalAlpha = rg.life * 0.9;
+    ctx.strokeStyle = rg.color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = rg.glow || rg.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(rg.x, rg.y, rg.radius, 0, Math.PI * 2);
+    ctx.stroke();
   }
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
@@ -542,6 +556,31 @@ function drawNext() {
 }
 
 // ─── Effects update ──────────────────────────────────────
+function explodeBlock(r, c) {
+  const cx = c * BLOCK + BLOCK / 2, cy = r * BLOCK + BLOCK / 2;
+  const colorIdx = board[r][c];
+  const color = COLORS[colorIdx] || '#fff', glow = GLOW[colorIdx];
+  const big = clearTetris;
+  const n = big ? 8 : 5;
+  for (let i = 0; i < n; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = (Math.random() * 0.7 + 0.3) * (big ? 9 : 6);
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd - 1.5,
+      life: 1.0, decay: 0.02 + Math.random() * 0.03,
+      size: big ? 4 : 3,
+      color, glow
+    });
+  }
+  rings.push({
+    x: cx, y: cy,
+    radius: BLOCK * 0.3, vr: big ? 1.6 : 1.1,
+    life: 1.0, decay: 0.06, color, glow
+  });
+}
+
 function updateEffects() {
   if (shakeIntensity > 0) {
     shakeX = (Math.random() - 0.5) * shakeIntensity;
@@ -556,9 +595,26 @@ function updateEffects() {
     p.life -= p.decay;
     if (p.life <= 0) particles.splice(i, 1);
   }
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const rg = rings[i];
+    rg.radius += rg.vr;
+    rg.life -= rg.decay;
+    if (rg.life <= 0) rings.splice(i, 1);
+  }
   if (clearingLines) {
-    clearFlash++;
-    if (clearFlash >= 12) removeClearedRows();
+    clearProgress += 1 / 60;
+    // Explode each block as the left→right sweep passes it (sweep covers 0..0.85, done by 1.0)
+    for (const r of clearRows) {
+      for (let c = 0; c < COLS; c++) {
+        const key = r * COLS + c;
+        if (explosionDone.has(key)) continue;
+        if (clearProgress >= (c / COLS) * 0.85) {
+          explosionDone.add(key);
+          explodeBlock(r, c);
+        }
+      }
+    }
+    if (clearProgress >= 1.0) removeClearedRows();
   }
   // Level-up flash countdown
   if (levelUpFlash > 0) {
@@ -1019,10 +1075,13 @@ function startGame() {
   gameOver = false;
   paused = false;
   particles = [];
+  rings = [];
   shakeIntensity = 0;
   clearingLines = false;
   clearRows = [];
-  clearFlash = 0;
+  clearProgress = 0;
+  explosionDone = new Set();
+  clearTetris = false;
   bag = [];
 
   // Reset any pending leaderboard name-entry from a previous game
