@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import Head from 'next/head'
+import { useRouter } from 'next/router'
 import fs from 'fs'
 import path from 'path'
 
@@ -14,6 +15,7 @@ export async function getStaticProps() {
 }
 
 export default function Digest({ summary, details }) {
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   
   const displayItems = expanded ? details : details.slice(0, 3)
@@ -31,7 +33,7 @@ export default function Digest({ summary, details }) {
         {/* Header */}
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '3rem 2rem 0' }}>
           <nav style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem' }}>
-            <a href="/" style={{ color: '#4a90d9', textDecoration: 'none', fontSize: 14, fontWeight: 600, padding: '8px 16px', borderRadius: 8, background: 'rgba(74,144,217,0.2)', backdropFilter: 'blur(8px)' }}>← Homescreen</a>
+            <button onClick={() => router.back()} style={{ color: '#4a90d9', background: 'rgba(74,144,217,0.2)', border: 'none', fontSize: 14, fontWeight: 600, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', backdropFilter: 'blur(8px)', fontFamily: 'inherit' }}>← Back</button>
             <span style={{ fontSize: 13, color: '#8a8a8a' }}>{details.length} articles · Updated {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </nav>
 

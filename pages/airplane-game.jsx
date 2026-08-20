@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react'
 import Head from 'next/head'
+import { useRouter } from 'next/router'
 
 // ─── Power-up types (instant apply on pickup) ───────────────────
 const POWER_UP_TYPES = [
@@ -1730,6 +1731,7 @@ function bossAttack(boss, gs, W, H) {
 
 // ─── Main component ─────────────────────────────────────────────
 export default function AirplaneGame() {
+  const router = useRouter()
   const canvasRef = useRef(null)
   const runningRef = useRef(true)
   const [score, setScore] = useState(0)
@@ -2913,8 +2915,7 @@ export default function AirplaneGame() {
 
       <div style={styles.page}>
         <div style={styles.header}>
-          <a href="/" style={styles.backLink}>← News Digest</a>
-          <a href="/games" style={styles.backLink}>← Arcade</a>
+          <button onClick={() => router.back()} style={{ ...styles.backLink, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
           <span style={styles.title}>✈️ SKY FIGHTER</span>
           <button
             onClick={() => setMusicOn(m => !m)}

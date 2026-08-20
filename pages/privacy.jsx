@@ -8,8 +8,8 @@ export default function PrivacyPage() {
       <Head><title>Privacy Policy · llm.xerex.us</title></Head>
       <div style={{minHeight:'100vh', background:'var(--bg-main)', color:'var(--text-primary)', padding:'48px 20px'}}>
         <div style={{maxWidth:'720px', margin:'0 auto', background:'var(--bg-card)', border:'1px solid rgba(128,128,128,0.15)', borderRadius:'16px', padding:'40px 44px', boxShadow:'0 4px 24px rgba(0,0,0,0.25)'}}>
-          <button onClick={() => router.push('/')} style={{padding:'8px 18px', fontSize:'14px', fontWeight:'bold', background:'rgba(0,0,0,0.35)', color:'var(--text-primary)', border:'1px solid rgba(128,128,128,0.3)', borderRadius:'10px', cursor:'pointer', marginBottom:'28px'}}>
-            ← Home
+          <button onClick={() => router.back()} style={{padding:'8px 18px', fontSize:'14px', fontWeight:'bold', background:'rgba(0,0,0,0.35)', color:'var(--text-primary)', border:'1px solid rgba(128,128,128,0.3)', borderRadius:'10px', cursor:'pointer', marginBottom:'28px'}}>
+            ← Back
           </button>
 
           <h1 style={{fontSize:'30px', margin:'0 0 6px', letterSpacing:'0.5px'}}>Privacy Policy</h1>

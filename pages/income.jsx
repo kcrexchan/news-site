@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 
 const DATA = {
   title: "Earn While You Wander",
@@ -59,6 +60,7 @@ const DATA = {
 };
 
 export default function Income() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('photography');
 
   return (
@@ -104,6 +106,9 @@ export default function Income() {
         }
       `}</style>
 
+      <button onClick={() => router.back()} style={{position:'fixed',top:16,left:16,zIndex:9999,padding:'10px 20px',fontSize:'18px',fontWeight:'bold',background:'rgba(0,0,0,0.85)',color:'#fff',border:'2px solid rgba(255,255,255,0.3)',borderRadius:'10px',cursor:'pointer',boxShadow:'0 2px 8px rgba(0,0,0,0.5)'}}>
+        ← Back
+      </button>
       <div className="income-header">
         <h1>Earn While You Wander</h1>
         <p>{DATA.subtitle}</p>

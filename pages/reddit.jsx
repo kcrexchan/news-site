@@ -1,5 +1,6 @@
 import React from 'react'
 import Head from 'next/head'
+import { useRouter } from 'next/router'
 import fs from 'fs'
 import path from 'path'
 
@@ -14,6 +15,7 @@ export async function getStaticProps() {
 }
 
 export default function Reddit({ date, summaries, error }) {
+  const router = useRouter()
   if (error) {
     return (
       <>
@@ -25,7 +27,7 @@ export default function Reddit({ date, summaries, error }) {
         <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: "'Inter', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', color: '#ff9800' }}>
             <p style={{ fontSize: 28, fontWeight: 700 }}>{error}</p>
-            <a href="/" style={{ color: '#ffa726', fontSize: 14 }}>← Back to homescreen</a>
+            <button onClick={() => router.back()} style={{ color: '#ffa726', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Back</button>
           </div>
         </div>
       </>
@@ -45,7 +47,7 @@ export default function Reddit({ date, summaries, error }) {
         {/* Header */}
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '3rem 2rem 0' }}>
           <nav style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem' }}>
-            <a href="/" style={{ color: '#ff9800', textDecoration: 'none', fontSize: 14, fontWeight: 600, padding: '8px 16px', borderRadius: 8, background: 'rgba(255,152,0,0.2)', backdropFilter: 'blur(8px)' }}>← Homescreen</a>
+            <button onClick={() => router.back()} style={{ color: '#ff9800', background: 'rgba(255,152,0,0.2)', border: 'none', fontSize: 14, fontWeight: 600, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', backdropFilter: 'blur(8px)', fontFamily: 'inherit' }}>← Back</button>
             <span style={{ fontSize: 13, color: '#8a8a8a' }}>{summaries.length} summaries · {date}</span>
           </nav>
 

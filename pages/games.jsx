@@ -95,7 +95,7 @@ export default function Games() {
       <div style={styles.page}>
         {/* Header */}
         <div style={styles.header}>
-          <a href="/" style={styles.backLink}>← News Digest</a>
+          <button onClick={() => router.back()} style={{...styles.backLink, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit'}}>← Back</button>
           <h1 style={styles.pageTitle}>🎮 Arcade</h1>
           <span style={styles.hint}>Pick a game to start playing</span>
         </div>
