@@ -28,58 +28,62 @@ const BOSSES = [
   {
     name: 'IRON BULWARK',
     level: 1,
-    hp: 80,
+    hp: 140,
     color: '#6b7b8d',
     accentColor: '#8d9bb5',
     speed: 0.8,
     drift: 1.5,
     attackPattern: 'burst',
-    attackInterval: 90,
+    attacks: ['burst', 'aimed', 'rain'],
+    attackInterval: 80,
     bulletSpeed: 3,
-    bulletCount: 5,
+    bulletCount: 6,
     defense: 'armor',
     intro: 'A massive armored dreadnought blocks your path!',
   },
   {
     name: 'STORM DANCER',
     level: 2,
-    hp: 60,
+    hp: 120,
     color: '#1a8a6a',
     accentColor: '#3ae8b0',
     speed: 2.5,
     drift: 4,
     attackPattern: 'spread',
-    attackInterval: 60,
+    attacks: ['spread', 'spiral', 'charge'],
+    attackInterval: 70,
     bulletSpeed: 4,
-    bulletCount: 3,
+    bulletCount: 4,
     defense: 'dodge',
     intro: 'A lightning-fast interceptor weaves through the sky!',
   },
   {
     name: 'SWARM QUEEN',
     level: 3,
-    hp: 70,
+    hp: 150,
     color: '#7b2d8e',
     accentColor: '#c77dff',
     speed: 1.2,
     drift: 2,
     attackPattern: 'spawn',
-    attackInterval: 120,
+    attacks: ['spawn', 'aimed', 'rain'],
+    attackInterval: 90,
     bulletSpeed: 2.5,
-    bulletCount: 2,
+    bulletCount: 3,
     defense: 'minions',
     intro: 'A massive bio-mechanical queen descends with her swarm!',
   },
   {
     name: 'SNIPER PHANTOM',
     level: 4,
-    hp: 50,
+    hp: 130,
     color: '#4a1a2e',
     accentColor: '#ff3366',
     speed: 3,
     drift: 3,
     attackPattern: 'aimed',
-    attackInterval: 45,
+    attacks: ['aimed', 'homing', 'laser'],
+    attackInterval: 50,
     bulletSpeed: 6,
     bulletCount: 1,
     defense: 'phase',
@@ -88,13 +92,14 @@ const BOSSES = [
   {
     name: 'VOID EMPEROR',
     level: 5,
-    hp: 120,
+    hp: 240,
     color: '#2a0a3e',
     accentColor: '#ff00ff',
     speed: 1.5,
     drift: 2.5,
     attackPattern: 'chaos',
-    attackInterval: 30,
+    attacks: ['chaos', 'spiral', 'ring', 'homing', 'laser'],
+    attackInterval: 45,
     bulletSpeed: 5,
     bulletCount: 8,
     defense: 'regen',
@@ -103,12 +108,13 @@ const BOSSES = [
 ]
 
 // ─── Level configs ──────────────────────────────────────────────
+// Longer levels (more enemies to clear), but each enemy is WEAKER (low HP).
 const LEVELS = [
-  { enemiesToDefeat: 14, spawnInterval: 1500, enemySpeed: 1.5, enemyHp: 1, powerUpChance: 0.45 },
-  { enemiesToDefeat: 19, spawnInterval: 1300, enemySpeed: 2.0, enemyHp: 2, powerUpChance: 0.42 },
-  { enemiesToDefeat: 24, spawnInterval: 1100, enemySpeed: 2.2, enemyHp: 2, powerUpChance: 0.40 },
-  { enemiesToDefeat: 30, spawnInterval: 900, enemySpeed: 2.5, enemyHp: 3, powerUpChance: 0.38 },
-  { enemiesToDefeat: 36, spawnInterval: 750, enemySpeed: 2.8, enemyHp: 3, powerUpChance: 0.35 },
+  { enemiesToDefeat: 22, spawnInterval: 1500, enemySpeed: 1.5, enemyHp: 1, powerUpChance: 0.45 },
+  { enemiesToDefeat: 30, spawnInterval: 1300, enemySpeed: 1.8, enemyHp: 1, powerUpChance: 0.42 },
+  { enemiesToDefeat: 38, spawnInterval: 1150, enemySpeed: 2.0, enemyHp: 2, powerUpChance: 0.40 },
+  { enemiesToDefeat: 46, spawnInterval: 1000, enemySpeed: 2.3, enemyHp: 2, powerUpChance: 0.38 },
+  { enemiesToDefeat: 55, spawnInterval: 900, enemySpeed: 2.5, enemyHp: 2, powerUpChance: 0.35 },
 ]
 
 const ENEMY_COLORS = ['#c0552d', '#d4432e', '#a62525', '#e67e22', '#8b0000']
@@ -1594,23 +1600,54 @@ function fireBullets(gs, timestamp) {
 }
 
 function spawnRegularEnemy(gs, W, lvlConfig) {
-  const enemy = {
-    id: Date.now() + Math.random(),
-    x: 20 + Math.random() * (W - 40),
-    y: -20,
-    w: 24, h: 24,
-    hp: lvlConfig.enemyHp,
-    maxHp: lvlConfig.enemyHp,
-    speed: lvlConfig.enemySpeed + Math.random() * 0.8,
-    drift: (Math.random() - 0.5) * 2,
-    color: ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)],
-    isBoss: false,
-    isMini: false,
+  // Enemies arrive in SQUADS (2-4 craft) flying a shared formation and firing
+  // synchronized volleys — the "group attack". Squad members share one fire
+  // timer so their shots land together.
+  const squadSize = 2 + Math.floor(Math.random() * 3) // 2..4
+  const formation = Math.random() < 0.5 ? 'v' : 'line'
+  const cx = 60 + Math.random() * Math.max(1, W - 120)
+  const sharedCooldown = 70 + Math.floor(Math.random() * 80) // frames until first volley (synced)
+  // Shared movement so the formation holds together
+  const squadSpeed = lvlConfig.enemySpeed + Math.random() * 0.5
+  const squadDrift = (Math.random() - 0.5) * 1.2
+  const squadId = 'sq_' + Date.now() + '_' + Math.floor(Math.random() * 9999)
+  if (!gs.squadFireTimes) gs.squadFireTimes = {}
+  gs.squadFireTimes[squadId] = { t: sharedCooldown, tick: -1 }
+
+  for (let i = 0; i < squadSize; i++) {
+    let ox = 0, oy = 0
+    if (formation === 'v') {
+      const side = i % 2 === 0 ? -1 : 1
+      const rank = Math.ceil((i + 1) / 2)
+      ox = side * rank * 26
+      oy = rank * 22
+    } else {
+      ox = (i - (squadSize - 1) / 2) * 34
+      oy = 0
+    }
+    const enemy = {
+      id: Date.now() + Math.random(),
+      x: Math.max(16, Math.min(W - 16, cx + ox)),
+      y: -20 - oy,
+      w: 24, h: 24,
+      hp: lvlConfig.enemyHp,
+      maxHp: lvlConfig.enemyHp,
+      speed: squadSpeed,
+      drift: squadDrift,
+      color: ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)],
+      isBoss: false,
+      isMini: false,
+      // Group attack — all squad members share one timer (gs.squadFireTimes)
+      // so their volleys fire in unison.
+      squadId,
+      bulletSpeed: 2.4 + gs.currentLevel * 0.35,
+    }
+    gs.enemies.push(enemy)
   }
-  gs.enemies.push(enemy)
 }
 
 // ─── Boss attack logic ──────────────────────────────────────────
+// Each boss cycles through its `attacks` list (round-robin), so fights have variety.
 function bossAttack(boss, gs, W, H) {
   if (!boss || boss.hp <= 0) return
 
@@ -1619,7 +1656,19 @@ function bossAttack(boss, gs, W, H) {
 
   boss.attackFrame = 0
 
-  switch (boss.attackPattern) {
+  const list = boss.attacks && boss.attacks.length ? boss.attacks : [boss.attackPattern]
+  boss.attackIndex = ((boss.attackIndex || 0) % list.length)
+  const pattern = list[boss.attackIndex]
+  boss.attackIndex++
+
+  const aimAtPlayer = () => {
+    const dx = gs.player.x - boss.x
+    const dy = gs.player.y - boss.y
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1
+    return { dx, dy, dist }
+  }
+
+  switch (pattern) {
     case 'burst': {
       for (let i = 0; i < boss.bulletCount; i++) {
         gs.enemyBullets.push({
@@ -1632,8 +1681,8 @@ function bossAttack(boss, gs, W, H) {
       break
     }
     case 'spread': {
-      for (let i = 0; i < boss.bulletCount; i++) {
-        const angle = Math.PI / 2 + (i - boss.bulletCount / 2) * 0.4
+      for (let i = 0; i < boss.bulletCount + 2; i++) {
+        const angle = Math.PI / 2 + (i - (boss.bulletCount + 1) / 2) * 0.35
         gs.enemyBullets.push({
           x: boss.x, y: boss.y + 15,
           vx: Math.cos(angle) * boss.bulletSpeed,
@@ -1671,13 +1720,11 @@ function bossAttack(boss, gs, W, H) {
       break
     }
     case 'aimed': {
-      const dx = gs.player.x - boss.x
-      const dy = gs.player.y - boss.y
-      const dist = Math.sqrt(dx * dx + dy * dy)
-      if (dist > 0) {
+      const { dx, dy, dist } = aimAtPlayer()
+      for (let i = -1; i <= 1; i++) {
         gs.enemyBullets.push({
-          x: boss.x, y: boss.y + 15,
-          vx: (dx / dist) * boss.bulletSpeed,
+          x: boss.x + i * 8, y: boss.y + 15,
+          vx: (dx / dist) * boss.bulletSpeed + i * 0.6,
           vy: (dy / dist) * boss.bulletSpeed,
           color: '#ff3366',
         })
@@ -1685,10 +1732,10 @@ function bossAttack(boss, gs, W, H) {
       break
     }
     case 'chaos': {
-      const phase = Math.floor(boss.attackFrame / 30) % 4
+      const phase = Math.floor((boss.attackFrame + boss.chaosPhase || 0) / 45) % 4
       if (phase === 0 || phase === 2) {
         for (let i = 0; i < 8; i++) {
-          const angle = (i / 8) * Math.PI * 2
+          const angle = (i / 8) * Math.PI * 2 + (boss.chaosPhase || 0) * 0.4
           gs.enemyBullets.push({
             x: boss.x, y: boss.y,
             vx: Math.cos(angle) * boss.bulletSpeed * 0.7,
@@ -1697,18 +1744,14 @@ function bossAttack(boss, gs, W, H) {
           })
         }
       } else if (phase === 1) {
-        const dx = gs.player.x - boss.x
-        const dy = gs.player.y - boss.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist > 0) {
-          for (let i = -1; i <= 1; i++) {
-            gs.enemyBullets.push({
-              x: boss.x, y: boss.y + 15,
-              vx: (dx / dist) * boss.bulletSpeed + i * 1.5,
-              vy: (dy / dist) * boss.bulletSpeed,
-              color: '#ff00ff',
-            })
-          }
+        const { dx, dy, dist } = aimAtPlayer()
+        for (let i = -1; i <= 1; i++) {
+          gs.enemyBullets.push({
+            x: boss.x, y: boss.y + 15,
+            vx: (dx / dist) * boss.bulletSpeed + i * 1.5,
+            vy: (dy / dist) * boss.bulletSpeed,
+            color: '#ff00ff',
+          })
         }
       } else {
         gs.enemies.push({
@@ -1724,7 +1767,123 @@ function bossAttack(boss, gs, W, H) {
           isMini: true,
         })
       }
+      boss.chaosPhase = (boss.chaosPhase || 0) + 1
       break
+    }
+    case 'rain': {
+      // Bullets rain down from the top of the screen at random x positions
+      for (let i = 0; i < 6; i++) {
+        gs.enemyBullets.push({
+          x: 20 + Math.random() * (W - 40),
+          y: -15,
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: boss.bulletSpeed * (0.8 + Math.random() * 0.5),
+          color: boss.accentColor || '#ffaa44',
+        })
+      }
+      break
+    }
+    case 'spiral': {
+      // Rotating spiral arms — angle offset advances each volley
+      boss.spiralAngle = (boss.spiralAngle || 0) + 0.5
+      for (let i = 0; i < 4; i++) {
+        const angle = boss.spiralAngle + (i / 4) * Math.PI * 2
+        gs.enemyBullets.push({
+          x: boss.x, y: boss.y + 10,
+          vx: Math.cos(angle) * boss.bulletSpeed * 0.8,
+          vy: Math.sin(angle) * boss.bulletSpeed * 0.8,
+          color: boss.accentColor || '#3ae8b0',
+        })
+      }
+      break
+    }
+    case 'ring': {
+      // Full 360° ring of bullets expanding outward
+      const n = 12
+      for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2 + (boss.spiralAngle || 0)
+        gs.enemyBullets.push({
+          x: boss.x, y: boss.y,
+          vx: Math.cos(angle) * boss.bulletSpeed * 0.65,
+          vy: Math.sin(angle) * boss.bulletSpeed * 0.65,
+          color: boss.accentColor || '#ff00ff',
+        })
+      }
+      break
+    }
+    case 'charge': {
+      // Boss dashes horizontally toward the player's x, then fires a wide burst on arrival.
+      // The dash itself animates per-frame in updateBossContinuity (boss.chargeActive).
+      const dir = Math.sign(gs.player.x - boss.x) || 1
+      boss.chargeDir = dir * Math.min(9, boss.bulletSpeed + 3)
+      boss.chargeTimer = 40
+      boss.chargeActive = true
+      break
+    }
+    case 'homing': {
+      // Slow self-guided missiles that curve toward the player
+      for (let i = -1; i <= 1; i++) {
+        gs.enemyBullets.push({
+          x: boss.x + i * 20, y: boss.y + 15,
+          vx: i * 1.5, vy: boss.bulletSpeed * 0.6,
+          color: '#ffcc44',
+          homing: true, turn: 0.05, speed: boss.bulletSpeed * 0.85,
+        })
+      }
+      break
+    }
+    case 'laser': {
+      // Telegraphed beam: warning line for ~45 frames, then a damaging bolt at that x.
+      // The telegraph animates per-frame in updateBossContinuity (boss.laserActive).
+      boss.laserTargetX = gs.player.x
+      boss.laserTimer = 45
+      boss.laserActive = true
+      break
+    }
+  }
+}
+
+// ─── Per-frame boss continuity (charge dash, laser telegraph) ────
+function updateBossContinuity(boss, gs, W, H) {
+  if (!boss || boss.hp <= 0 || boss.enterPhase) return
+
+  // Charge dash: move horizontally until reaching the player's x or time runs out
+  if (boss.chargeActive) {
+    boss.x += boss.chargeDir
+    boss.chargeTimer--
+    if (Math.abs(boss.x - gs.player.x) < 14 || boss.chargeTimer <= 0) {
+      boss.chargeActive = false
+      for (let i = 0; i < 5; i++) {
+        const angle = Math.PI / 2 + (i - 2) * 0.3
+        gs.enemyBullets.push({
+          x: boss.x, y: boss.y + 18,
+          vx: Math.cos(angle) * boss.bulletSpeed,
+          vy: Math.sin(angle) * boss.bulletSpeed,
+          color: '#ffffff',
+        })
+      }
+    }
+  }
+
+  // Laser telegraph: flashing warning line, then fire the beam when the timer ends
+  if (boss.laserActive) {
+    boss.laserTimer--
+    if (boss.laserTimer <= 0) {
+      boss.laserActive = false
+      gs.enemyBullets.push({
+        x: boss.laserTargetX, y: -20,
+        vx: 0, vy: boss.bulletSpeed * 1.6,
+        color: '#ff4455',
+        size: 8, beam: true,
+      })
+      for (let i = -2; i <= 2; i++) {
+        if (i === 0) continue
+        gs.enemyBullets.push({
+          x: boss.laserTargetX + i * 18, y: -10,
+          vx: i * 0.4, vy: boss.bulletSpeed * 1.3,
+          color: '#ff8899',
+        })
+      }
     }
   }
 }
@@ -2130,6 +2289,7 @@ export default function AirplaneGame() {
 
         if (!boss.enterPhase) {
           bossAttack(boss, gs, W, H)
+          updateBossContinuity(boss, gs, W, H)
         }
       }
 
@@ -2182,15 +2342,65 @@ export default function AirplaneGame() {
         e.y += e.speed
         e.x += e.drift
         if (e.x < 8 || e.x > W - 8) e.drift = -e.drift
+
+        // ── Group attack: whole squad fires one synchronized volley at the player ──
+        // Squad timer ticks ONCE per frame (frame-tick guard), and every on-screen
+        // member fires in that same frame — a true coordinated burst.
+        if (!e.isMini && !e.isBoss) {
+          const times = gs.squadFireTimes || (gs.squadFireTimes = {})
+          let s = times[e.squadId]
+          if (!s) s = times[e.squadId] = { t: 60 + Math.random() * 90, tick: -1 }
+          if (s.tick !== gs.frameCount) {
+            s.t--
+            s.tick = gs.frameCount
+            if (s.t <= 0) {
+              s.shouldFire = true
+              s.t = 90 + Math.floor(Math.random() * 70) // next volley countdown
+            }
+          }
+          if (s.shouldFire && e.y > 40 && e.y < H - 160) {
+            const dx = gs.player.x - e.x
+            const dy = gs.player.y - e.y
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1
+            gs.enemyBullets.push({
+              x: e.x, y: e.y + 12,
+              vx: (dx / dist) * e.bulletSpeed,
+              vy: (dy / dist) * e.bulletSpeed,
+              color: e.color || '#ff6b6b',
+            })
+          }
+        }
+
         if (e.y > H + 30) {
           gs.enemies.splice(i, 1)
           gs.combo = 0
         }
       }
 
+      // End of frame: clear the squad volley flag so it fires exactly once per
+      // countdown, and prune squads that are fully off-screen.
+      if (gs.squadFireTimes) {
+        const liveSquads = new Set()
+        for (const e of gs.enemies) if (e.squadId) liveSquads.add(e.squadId)
+        for (const id in gs.squadFireTimes) {
+          if (!liveSquads.has(id)) delete gs.squadFireTimes[id]
+          else if (gs.squadFireTimes[id].shouldFire) gs.squadFireTimes[id].shouldFire = false
+        }
+      }
+
       // Update enemy bullets
       for (let i = gs.enemyBullets.length - 1; i >= 0; i--) {
         const b = gs.enemyBullets[i]
+        if (b.homing) {
+          // Self-guided: steer velocity toward the player each frame
+          const dx = gs.player.x - b.x
+          const dy = gs.player.y - b.y
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1
+          const targetVx = (dx / dist) * b.speed
+          const targetVy = (dy / dist) * b.speed
+          b.vx += (targetVx - b.vx) * b.turn
+          b.vy += (targetVy - b.vy) * b.turn
+        }
         b.x += b.vx
         b.y += b.vy
         if (b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20) {
@@ -2648,10 +2858,25 @@ export default function AirplaneGame() {
         ctx.shadowBlur = 0
       }
 
-      // Enemy bullets (energy orbs)
+      // Enemy bullets (energy orbs / beams)
       for (const b of gs.enemyBullets) {
         const col = b.color || '#ff4444'
-        // Outer glow
+        if (b.beam) {
+          // Thick laser bolt with a trailing glow column
+          ctx.shadowColor = col
+          ctx.shadowBlur = 16
+          ctx.fillStyle = col + '55'
+          ctx.fillRect(b.x - 8, b.y - 30, 16, 60)
+          ctx.fillStyle = col
+          ctx.beginPath()
+          ctx.arc(b.x, b.y, 8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+          ctx.fillRect(b.x - 2.5, b.y - 26, 5, 52)
+          ctx.shadowBlur = 0
+          continue
+        }
+        // Outer glow (per-bullet color; all bullet colors are 6-digit hex)
         ctx.shadowColor = col
         ctx.shadowBlur = 10
         ctx.fillStyle = col + '40'
@@ -2669,6 +2894,26 @@ export default function AirplaneGame() {
         ctx.arc(b.x, b.y, 1.5, 0, Math.PI * 2)
         ctx.fill()
         ctx.shadowBlur = 0
+      }
+
+      // Laser telegraph: flashing warning column at the boss's targeted x
+      if (gs.boss && gs.boss.hp > 0 && !gs.boss.enterPhase && gs.boss.laserActive) {
+        const lx = gs.boss.laserTargetX
+        const flash = 0.25 + 0.3 * Math.abs(Math.sin(gs.frameCount * 0.35))
+        ctx.strokeStyle = `rgba(255, 68, 85, ${flash})`
+        ctx.lineWidth = 10
+        ctx.setLineDash([14, 10])
+        ctx.beginPath()
+        ctx.moveTo(lx, 0)
+        ctx.lineTo(lx, H)
+        ctx.stroke()
+        ctx.setLineDash([])
+        // Reticle at the top
+        ctx.strokeStyle = `rgba(255, 120, 130, ${Math.min(1, flash + 0.2)})`
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(lx, gs.boss.y, 16 + Math.sin(gs.frameCount * 0.4) * 3, 0, Math.PI * 2)
+        ctx.stroke()
       }
 
       // Missiles
