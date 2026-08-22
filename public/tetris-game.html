@@ -228,27 +228,54 @@ function playExplosion(pitch, big) {
   const t = ctx.currentTime;
   // Noise crackle
   const src = ctx.createBufferSource();
-  src.buffer = noiseBuffer(ctx, 0.25);
+  src.buffer = noiseBuffer(ctx, big ? 0.4 : 0.25);
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
   const base = 400 + pitch * 1800 + (big ? 800 : 0);
   lp.frequency.setValueAtTime(base * 3, t);
-  lp.frequency.exponentialRampToValueAtTime(200, t + 0.22);
+  lp.frequency.exponentialRampToValueAtTime(200, t + (big ? 0.35 : 0.22));
   const ng = ctx.createGain();
-  ng.gain.setValueAtTime(big ? 0.5 : 0.3, t);
-  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  ng.gain.setValueAtTime(big ? 0.7 : 0.3, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + (big ? 0.4 : 0.25));
   src.connect(lp).connect(ng).connect(ctx.destination);
-  src.start(t); src.stop(t + 0.26);
+  src.start(t); src.stop(t + (big ? 0.42 : 0.26));
   // Sub thump
   const osc = ctx.createOscillator();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(120 + pitch * 60, t);
-  osc.frequency.exponentialRampToValueAtTime(40, t + 0.18);
+  osc.frequency.setValueAtTime(big ? 90 : 120 + pitch * 60, t);
+  osc.frequency.exponentialRampToValueAtTime(35, t + (big ? 0.3 : 0.18));
   const og = ctx.createGain();
-  og.gain.setValueAtTime(big ? 0.6 : 0.35, t);
-  og.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  og.gain.setValueAtTime(big ? 0.9 : 0.35, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + (big ? 0.35 : 0.2));
   osc.connect(og).connect(ctx.destination);
-  osc.start(t); osc.stop(t + 0.22);
+  osc.start(t); osc.stop(t + (big ? 0.4 : 0.22));
+}
+
+// Final Tetris blast: deep sub drop + long noise wash, fired when the sweep finishes
+function playTetrisBlast() {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(80, t);
+  o.frequency.exponentialRampToValueAtTime(25, t + 0.6);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.9, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+  o.connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + 0.75);
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(ctx, 0.8);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(3000, t);
+  lp.frequency.exponentialRampToValueAtTime(150, t + 0.7);
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.6, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+  src.connect(lp).connect(ng).connect(ctx.destination);
+  src.start(t); src.stop(t + 0.85);
 }
 
 // Line-clear fanfare: rising arpeggio, one note per cleared line + Tetris chord
@@ -526,8 +553,8 @@ function scanLines() {
   const isTetris = filled.length === 4;
 
   playLineClear(filled.length, isTetris);
-  screenFlash = isTetris ? 0.85 : 0.45 + filled.length * 0.08;
-  shakeIntensity = isTetris ? 15 : filled.length * 3;
+  screenFlash = isTetris ? 1.0 : 0.45 + filled.length * 0.08;
+  shakeIntensity = isTetris ? 26 : filled.length * 3;
   clearingLines = true;
   clearRows = filled;
   clearProgress = 0;
@@ -745,35 +772,71 @@ function explodeBlock(r, c) {
   const color = COLORS[colorIdx] || '#fff', glow = GLOW[colorIdx];
   const big = clearTetris;
   // Core particle burst
-  const n = big ? 18 : 12;
+  const n = big ? 30 : 12;
   for (let i = 0; i < n; i++) {
     const ang = Math.random() * Math.PI * 2;
-    const spd = (Math.random() * 0.8 + 0.4) * (big ? 13 : 9);
+    const spd = (Math.random() * 0.8 + 0.4) * (big ? 16 : 9);
     particles.push({
       x: cx, y: cy,
       vx: Math.cos(ang) * spd,
       vy: Math.sin(ang) * spd - 2,
-      life: 1.0, decay: 0.015 + Math.random() * 0.025,
-      size: big ? 5 : 4,
+      life: 1.0, decay: big ? 0.01 + Math.random() * 0.02 : 0.015 + Math.random() * 0.025,
+      size: big ? 6 : 4,
       color, glow
     });
   }
   // White-hot spark burst
-  const ns = big ? 10 : 6;
+  const ns = big ? 16 : 6;
   for (let i = 0; i < ns; i++) {
     const ang = Math.random() * Math.PI * 2;
-    const spd = (Math.random() * 0.6 + 0.5) * (big ? 16 : 11);
+    const spd = (Math.random() * 0.6 + 0.5) * (big ? 20 : 11);
     particles.push({
       x: cx, y: cy,
       vx: Math.cos(ang) * spd,
       vy: Math.sin(ang) * spd,
-      life: 0.8, decay: 0.03 + Math.random() * 0.03,
-      size: 3,
+      life: 0.8, decay: big ? 0.02 + Math.random() * 0.03 : 0.03 + Math.random() * 0.03,
+      size: big ? 4 : 3,
       color: '#ffffff', glow: 'rgba(255,255,255,0.8)'
     });
   }
   // Per-block screen kick
-  shakeIntensity = Math.max(shakeIntensity, big ? 6 : 4);
+  shakeIntensity = Math.max(shakeIntensity, big ? 10 : 4);
+}
+
+// Big final detonation when a Tetris sweep finishes: every cleared cell erupts again
+function tetrisFinaleBlast() {
+  playTetrisBlast();
+  screenFlash = 1.0;
+  shakeIntensity = 30;
+  for (const r of clearRows) {
+    for (let c = 0; c < COLS; c++) {
+      const cx = c * BLOCK + BLOCK / 2, cy = r * BLOCK + BLOCK / 2;
+      const colorIdx = board[r][c];
+      const color = COLORS[colorIdx] || '#fff', glow = GLOW[colorIdx];
+      for (let i = 0; i < 14; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = (Math.random() * 0.9 + 0.5) * 18;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd - 3,
+          life: 1.0, decay: 0.012 + Math.random() * 0.02,
+          size: 6, color, glow
+        });
+      }
+      for (let i = 0; i < 8; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = (Math.random() * 0.7 + 0.5) * 24;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 0.9, decay: 0.02 + Math.random() * 0.03,
+          size: 4, color: '#ffffff', glow: 'rgba(255,255,255,0.9)'
+        });
+      }
+    }
+  }
 }
 
 function updateEffects() {
@@ -807,7 +870,10 @@ function updateEffects() {
         }
       }
     }
-    if (clearProgress >= 1.0) removeClearedRows();
+    if (clearProgress >= 1.0) {
+      if (clearTetris) tetrisFinaleBlast();
+      removeClearedRows();
+    }
   }
   // Level-up flash countdown
   if (levelUpFlash > 0) {
