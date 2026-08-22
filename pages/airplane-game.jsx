@@ -28,7 +28,7 @@ const BOSSES = [
   {
     name: 'IRON BULWARK',
     level: 1,
-    hp: 140,
+    hp: 160,
     color: '#6b7b8d',
     accentColor: '#8d9bb5',
     speed: 0.8,
@@ -44,13 +44,13 @@ const BOSSES = [
   {
     name: 'STORM DANCER',
     level: 2,
-    hp: 120,
+    hp: 230,
     color: '#1a8a6a',
     accentColor: '#3ae8b0',
     speed: 2.5,
     drift: 4,
     attackPattern: 'spread',
-    attacks: ['spread', 'spiral', 'charge'],
+    attacks: ['spread', 'spiral', 'charge', 'homing'],
     attackInterval: 70,
     bulletSpeed: 4,
     bulletCount: 4,
@@ -60,14 +60,14 @@ const BOSSES = [
   {
     name: 'SWARM QUEEN',
     level: 3,
-    hp: 150,
+    hp: 310,
     color: '#7b2d8e',
     accentColor: '#c77dff',
     speed: 1.2,
     drift: 2,
     attackPattern: 'spawn',
-    attacks: ['spawn', 'aimed', 'rain'],
-    attackInterval: 90,
+    attacks: ['spawn', 'aimed', 'rain', 'spiral'],
+    attackInterval: 62,
     bulletSpeed: 2.5,
     bulletCount: 3,
     defense: 'minions',
@@ -76,15 +76,15 @@ const BOSSES = [
   {
     name: 'SNIPER PHANTOM',
     level: 4,
-    hp: 130,
+    hp: 390,
     color: '#4a1a2e',
     accentColor: '#ff3366',
     speed: 3,
     drift: 3,
     attackPattern: 'aimed',
-    attacks: ['aimed', 'homing', 'laser'],
-    attackInterval: 50,
-    bulletSpeed: 6,
+    attacks: ['aimed', 'homing', 'laser', 'rain'],
+    attackInterval: 48,
+    bulletSpeed: 6.5,
     bulletCount: 1,
     defense: 'phase',
     intro: 'A ghostly phantom appears and vanishes — targeting you!',
@@ -92,15 +92,15 @@ const BOSSES = [
   {
     name: 'VOID EMPEROR',
     level: 5,
-    hp: 240,
+    hp: 520,
     color: '#2a0a3e',
     accentColor: '#ff00ff',
     speed: 1.5,
     drift: 2.5,
     attackPattern: 'chaos',
-    attacks: ['chaos', 'spiral', 'ring', 'homing', 'laser'],
-    attackInterval: 45,
-    bulletSpeed: 5,
+    attacks: ['chaos', 'spiral', 'ring', 'homing', 'laser', 'charge'],
+    attackInterval: 38,
+    bulletSpeed: 5.5,
     bulletCount: 8,
     defense: 'regen',
     intro: 'THE VOID EMPEROR — ruler of the endless abyss!',
@@ -108,13 +108,13 @@ const BOSSES = [
 ]
 
 // ─── Level configs ──────────────────────────────────────────────
-// Longer levels (more enemies to clear), but each enemy is WEAKER (low HP).
+// Even longer levels (many more enemies to clear); each enemy stays WEAK (low HP).
 const LEVELS = [
-  { enemiesToDefeat: 22, spawnInterval: 1500, enemySpeed: 1.5, enemyHp: 1, powerUpChance: 0.45 },
-  { enemiesToDefeat: 30, spawnInterval: 1300, enemySpeed: 1.8, enemyHp: 1, powerUpChance: 0.42 },
-  { enemiesToDefeat: 38, spawnInterval: 1150, enemySpeed: 2.0, enemyHp: 2, powerUpChance: 0.40 },
-  { enemiesToDefeat: 46, spawnInterval: 1000, enemySpeed: 2.3, enemyHp: 2, powerUpChance: 0.38 },
-  { enemiesToDefeat: 55, spawnInterval: 900, enemySpeed: 2.5, enemyHp: 2, powerUpChance: 0.35 },
+  { enemiesToDefeat: 34, spawnInterval: 1500, enemySpeed: 1.5, enemyHp: 1, powerUpChance: 0.45 },
+  { enemiesToDefeat: 46, spawnInterval: 1300, enemySpeed: 1.8, enemyHp: 1, powerUpChance: 0.42 },
+  { enemiesToDefeat: 60, spawnInterval: 1150, enemySpeed: 2.0, enemyHp: 2, powerUpChance: 0.40 },
+  { enemiesToDefeat: 78, spawnInterval: 1000, enemySpeed: 2.3, enemyHp: 2, powerUpChance: 0.38 },
+  { enemiesToDefeat: 96, spawnInterval: 900, enemySpeed: 2.5, enemyHp: 2, powerUpChance: 0.35 },
 ]
 
 const ENEMY_COLORS = ['#c0552d', '#d4432e', '#a62525', '#e67e22', '#8b0000']
@@ -2072,6 +2072,7 @@ export default function AirplaneGame() {
       const bossDef = BOSSES[levelNum - 1]
       gs.boss = {
         ...bossDef,
+        maxHp: bossDef.hp,
         x: W / 2,
         y: -60,
         w: 45,
