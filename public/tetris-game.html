@@ -504,10 +504,14 @@ function lockPiece() {
   merge();
   playLock();
   scanLines();
-  // If no lines are being cleared, spawn the next piece right away
-  // (If lines are clearing, spawn happens in removeClearedRows after the animation)
   if (!clearingLines) {
+    // No line clear — spawn the next piece right away.
     spawnPiece();
+  } else {
+    // The piece is now part of the board. Stop drawing it as the active
+    // piece so its blocks in the cleared rows explode with the sweep
+    // instead of being redrawn on top every frame.
+    current = null;
   }
 }
 
