@@ -73,6 +73,29 @@ html, body {
 .rules { color: #7a8f6e; font-size: clamp(12px, 3vw, 14px); line-height: 1.9; margin: 14px 0 6px; }
 .rules .p1c { color: #6bdf4a; font-weight: 700; }
 .rules .p2c { color: #e0c060; font-weight: 700; }
+
+/* ─── Mode + difficulty selectors ───────────── */
+.sel-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #7a8f6e; margin-top: 18px; margin-bottom: 9px; }
+.mode-row { display: flex; gap: 10px; justify-content: center; }
+.mode-btn {
+  pointer-events: all; cursor: pointer; flex: 1; max-width: 170px;
+  padding: 12px 10px; border-radius: 14px; font-size: 15px; font-weight: 700;
+  color: #cfe0c6; background: rgba(0,0,0,0.4);
+  border: 2px solid rgba(255,255,255,0.16); transition: transform .1s, border-color .2s, background .2s;
+}
+.mode-btn small { display: block; font-size: 11px; font-weight: 600; opacity: 0.7; margin-top: 3px; letter-spacing: 0.5px; }
+.mode-btn:active { transform: scale(0.97); }
+.mode-btn.sel { border-color: #6bdf4a; background: rgba(107,223,74,0.16); color: #ecfccb; box-shadow: 0 0 18px rgba(107,223,74,0.3); }
+.diff-row { display: flex; gap: 8px; justify-content: center; }
+.diff-btn {
+  pointer-events: all; cursor: pointer; padding: 9px 20px; border-radius: 12px;
+  font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: #cfe0c6; background: rgba(0,0,0,0.35); border: 2px solid rgba(255,255,255,0.14); transition: all .15s;
+}
+.diff-btn:active { transform: scale(0.96); }
+.diff-btn.sel { border-color: #e0c060; background: rgba(224,192,96,0.16); color: #f2e2a8; box-shadow: 0 0 14px rgba(224,192,96,0.3); }
+.diff-hint { color: #7a8f6e; font-size: 12px; margin-top: 8px; min-height: 16px; }
+
 .btn {
   pointer-events: all; cursor: pointer;
   padding: 15px 46px; font-size: 19px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
@@ -108,10 +131,24 @@ html, body {
 <!-- Start screen -->
 <div class="overlay" id="start-screen">
   <h1>AIR HOCKEY</h1>
-  <div class="sub">Two players · one phone · <b>first to 7 wins</b></div>
-  <div class="rules">
-    <span class="p1c">Green</span> plays the <b>bottom</b> half<br>
-    <span class="p2c">Gold</span> plays the <b>top</b> half<br>
+  <div class="sub" id="start-sub">First to <b>7</b> wins</div>
+  <div class="sel-label">How do you want to play?</div>
+  <div class="mode-row">
+    <button class="mode-btn sel" id="mode-1p">1 Player<small>vs Computer</small></button>
+    <button class="mode-btn" id="mode-2p">2 Players<small>one phone</small></button>
+  </div>
+  <div id="diff-wrap">
+    <div class="sel-label">CPU level</div>
+    <div class="diff-row">
+      <button class="diff-btn" data-diff="easy">Easy</button>
+      <button class="diff-btn sel" data-diff="medium">Medium</button>
+      <button class="diff-btn" data-diff="hard">Hard</button>
+    </div>
+    <div class="diff-hint" id="diff-hint">A fair, forgiving opponent</div>
+  </div>
+  <div class="rules" id="start-rules">
+    <span class="p1c">Green</span> is <b>you</b> (bottom half)<br>
+    <span class="p2c">Gold</span> is the <b>computer</b> (top half)<br>
     Hold your half and drag to swing your mallet
   </div>
   <button class="btn" id="start-btn">Start Match</button>
@@ -163,9 +200,26 @@ let shake = 0;                    // screen shake magnitude (px)
 let particles = [];
 let lastGoalFlash = 0, goalFlashColor = '#6bdf4a';
 
+// ─── Mode: 1P (vs CPU, top) or 2P (both human) ───────────────
+let mode = '1p';                 // '1p' | '2p'
+let cpu = {
+  diff: 'medium',
+  params: {
+    easy:   { maxSpeed: 0.014, err: 0.20, react: 220, aggr: 0.55 },
+    medium: { maxSpeed: 0.024, err: 0.10, react: 120, aggr: 0.72 },
+    hard:   { maxSpeed: 0.038, err: 0.05, react: 60,  aggr: 0.88 },
+  },
+  tx: 0, ty: 0,                  // current target the CPU chases (stale-able)
+  lastThink: 0,
+};
+
 const P1 = { x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, r: 0, color: '#6bdf4a', glow: 'rgba(107,223,74,0.9)' };
 const P2 = { x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, r: 0, color: '#e0c060', glow: 'rgba(224,192,96,0.9)' };
 const BALL = { x: 0, y: 0, vx: 0, vy: 0, r: 0 };
+
+// Per-mallet speed scale so the CPU mallet can be slower/faster than the human's.
+P1.speedScale = 1.0;
+P2.speedScale = 1.0;
 
 // ─── Audio (Web Audio, no assets) ────────────────────────────
 const AC = window.AudioContext || window.webkitAudioContext;
@@ -257,7 +311,8 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!running || paused || over) return;
   initAudio();
   const p = canvasPos(e);
-  const mallet = (p.y < T.cy) ? P2 : P1;
+  // 1P: the human always controls the bottom mallet (P1). 2P: pick by half.
+  const mallet = (mode === '1p') ? P1 : ((p.y < T.cy) ? P2 : P1);
   // steal if that mallet is already held by another pointer
   for (const [id, m] of held) if (m === mallet) held.delete(id);
   held.set(e.pointerId, mallet);
@@ -283,7 +338,7 @@ canvas.addEventListener('lostpointercapture', releasePointer);
 
 // ─── Physics ─────────────────────────────────────────────────
 function moveMallet(p, dt) {
-  const maxSpeed = Math.max(18, T.w * 0.030) * dt;   // px this step
+  const maxSpeed = Math.max(18, T.w * 0.030) * (p.speedScale || 1) * dt;   // px this step
   let dx = p.tx - p.x, dy = p.ty - p.y;
   const d = Math.hypot(dx, dy);
   if (d > maxSpeed) { dx = dx / d * maxSpeed; dy = dy / d * maxSpeed; }
@@ -351,6 +406,42 @@ function stepBall(dt) {
   if (sp > MAX_BALL_SPEED) { BALL.vx = BALL.vx / sp * MAX_BALL_SPEED; BALL.vy = BALL.vy / sp * MAX_BALL_SPEED; }
   // tiny stall cleanup
   if (sp < 0.05) { BALL.vx = 0; BALL.vy = 0; }
+}
+
+// ─── CPU AI (top mallet, P2) ──────────────────────────────────
+// Re-aims only every `react` ms (perceptible reaction delay) and carries
+// a small positional error so it's beatable. Returns the target point.
+function computeCpuTarget(now) {
+  const P = cpu.params[cpu.diff];
+  const homeY = T.cy - T.h * 0.25;
+  const err = T.w * P.err;
+
+  // Only actively chase when the ball is in the CPU's half or travelling toward it.
+  const ballInHalf = BALL.y < T.cy;
+  const coming = BALL.vy < 0;
+  if (!ballInHalf && !coming) {
+    // Defensive: drift back to a guard position, slightly toward the ball's x.
+    const gx = T.cx + (BALL.x - T.cx) * 0.35;
+    return { x: clampX(gx, err), y: homeY };
+  }
+
+  // Intercept: aim a bit behind the ball (toward the top goal) so a swing sends it down.
+  const behind = BALL.y - P.aggr * T.h * 0.12;
+  return { x: clampX(BALL.x, err), y: Math.min(behind, T.cy - BALL.r - P2.r * 0.2) };
+}
+function clampX(x, err) {
+  const j = (Math.random() * 2 - 1) * err;
+  return Math.max(T.left + P2.r, Math.min(T.right - P2.r, x + j));
+}
+function stepCpu(now) {
+  if (mode !== '1p') return;
+  const P = cpu.params[cpu.diff];
+  if (now - cpu.lastThink >= P.react) {
+    const t = computeCpuTarget(now);
+    cpu.tx = t.x; cpu.ty = t.y;
+    P2.tx = t.x; P2.ty = t.y;
+    cpu.lastThink = now;
+  }
 }
 
 function goal(who) {
@@ -527,9 +618,11 @@ function frame(now) {
   if (running && !paused && !over) {
     if (serveTimer > 0) {
       serveTimer -= dt;
+      stepCpu(now);
       moveMallet(P1, dt); moveMallet(P2, dt);
       stepParticles(dt);
     } else {
+      stepCpu(now);
       moveMallet(P1, dt);
       moveMallet(P2, dt);
       stepBall(dt);
@@ -542,6 +635,25 @@ function frame(now) {
 }
 
 // ─── Game flow ───────────────────────────────────────────────
+function setLabels() {
+  // P1 label is always "You". P2 is "CPU" in 1P, "Rival" in 2P.
+  document.querySelector('.score-panel.p1 .who').textContent = 'You';
+  document.querySelector('.score-panel.p2 .who').textContent = (mode === '1p') ? 'CPU' : 'Rival';
+  // Start-screen copy
+  const sub = document.getElementById('start-sub');
+  const rules = document.getElementById('start-rules');
+  if (mode === '1p') {
+    sub.innerHTML = 'Practice vs the computer · <b>first to 7</b>';
+    rules.innerHTML = '<span class="p1c">Green</span> is <b>you</b> (bottom half)<br>' +
+                      '<span class="p2c">Gold</span> is the <b>computer</b> (top half)<br>' +
+                      'Hold your half and drag to swing your mallet';
+  } else {
+    sub.innerHTML = 'Two players · one phone · <b>first to 7</b>';
+    rules.innerHTML = '<span class="p1c">Green</span> plays the <b>bottom</b> half<br>' +
+                      '<span class="p2c">Gold</span> plays the <b>top</b> half<br>' +
+                      'Hold your half and drag to swing your mallet';
+  }
+}
 function updateScore() {
   document.getElementById('s1').textContent = score1;
   document.getElementById('s2').textContent = score2;
@@ -553,6 +665,10 @@ function startMatch() {
   initAudio(); SFX.start();
   score1 = 0; score2 = 0; updateScore();
   particles.length = 0;
+  // CPU mallet speed: hard > human cap > medium > easy (fraction of T.w)
+  P1.speedScale = 1.0;
+  P2.speedScale = (mode === '1p') ? (cpu.params[cpu.diff].maxSpeed / 0.030) : 1.0;
+  cpu.lastThink = 0;
   resetPositions(0);
   over = false; paused = false; running = true;
   serveTimer = 30;
@@ -564,12 +680,18 @@ function endMatch() {
   over = true; running = false;
   const p1won = score1 > score2;
   const wt = document.getElementById('winner-text');
-  wt.textContent = p1won ? 'GREEN WINS 🏆' : 'GOLD WINS 🏆';
+  if (mode === '1p') {
+    wt.textContent = p1won ? 'YOU WIN 🏆' : 'CPU WINS 🏆';
+  } else {
+    wt.textContent = p1won ? 'GREEN WINS 🏆' : 'GOLD WINS 🏆';
+  }
   wt.className = 'winner ' + (p1won ? 'p1' : 'p2');
   document.getElementById('f1').textContent = score1;
   document.getElementById('f2').textContent = score2;
   document.getElementById('go-sub').textContent =
-    p1won ? 'Bottom half takes the crown' : 'Top half takes the crown';
+    mode === '1p'
+      ? (p1won ? 'Nice — you beat the machine' : 'The machine got you. Run it back?')
+      : (p1won ? 'Bottom half takes the crown' : 'Top half takes the crown');
   show(document.getElementById('gameover-screen'));
 }
 function togglePause(force) {
@@ -580,6 +702,32 @@ function togglePause(force) {
 }
 
 // ─── Wire up UI ──────────────────────────────────────────────
+// Mode + difficulty selectors
+const modeBtn1 = document.getElementById('mode-1p');
+const modeBtn2 = document.getElementById('mode-2p');
+const diffWrap = document.getElementById('diff-wrap');
+const diffHint = document.getElementById('diff-hint');
+const DIFF_HINTS = {
+  easy:   'Laid back — great for warming up',
+  medium: 'A fair, forgiving opponent',
+  hard:   'Quick, sharp, and relentless',
+};
+function selectMode(m) {
+  mode = m;
+  modeBtn1.classList.toggle('sel', m === '1p');
+  modeBtn2.classList.toggle('sel', m === '2p');
+  diffWrap.style.display = (m === '1p') ? '' : 'none';
+  setLabels();
+}
+function selectDiff(d) {
+  cpu.diff = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('sel', b.dataset.diff === d));
+  diffHint.textContent = DIFF_HINTS[d] || '';
+}
+modeBtn1.addEventListener('click', () => selectMode('1p'));
+modeBtn2.addEventListener('click', () => selectMode('2p'));
+document.querySelectorAll('.diff-btn').forEach(b => b.addEventListener('click', () => selectDiff(b.dataset.diff)));
+
 document.getElementById('start-btn').addEventListener('click', startMatch);
 document.getElementById('again-btn').addEventListener('click', startMatch);
 document.getElementById('resume-btn').addEventListener('click', () => togglePause(false));
@@ -599,6 +747,10 @@ document.getElementById('mute-btn').addEventListener('click', (e) => {
   document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
 });
 document.getElementById('target').textContent = WIN_SCORE;
+
+// Initialize selector UI to match defaults (1P / medium)
+selectMode('1p');
+selectDiff('medium');
 
 // keep game alive in background-ish; resume audio on any tap
 window.addEventListener('touchstart', initAudio, { passive: true });
