@@ -81,6 +81,19 @@ const games = [
       'Win condition: ball in basin + domino toppled',
     ],
   },
+  {
+    name: 'Skee-Ball',
+    emoji: '🎳',
+    description: 'Slingshot flicks down the lane, knocking pins for 100–1000 points each. Three balls per game — clear the whole wall to become a Legend.',
+    route: '/skee-ball',
+    accent: '#f5b041',
+    features: [
+      'Drag back from the ball, release to throw',
+      '100 pins — front row worth 1000 each',
+      'Trajectory preview with power meter',
+      'High score saved on your device',
+    ],
+  },
 ];
 
 export default function Games() {
