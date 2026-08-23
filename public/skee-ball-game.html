@@ -41,7 +41,7 @@
   /* ── Stage ── */
   #stage { flex: 1; position: relative; min-height: 0; }
   #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
-  #game.throwing { cursor: grabbing; }
+  #game.rolling { cursor: grabbing; }
 
   #hint {
     position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -102,7 +102,7 @@
   </div>
   <div id="stage">
     <canvas id="game"></canvas>
-    <div id="hint">👆 Drag back from the ball, release to throw</div>
+    <div id="hint">👆 Push the ball forward &amp; release to roll</div>
     <div id="overlay">
       <div class="panel">
         <h2>Game Over</h2>
@@ -122,40 +122,46 @@
   // ═══════════════════════════════════════════════════════════════
   //  Layout (logical units, scaled to fit)
   // ═══════════════════════════════════════════════════════════════
-  var LW = 480, LH = 720;                 // logical canvas size
-  var LANE = { x: 80, y: 300, w: 320, h: 360 }; // lane rectangle (ball rolls up this)
+  var LW = 480, LH = 720;
+  var LANE = { x: 80, y: 300, w: 320, h: 360 };   // lane rectangle (ball rolls up this)
   var BALL_R = 11;
   var BALL_START = { x: LW / 2, y: 640 };
-  var MAX_THROW = 920;                     // max throw speed px/s
-  var DECAY = 1.15;                        // exponential friction /s
-  var WALL_REST = 0.9;                     // speed kept after wall bounce
+  var HUMP_Y = LANE.y;                             // ball-hop is at the top of the lane (y=300)
 
-  // ── Hole rows (concentric, 1000 = farthest back, 50 = nearest) ──
-  // Hump top is at LANE.y (300). Rows are above it (smaller y = farther).
-  // More throw power = ball flies farther = reaches the 1000 ring.
-  var HUMP_Y = LANE.y;                     // 300
-  var HOLES = [
-    { value: 1000, y: 155, xs: [240] },
-    { value: 500,  y: 195, xs: [200, 240, 280] },
-    { value: 200,  y: 230, xs: [160, 200, 240, 280, 320] },
-    { value: 100,  y: 260, xs: [120, 160, 200, 240, 280, 320, 360] },
-    { value: 50,   y: 285, xs: [80, 120, 160, 200, 240, 280, 320, 360, 400] }
+  // ── The iconic target: concentric rings, 1000 = center (hardest) ──
+  // Center is farthest back on the target; rings widen outward to 50.
+  var CENTER = { x: LW / 2, y: 155 };
+  var RINGS = [
+    { value: 1000, r: 26 },
+    { value: 500,  r: 52 },
+    { value: 250,  r: 80 },
+    { value: 100,  r: 108 },
+    { value: 50,   r: 136 }
   ];
-  var HOLE_R = 15;                         // visual hole radius
-  var CAPTURE_R = 17;                      // landing must be within this of a hole center
-  var BACK_WALL_Y = 145;                   // landing above this = "too far" (overpowered)
+  var RING_HUES = { 1000: 45, 500: 25, 250: 0, 100: 210, 50: 280 };
 
-  // ── Physics tuning ──
-  // hump speed (s) → flight distance past the hump:
-  //   flightDist = (s - HUMP_DEAD) * FLIGHT_K
-  // A straight throw: s_hump = v0 - 391 (distance to hump = 340, DECAY=1.15).
-  // Tuned so power maps cleanly: 920→1000, 791→500, 691→200, 591→100, 511→50.
-  var HUMP_DEAD = 60;                      // s below this => no meaningful flight
-  var FLIGHT_K = 0.31;                     // px of flight per px/s of hump speed
-  var HUMP_MIN = 120;                      // min hump speed to clear the hump
+  // ── Control + flight tuning ──
+  // Push the ball forward (up the lane) to set power; drag sideways to aim.
+  var MAX_PUSH = 260;        // logical px pushed up for full power
+  var MIN_PUSH = 24;         // below this = too weak, no throw
+  var AIM_MAX = 120;         // max horizontal aim offset from center
+  var FLIGHT_MAX = 145;      // full power lands at CENTER.y (300 - 145 = 155)
   var BALLS_PER_GAME = 9;
 
-  var ROW_HUES = { 1000: 45, 500: 25, 200: 0, 100: 210, 50: 280 };
+  function ringFor(x, y) {
+    var d = Math.hypot(x - CENTER.x, y - CENTER.y);
+    for (var i = 0; i < RINGS.length; i++) {
+      if (d <= RINGS[i].r) return { value: RINGS[i].value, dist: d, ring: RINGS[i] };
+    }
+    return { value: 0, dist: d, ring: null };   // off the target
+  }
+  // Predicted landing from a (power, aim) pair — used by both the aim preview
+  // and the real throw, so what you see is exactly what you get.
+  function landingFor(power, aimOffset) {
+    var landY = HUMP_Y - power * FLIGHT_MAX;
+    var landX = CENTER.x + aimOffset;
+    return { x: landX, y: landY, ring: ringFor(landX, landY) };
+  }
 
   // ═══════════════════════════════════════════════════════════════
   //  DOM
@@ -172,7 +178,6 @@
   var muteBtn = document.getElementById('muteBtn');
   var ballDotsEl = document.getElementById('ballDots');
 
-  // Build the 9 ball dots
   var bdotEls = [];
   for (var di = 0; di < BALLS_PER_GAME; di++) {
     var sp = document.createElement('span');
@@ -232,8 +237,7 @@
     src.start(t0); src.stop(t0 + dur + 0.02);
   }
   var sfx = {
-    throw: function (p) { noise(0.22, { vol: 0.16 + p * 0.12, filter: 'bandpass', freq: 700 + p * 900 }); },
-    bounce: function () { tone(120, 0.09, { type: 'sine', vol: 0.14, freqEnd: 70 }); },
+    roll: function (p) { noise(0.2, { vol: 0.14 + p * 0.12, filter: 'bandpass', freq: 600 + p * 800 }); },
     hop: function () { tone(180, 0.12, { type: 'triangle', vol: 0.18, freqEnd: 320 }); },
     score: function (val) {
       var f = 300 + Math.log2(val + 1) * 60;
@@ -254,22 +258,21 @@
   // ═══════════════════════════════════════════════════════════════
   //  State
   // ═══════════════════════════════════════════════════════════════
-  var ball = null;      // {x,y,vx,vy}
+  var ball = null;      // {x,y}
   var state = 'ready';  // ready | rolling | flying | settle | over
   var score = 0, ballsLeft = BALLS_PER_GAME;
   var best = 0;
   try { best = parseInt(localStorage.getItem('skeeball_best') || '0', 10) || 0; } catch (e) {}
   bestEl.textContent = best;
 
-  // Flight bookkeeping
-  var flight = null;    // {t, T, x0, y0, vx, vy, peakZ}
-
+  // Flight animation (cosmetic; landing is precomputed)
+  var flight = null;    // {t, T, x0, y0, x1, y1, peakZ}
   var particles = [];   // {x,y,vx,vy,life,hue,size}
   var popups = [];      // {x,y,text,life,color}
-  var landedBall = null; // {x,y,z,sinkT,hue} visual of ball dropping in a hole
+  var landedBall = null; // {x,y,z,sinkT,hue}
 
   function resetBall() {
-    ball = { x: BALL_START.x, y: BALL_START.y, vx: 0, vy: 0 };
+    ball = { x: BALL_START.x, y: BALL_START.y };
     state = 'ready';
     flight = null;
     landedBall = null;
@@ -294,7 +297,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  //  Input — slingshot flick
+  //  Input — push the ball forward to roll it
   // ═══════════════════════════════════════════════════════════════
   var dragging = false, dragStart = null, dragCur = null, dragId = null;
 
@@ -307,8 +310,15 @@
   }
   function ballReadyForDrag(p) {
     if (state !== 'ready') return false;
-    var dx = p.x - ball.x, dy = p.y - ball.y;
-    return Math.hypot(dx, dy) < 70;
+    return Math.hypot(p.x - ball.x, p.y - ball.y) < 70;
+  }
+  // Derive power + aim from the current drag gesture.
+  function dragPowerAim() {
+    if (!dragStart || !dragCur) return { power: 0, aim: 0, push: 0 };
+    var push = Math.max(0, dragStart.y - dragCur.y);          // pushed up = power
+    var power = Math.min(1, push / MAX_PUSH);
+    var aim = Math.max(-AIM_MAX, Math.min(AIM_MAX, dragCur.x - ball.x)); // sideways = aim
+    return { power: power, aim: aim, push: push };
   }
 
   canvas.addEventListener('pointerdown', function (e) {
@@ -318,7 +328,7 @@
     dragging = true; dragId = e.pointerId;
     dragStart = { x: ball.x, y: ball.y };
     dragCur = p;
-    canvas.classList.add('throwing');
+    canvas.classList.add('rolling');
     canvas.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
@@ -332,21 +342,11 @@
   function endDrag(e, cancelled) {
     if (!dragging || e.pointerId !== dragId) return;
     dragging = false;
-    canvas.classList.remove('throwing');
+    canvas.classList.remove('rolling');
     if (cancelled) { dragStart = null; return; }
-    var dx = dragStart.x - dragCur.x;
-    var dy = dragStart.y - dragCur.y;
-    var len = Math.hypot(dx, dy);
-    if (len < 18) { dragStart = null; return; }   // too small — ignore
-    var speed = Math.min(MAX_THROW, len * 4.2);
-    var nx = dx / len, ny = dy / len;
-    // Only allow throwing roughly toward the pins (upward)
-    if (ny > -0.15) { ny = -0.15; var n = Math.hypot(nx, ny); nx /= n; ny /= n; }
-    ball.vx = nx * speed;
-    ball.vy = ny * speed;
-    state = 'rolling';
-    sfx.throw(speed / MAX_THROW);
-    hintEl.classList.add('hidden');
+    var pa = dragPowerAim();
+    if (pa.push < MIN_PUSH) { dragStart = null; return; }   // too weak — ignore
+    launch(pa.power, pa.aim);
     dragStart = null;
   }
   canvas.addEventListener('pointerup', function (e) { endDrag(e, false); });
@@ -358,59 +358,38 @@
   });
 
   // ═══════════════════════════════════════════════════════════════
-  //  Physics
+  //  Physics / flight
   // ═══════════════════════════════════════════════════════════════
-  var lowSpeedTimer = 0;
-
-  function beginFlight() {
-    var b = ball;
-    var s = Math.hypot(b.vx, b.vy);
-    // hump speed determines flight distance
-    var flightDist = Math.max(0, (s - HUMP_DEAD) * FLIGHT_K);
-    var vyAbs = Math.abs(b.vy);
-    if (vyAbs < 1) vyAbs = 1;
-    var T = flightDist / vyAbs;
-    T = Math.max(0.12, Math.min(0.55, T));
-    flight = { t: 0, T: T, x0: b.x, y0: b.y, vx: b.vx, vy: b.vy, peakZ: 26 };
+  function launch(power, aimOffset) {
+    var land = landingFor(power, aimOffset);
+    // Animate: roll up the lane to the hump, then hop to the landing point.
+    flight = {
+      t: 0, T: 0.42 + power * 0.12,
+      x0: ball.x, y0: ball.y,
+      x1: land.x, y1: land.y,
+      peakZ: 26 + power * 10
+    };
     state = 'flying';
-    sfx.hop();
-    // spawn a little "hop" spark
-    spawnParticles(b.x, b.y, 55, 6);
+    sfx.roll(power);
+    hintEl.classList.add('hidden');
   }
 
   function resolveLanding() {
     var b = ball;
-    // Find nearest hole within capture radius
-    var bestHole = null, bestD = 1e9;
-    for (var r = 0; r < HOLES.length; r++) {
-      var row = HOLES[r];
-      for (var c = 0; c < row.xs.length; c++) {
-        var hx = row.xs[c], hy = row.y;
-        var d = Math.hypot(b.x - hx, b.y - hy);
-        if (d < bestD) { bestD = d; bestHole = { x: hx, y: hy, value: row.value }; }
-      }
-    }
-    if (bestHole && bestD <= CAPTURE_R) {
-      // SCORE!
-      score += bestHole.value;
+    var hit = ringFor(b.x, b.y);
+    if (hit.value > 0) {
+      score += hit.value;
       bestEl.textContent = Math.max(best, score);
       updateHUD();
-      sfx.score(bestHole.value);
-      spawnParticles(bestHole.x, bestHole.y, ROW_HUES[bestHole.value], 14);
-      popups.push({ x: bestHole.x, y: bestHole.y - 14, text: '+' + bestHole.value, life: 1, color: 'hsl(' + ROW_HUES[bestHole.value] + ',85%,72%)' });
-      // animate ball sinking into the hole
-      landedBall = { x: bestHole.x, y: bestHole.y, z: 0, sinkT: 0, hue: ROW_HUES[bestHole.value] };
-      ball = null;
-      finishBall();
-    } else if (b.y < BACK_WALL_Y) {
-      // Too far — flew off the back
-      popups.push({ x: b.x, y: 140, text: 'Too far!', life: 1, color: 'hsl(0,70%,65%)' });
-      sfx.miss();
+      sfx.score(hit.value);
+      var hue = RING_HUES[hit.value];
+      spawnParticles(hit.value === 1000 ? CENTER.x : b.x, hit.value === 1000 ? CENTER.y : b.y, hue, 14);
+      popups.push({ x: b.x, y: b.y - 14, text: '+' + hit.value, life: 1, color: 'hsl(' + hue + ',85%,72%)' });
+      landedBall = { x: b.x, y: b.y, z: 0, sinkT: 0, hue: hue };
       ball = null;
       finishBall();
     } else {
-      // Missed all holes
-      popups.push({ x: b.x, y: b.y - 14, text: 'Miss', life: 1, color: 'hsl(0,50%,60%)' });
+      popups.push({ x: b.x, y: Math.max(150, b.y - 14), text: 'Miss', life: 1, color: 'hsl(0,50%,60%)' });
       sfx.miss();
       ball = null;
       finishBall();
@@ -418,71 +397,19 @@
   }
 
   function step(dt) {
-    // landed-ball sink animation
     if (landedBall && landedBall.sinkT < 1) landedBall.sinkT = Math.min(1, landedBall.sinkT + dt / 0.4);
 
-    if (state === 'rolling') {
-      var b = ball;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-
-      // Friction
-      var decay = Math.exp(-DECAY * dt);
-      b.vx *= decay; b.vy *= decay;
-
-      // Lane side walls
-      var lmin = LANE.x + BALL_R, lmax = LANE.x + LANE.w - BALL_R;
-      if (b.x < lmin) { b.x = lmin; b.vx = -b.vx * WALL_REST; sfx.bounce(); }
-      if (b.x > lmax) { b.x = lmax; b.vx = -b.vx * WALL_REST; sfx.bounce(); }
-
-      // Reached the hump?
-      if (b.y <= HUMP_Y) {
-        var s = Math.hypot(b.vx, b.vy);
-        if (s >= HUMP_MIN) {
-          beginFlight();
-          return;
-        } else {
-          // Didn't clear the hump — ball dies at the hump
-          popups.push({ x: b.x, y: b.y - 14, text: 'No hop', life: 1, color: 'hsl(0,50%,60%)' });
-          sfx.miss();
-          ball = null;
-          finishBall();
-          return;
-        }
-      }
-
-      // Too slow before the hump — stops and rolls back
-      var sp = Math.hypot(b.vx, b.vy);
-      if (sp < 22) {
-        lowSpeedTimer += dt;
-        if (lowSpeedTimer > 0.4) {
-          popups.push({ x: b.x, y: b.y - 14, text: 'Too slow', life: 1, color: 'hsl(0,50%,60%)' });
-          sfx.miss();
-          ball = null;
-          finishBall();
-          return;
-        }
-      } else {
-        lowSpeedTimer = 0;
-      }
-      // Safety: rolled back past the start
-      if (b.y > LH + 20 || b.x < -30 || b.x > LW + 30) {
-        ball = null;
-        finishBall();
-      }
-    }
-    else if (state === 'flying') {
+    if (state === 'flying' && flight) {
       var f = flight;
       f.t += dt;
       if (f.t >= f.T) {
-        // Land
-        ball.x = f.x0 + f.vx * f.T;
-        ball.y = f.y0 + f.vy * f.T;
+        ball.x = f.x1; ball.y = f.y1;
         flight = null;
         resolveLanding();
       } else {
-        ball.x = f.x0 + f.vx * f.t;
-        ball.y = f.y0 + f.vy * f.t;
+        var k = f.t / f.T;
+        ball.x = f.x0 + (f.x1 - f.x0) * k;
+        ball.y = f.y0 + (f.y1 - f.y0) * k;
       }
     }
   }
@@ -495,8 +422,8 @@
       state = 'over';
       endGame();
     } else {
-      setTimeout(function () { if (state === 'settle' || state === 'over') { if (state !== 'over') resetBall(); } }, 700);
       state = 'settle';
+      setTimeout(function () { if (state === 'settle') resetBall(); }, 700);
     }
   }
 
@@ -583,26 +510,24 @@
   }
 
   function drawLane() {
-    // Floor
     var floor = ctx.createLinearGradient(0, 0, 0, LH);
     floor.addColorStop(0, '#0a100a');
     floor.addColorStop(1, '#0e160e');
     ctx.fillStyle = floor;
     ctx.fillRect(0, 0, LW, LH);
 
-    // Target wall backdrop (behind holes)
-    var wallTop = 140, wallBot = 300;
+    // Target wall backdrop (behind the rings)
+    var wallTop = 12, wallBot = 300;
     var wg = ctx.createLinearGradient(0, wallTop, 0, wallBot);
     wg.addColorStop(0, 'rgba(22,32,22,0.95)');
-    wg.addColorStop(1, 'rgba(30,44,28,0.6)');
+    wg.addColorStop(1, 'rgba(30,44,28,0.55)');
     ctx.fillStyle = wg;
-    roundRect(60, wallTop, LW - 120, wallBot - wallTop, 12);
+    roundRect(48, wallTop, LW - 96, wallBot - wallTop, 14);
     ctx.fill();
-
-    // Back wall line
-    ctx.strokeStyle = 'rgba(134,196,118,0.4)';
+    ctx.strokeStyle = 'rgba(134,196,118,0.35)';
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(70, BACK_WALL_Y); ctx.lineTo(LW - 70, BACK_WALL_Y); ctx.stroke();
+    roundRect(48, wallTop, LW - 96, wallBot - wallTop, 14);
+    ctx.stroke();
 
     // Lane surface
     var lg = ctx.createLinearGradient(LANE.x, 0, LANE.x + LANE.w, 0);
@@ -630,7 +555,7 @@
     roundRect(LANE.x, LANE.y, LANE.w, LANE.h, 14);
     ctx.stroke();
 
-    // Hump (ball-hop) — a ski-jump trapezoid at the top of the lane
+    // Ball-hop hump — a ski-jump trapezoid at the top of the lane
     var hx = LANE.x, hw = LANE.w, hy = HUMP_Y;
     var humpGrad = ctx.createLinearGradient(0, hy - 26, 0, hy + 8);
     humpGrad.addColorStop(0, 'rgba(245,230,168,0.5)');
@@ -646,7 +571,6 @@
     ctx.strokeStyle = 'rgba(245,230,168,0.55)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    // Hump label
     ctx.font = '700 9px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(245,230,168,0.6)';
@@ -654,48 +578,46 @@
     ctx.textAlign = 'left';
   }
 
-  function drawHoles() {
-    for (var r = 0; r < HOLES.length; r++) {
-      var row = HOLES[r];
-      var hue = ROW_HUES[row.value];
-      for (var c = 0; c < row.xs.length; c++) {
-        var hx = row.xs[c], hy = row.y;
-        // Outer glow ring
-        var glow = ctx.createRadialGradient(hx, hy, 2, hx, hy, HOLE_R * 1.6);
-        glow.addColorStop(0, 'hsla(' + hue + ',85%,60%,0.28)');
-        glow.addColorStop(1, 'hsla(' + hue + ',85%,60%,0)');
-        ctx.fillStyle = glow;
-        ctx.beginPath(); ctx.arc(hx, hy, HOLE_R * 1.6, 0, Math.PI * 2); ctx.fill();
-        // Hole (dark)
-        ctx.fillStyle = '#050805';
-        ctx.beginPath(); ctx.arc(hx, hy, HOLE_R, 0, Math.PI * 2); ctx.fill();
-        // Rim
-        ctx.strokeStyle = 'hsla(' + hue + ',80%,65%,0.8)';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(hx, hy, HOLE_R, 0, Math.PI * 2); ctx.stroke();
-        // Value label (only on center column to avoid clutter)
-        if (row.xs.length % 2 === 1 && Math.abs(hx - LW / 2) < 1) {
-          ctx.font = '700 9px "Segoe UI", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = 'hsla(' + hue + ',75%,72%,0.85)';
-          ctx.fillText(row.value, hx, hy + 3);
-          ctx.textAlign = 'left';
-        }
-      }
+  function drawRings() {
+    // Concentric rings, outer (50) to inner (1000).
+    for (var i = RINGS.length - 1; i >= 0; i--) {
+      var ring = RINGS[i];
+      var hue = RING_HUES[ring.value];
+      var cx = CENTER.x, cy = CENTER.y, r = ring.r;
+      // Fill
+      var fill = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r);
+      fill.addColorStop(0, 'hsla(' + hue + ',55%,26%,0.95)');
+      fill.addColorStop(1, 'hsla(' + hue + ',60%,16%,0.95)');
+      ctx.fillStyle = fill;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      // Rim
+      ctx.strokeStyle = 'hsla(' + hue + ',80%,62%,0.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
     }
-    // Row value labels on the left edge
+    // Center hole (1000)
+    ctx.fillStyle = '#050805';
+    ctx.beginPath(); ctx.arc(CENTER.x, CENTER.y, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'hsla(45,85%,65%,0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(CENTER.x, CENTER.y, 9, 0, Math.PI * 2); ctx.stroke();
+
+    // Value labels on the vertical axis (top of each ring)
     ctx.font = '700 10px "Segoe UI", sans-serif';
-    ctx.textAlign = 'right';
-    for (var r2 = 0; r2 < HOLES.length; r2++) {
-      var row2 = HOLES[r2];
-      ctx.fillStyle = 'hsla(' + ROW_HUES[row2.value] + ',70%,65%,0.7)';
-      ctx.fillText(row2.value, 56, row2.y + 3);
+    ctx.textAlign = 'center';
+    for (var j = 0; j < RINGS.length; j++) {
+      var rr = RINGS[j];
+      var ly = CENTER.y - rr.r + 11;
+      ctx.fillStyle = 'hsla(' + RING_HUES[rr.value] + ',80%,78%,0.95)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 2.5;
+      ctx.strokeText(rr.value, CENTER.x, ly);
+      ctx.fillText(rr.value, CENTER.x, ly);
     }
     ctx.textAlign = 'left';
   }
 
   function ballZ() {
-    // current z-height during flight (parabola peaking at peakZ)
     if (state !== 'flying' || !flight) return 0;
     var k = flight.t / flight.T;
     return 4 * flight.peakZ * k * (1 - k);
@@ -703,7 +625,6 @@
 
   function drawBall() {
     if (!ball) {
-      // draw the landed/sinking ball instead
       if (landedBall) {
         var lb = landedBall;
         var k = lb.sinkT;
@@ -721,7 +642,7 @@
     }
     var b = ball;
     var z = ballZ();
-    var drawY = b.y - z * 0.8;   // lift the ball as it flies
+    var drawY = b.y - z * 0.8;
 
     // Shadow (stays on the ground)
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -750,50 +671,46 @@
 
   function drawAim() {
     if (!dragging || !dragStart) return;
-    var dx = dragStart.x - dragCur.x;
-    var dy = dragStart.y - dragCur.y;
-    var len = Math.hypot(dx, dy);
-    if (len < 18) return;
-    var speed = Math.min(MAX_THROW, len * 4.2);
-    var nx = dx / len, ny = dy / len;
-    if (ny > -0.15) { ny = -0.15; var n = Math.hypot(nx, ny); nx /= n; ny /= n; }
+    var pa = dragPowerAim();
+    if (pa.push < 4) return;
+    var land = landingFor(pa.power, pa.aim);
 
-    // Trajectory preview (damped roll up the lane)
-    var px = ball.x, py = ball.y, vx = nx * speed, vy = ny * speed;
-    ctx.fillStyle = 'rgba(245,230,168,0.5)';
-    var simDt = 1 / 60;
-    for (var s = 0; s < 40; s++) {
-      px += vx * simDt; py += vy * simDt;
-      var d = Math.exp(-DECAY * simDt);
-      vx *= d; vy *= d;
-      if (px < LANE.x + BALL_R) { px = LANE.x + BALL_R; vx = -vx * WALL_REST; }
-      if (px > LANE.x + LANE.w - BALL_R) { px = LANE.x + LANE.w - BALL_R; vx = -vx * WALL_REST; }
-      if (py < HUMP_Y) break;
-      if (s % 2 === 0) {
-        var a = 0.5 * (1 - s / 40);
-        ctx.globalAlpha = a;
-        ctx.beginPath(); ctx.arc(px, py, 2.2, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-    ctx.globalAlpha = 1;
+    // Predicted landing marker + highlight the ring it's in
+    var hue = land.ring ? RING_HUES[land.ring.value] : 0;
+    ctx.strokeStyle = 'hsla(' + hue + ',85%,65%,0.9)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(land.x, land.y, 12, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'hsla(' + hue + ',85%,70%,0.35)';
+    ctx.beginPath(); ctx.arc(land.x, land.y, 8, 0, Math.PI * 2); ctx.fill();
 
-    // Power band around the ball
-    var pw = speed / MAX_THROW;
+    // Ball travels from its start to the predicted landing
+    ctx.strokeStyle = 'rgba(245,230,168,0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(ball.x, ball.y);
+    ctx.lineTo(land.x, land.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Power band around the ball (how far you've pushed)
+    var pw = pa.power;
     ctx.strokeStyle = 'hsla(' + (60 - 40 * pw) + ',90%,60%,0.9)';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, BALL_R + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pw);
     ctx.stroke();
 
-    // Slingshot line
-    ctx.strokeStyle = 'rgba(245,230,168,0.35)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    ctx.beginPath();
-    ctx.moveTo(ball.x, ball.y);
-    ctx.lineTo(ball.x - nx * Math.min(len, 120), ball.y - ny * Math.min(len, 120));
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // Power readout
+    ctx.font = '800 13px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'hsla(' + (60 - 40 * pw) + ',90%,70%,0.95)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 3;
+    var label = land.ring ? '→ ' + land.ring.value : '→ miss';
+    ctx.strokeText(label, ball.x, ball.y + 34);
+    ctx.fillText(label, ball.x, ball.y + 34);
+    ctx.textAlign = 'left';
   }
 
   function drawFx() {
@@ -831,7 +748,7 @@
 
     ctx.setTransform(scale, 0, 0, scale, (canvas.width - LW * scale) / 2, (canvas.height - LH * scale) / 2);
     drawLane();
-    drawHoles();
+    drawRings();
     drawBall();
     drawAim();
     drawFx();

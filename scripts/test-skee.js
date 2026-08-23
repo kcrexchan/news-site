@@ -85,21 +85,22 @@ try {
   process.exit(1);
 }
 
-// Simulate a full-power STRAIGHT-UP throw via the pointer listeners.
-// Slingshot: drag DOWN from the ball => throw goes UP.
-// Power = min(MAX_THROW, len*4.2). Full power needs len>=219 => drag ~300px.
-// Ball starts at logical (240, 640). Drag straight down to (240, 940).
+// Simulate a full-power STRAIGHT-FORWARD roll via the pointer listeners.
+// Roll control: push the ball UP (forward) from its start => power.
+// power = min(1, push / MAX_PUSH). MAX_PUSH = 260 => full power needs push>=260.
+// Ball starts at logical (240, 640). Push straight up to (240, 380) => power 1.0, aim 0.
+// landingFor(1.0, 0) => y = HUMP_Y(300) - 145 = 155 = CENTER => 1000 ring.
 function fire(type, ev) { (listeners[type] || []).forEach(fn => fn(ev)); }
 const S = 800 / 480;
 const bx = 240 * S, by = 640 * S;        // pointer down ON the ball
-const ex = 240 * S, ey = 940 * S;        // drag 300 logical px straight down
+const ex = 240 * S, ey = 380 * S;        // push 260 logical px straight up (forward)
 fire('pointerdown', { pointerId: 1, clientX: bx, clientY: by, preventDefault(){}, });
 console.log('   [fire] pointerdown at ball', bx.toFixed(1), by.toFixed(1));
 fire('pointermove', { pointerId: 1, clientX: ex, clientY: ey, preventDefault(){}, });
 fire('pointerup',   { pointerId: 1, clientX: ex, clientY: ey, preventDefault(){}, });
-console.log('   [fire] pointerup (full-power throw released)');
+console.log('   [fire] pointerup (full-power roll released)');
 
-// Now step physics by pumping frames for a while (throw should knock pins)
+// Now step physics by pumping frames for a while (roll should land in a ring)
 let threw = false;
 try {
   for (let i = 0; i < 400; i++) {
@@ -113,11 +114,11 @@ try {
 }
 
 console.log('score displayed:', elements.scoreVal.textContent);
-// A full-power straight-up throw must land in the 1000-point center hole
+// A full-power straight-forward roll must land in the 1000-point center ring
 if (parseInt(elements.scoreVal.textContent, 10) >= 1000) {
-  console.log('✓ full-power straight throw scored into a hole (', elements.scoreVal.textContent, ')');
+  console.log('✓ full-power straight roll scored into a ring (', elements.scoreVal.textContent, ')');
 } else {
-  console.error('✗ full-power straight throw did not score (got', elements.scoreVal.textContent + ')');
+  console.error('✗ full-power straight roll did not score (got', elements.scoreVal.textContent + ')');
   process.exit(1);
 }
 console.log('ALL CHECKS PASSED');
