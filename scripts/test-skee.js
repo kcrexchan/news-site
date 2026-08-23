@@ -4,7 +4,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', '..', 'news-site', 'public', 'skee-ball.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', '..', 'news-site', 'public', 'skee-ball-game.html'), 'utf8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 const code = m[1];
 
