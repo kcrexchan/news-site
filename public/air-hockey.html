@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#061204">
+<title>Air Hockey 🏒</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #061204; color: #ecfccb;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  touch-action: none; overscroll-behavior: none;
+  user-select: none; -webkit-user-select: none;
+}
+#game { display: block; width: 100%; height: 100%; cursor: none; }
+
+/* ─── Score HUD ────────────────────────────── */
+#hud {
+  position: fixed; top: 0; left: 0; width: 100%; z-index: 10; pointer-events: none;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: max(10px, env(safe-area-inset-top)) 16px 0;
+}
+.score-panel {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 6px 14px; border-radius: 12px;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.score-panel .who { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.75; }
+.score-panel .num { font-size: 34px; font-weight: 800; line-height: 1; }
+.p1 .num { color: #6bdf4a; text-shadow: 0 0 16px rgba(107,223,74,0.7); }
+.p2 .num { color: #e0c060; text-shadow: 0 0 16px rgba(224,192,96,0.7); }
+#center-hud {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 16px; border-radius: 12px; background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08);
+}
+#center-hud .target { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.6; }
+#center-hud .val { font-size: 16px; font-weight: 700; }
+
+/* ─── Top-right controls ───────────────────── */
+#topbar {
+  position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; z-index: 20;
+  display: flex; gap: 8px;
+}
+.icon-btn {
+  pointer-events: all; cursor: pointer; width: 42px; height: 42px; border-radius: 12px;
+  background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.15);
+  color: #ecfccb; font-size: 19px; display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(6px); transition: transform .1s, background .2s;
+}
+.icon-btn:active { transform: scale(0.92); background: rgba(107,223,74,0.25); }
+
+/* ─── Overlays ─────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, #0a2009 0%, #061204 72%);
+  text-align: center; padding: 24px;
+}
+.overlay h1 {
+  font-size: clamp(38px, 9vw, 60px); font-weight: 800; letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #6bdf4a, #e0c060, #6bdf4a);
+  background-size: 200% 200%; -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; animation: gradMove 5s ease-in-out infinite alternate;
+  margin-bottom: 6px;
+}
+@keyframes gradMove { 0%{background-position:0% 50%;} 100%{background-position:100% 50%;} }
+.overlay .sub { color: #a7c4a0; font-size: clamp(14px, 3.5vw, 17px); margin-bottom: 8px; }
+.overlay .sub b { color: #ecfccb; }
+.rules { color: #7a8f6e; font-size: clamp(12px, 3vw, 14px); line-height: 1.9; margin: 14px 0 6px; }
+.rules .p1c { color: #6bdf4a; font-weight: 700; }
+.rules .p2c { color: #e0c060; font-weight: 700; }
+.btn {
+  pointer-events: all; cursor: pointer;
+  padding: 15px 46px; font-size: 19px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+  border: 2px solid #6bdf4a; border-radius: 14px; color: #061204;
+  background: linear-gradient(135deg, #6bdf4a, #c8a951);
+  box-shadow: 0 0 26px rgba(107,223,74,0.4); margin-top: 26px; transition: transform .12s, box-shadow .2s;
+}
+.btn:active { transform: scale(0.96); box-shadow: 0 0 40px rgba(107,223,74,0.7); }
+.btn.ghost { background: rgba(0,0,0,0.4); color: #ecfccb; border-color: rgba(255,255,255,0.25); box-shadow: none; }
+.winner { font-size: clamp(22px, 6vw, 30px); font-weight: 800; margin-bottom: 4px; }
+.winner.p1 { color: #6bdf4a; text-shadow: 0 0 24px rgba(107,223,74,0.8); }
+.winner.p2 { color: #e0c060; text-shadow: 0 0 24px rgba(224,192,96,0.8); }
+.final { color: #a7c4a0; font-size: 20px; margin: 6px 0 4px; }
+.final span { font-weight: 800; }
+.final .a { color: #6bdf4a; } .final .b { color: #e0c060; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="score-panel p1"><span class="who">You</span><span class="num" id="s1">0</span></div>
+  <div id="center-hud"><span class="target">First to</span><span class="val" id="target">7</span></div>
+  <div class="score-panel p2"><span class="who">Rival</span><span class="num" id="s2">0</span></div>
+</div>
+
+<div id="topbar">
+  <button class="icon-btn" id="pause-btn" title="Pause">⏸</button>
+  <button class="icon-btn" id="mute-btn" title="Sound">🔊</button>
+</div>
+
+<!-- Start screen -->
+<div class="overlay" id="start-screen">
+  <h1>AIR HOCKEY</h1>
+  <div class="sub">Two players · one phone · <b>first to 7 wins</b></div>
+  <div class="rules">
+    <span class="p1c">Green</span> plays the <b>bottom</b> half<br>
+    <span class="p2c">Gold</span> plays the <b>top</b> half<br>
+    Hold your half and drag to swing your mallet
+  </div>
+  <button class="btn" id="start-btn">Start Match</button>
+</div>
+
+<!-- Pause screen -->
+<div class="overlay hidden" id="pause-screen">
+  <h1>PAUSED</h1>
+  <div class="sub">Take a breath</div>
+  <button class="btn" id="resume-btn">Resume</button>
+  <button class="btn ghost" id="pause-quit-btn">Quit to Menu</button>
+</div>
+
+<!-- Game over screen -->
+<div class="overlay hidden" id="gameover-screen">
+  <div class="winner" id="winner-text">GREEN WINS</div>
+  <div class="final"><span class="a" id="f1">0</span> — <span class="b" id="f2">0</span></div>
+  <div class="sub" id="go-sub">What a match</div>
+  <button class="btn" id="again-btn">Rematch</button>
+  <button class="btn ghost" id="menu-btn">Menu</button>
+</div>
+
+<script>
+"use strict";
+// ═══════════════════════════════════════════════════════════════════
+//  AIR HOCKEY — 2-player, touch-first, self-contained
+// ═══════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// ─── Tunables ────────────────────────────────────────────────
+const WIN_SCORE = 7;
+const BALL_FRICTION = 0.996;      // per frame (very low, like real air hockey)
+const WALL_RESTITUTION = 0.985;
+const MALL_RESTITUTION = 0.62;    // bounciness off a mallet
+const MAX_BALL_SPEED = 34;        // px/frame cap
+const GOAL_MOUTH = 0.46;          // fraction of table width that is the goal opening
+const SERVE_SPEED = 3.2;
+
+// ─── State ───────────────────────────────────────────────────
+let W = 0, H = 0, DPR = 1;
+let T = {};                       // table layout (recomputed on resize)
+let score1 = 0, score2 = 0;
+let running = false, paused = false, over = false;
+let serveTimer = 0;               // frames to wait before ball moves after a goal
+let muted = false;
+let last = 0;
+let shake = 0;                    // screen shake magnitude (px)
+let particles = [];
+let lastGoalFlash = 0, goalFlashColor = '#6bdf4a';
+
+const P1 = { x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, r: 0, color: '#6bdf4a', glow: 'rgba(107,223,74,0.9)' };
+const P2 = { x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, r: 0, color: '#e0c060', glow: 'rgba(224,192,96,0.9)' };
+const BALL = { x: 0, y: 0, vx: 0, vy: 0, r: 0 };
+
+// ─── Audio (Web Audio, no assets) ────────────────────────────
+const AC = window.AudioContext || window.webkitAudioContext;
+let audio = null;
+function initAudio() { if (!audio && AC) audio = new AC(); if (audio && audio.state === 'suspended') audio.resume(); }
+function blip(freq, dur, type, vol, slideTo) {
+  if (!audio || muted) return;
+  const t = audio.currentTime;
+  const o = audio.createOscillator(), g = audio.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(audio.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const SFX = {
+  hit:   (v) => blip(220 + Math.min(600, v * 22), 0.09, 'square', 0.16, 120),
+  wall:  () => blip(160, 0.05, 'triangle', 0.10, 90),
+  goal:  (p1) => { blip(p1 ? 523 : 392, 0.14, 'sawtooth', 0.22, p1 ? 784 : 587);
+                   setTimeout(() => blip(p1 ? 659 : 494, 0.18, 'sawtooth', 0.18, p1 ? 988 : 784), 110); },
+  start: () => { blip(392, 0.1, 'square', 0.18, 523); setTimeout(() => blip(523, 0.14, 'square', 0.18, 784), 100); },
+};
+
+// ─── Layout ──────────────────────────────────────────────────
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  const padX = Math.max(14, W * 0.045);
+  const padTop = Math.max(64, H * 0.12);       // room for the top HUD
+  const padBot = Math.max(24, H * 0.04);
+  T.left = padX; T.right = W - padX;
+  T.top = padTop; T.bottom = H - padBot;
+  T.w = T.right - T.left; T.h = T.bottom - T.top;
+  T.cx = (T.left + T.right) / 2; T.cy = (T.top + T.bottom) / 2;
+  T.goalW = T.w * GOAL_MOUTH;
+  T.goalL = T.cx - T.goalW / 2; T.goalR = T.cx + T.goalW / 2;
+
+  const mr = Math.max(24, Math.min(46, T.w * 0.085));
+  P1.r = P2.r = mr;
+  BALL.r = Math.max(12, Math.min(20, T.w * 0.045));
+
+  clampMallet(P1); clampMallet(P2); clampBall();
+  P1.tx = P1.x; P1.ty = P1.y; P2.tx = P2.x; P2.ty = P2.y;
+}
+
+function homePos(p) {
+  if (p === P1) return { x: T.cx, y: T.cy + T.h * 0.25 };
+  return { x: T.cx, y: T.cy - T.h * 0.25 };
+}
+function clampMallet(p) {
+  const halfTop = p === P2 ? T.top : T.cy;
+  const halfBot = p === P2 ? T.cy : T.bottom;
+  p.x = Math.max(T.left + p.r, Math.min(T.right - p.r, p.x));
+  p.y = Math.max(halfTop + p.r, Math.min(halfBot - p.r, p.y));
+}
+function clampBall() {
+  BALL.x = Math.max(T.left + BALL.r, Math.min(T.right - BALL.r, BALL.x));
+  BALL.y = Math.max(T.top + BALL.r, Math.min(T.bottom - BALL.r, BALL.y));
+}
+
+function resetPositions(serveDir) {
+  const h1 = homePos(P1), h2 = homePos(P2);
+  P1.x = h1.x; P1.y = h1.y; P1.vx = P1.vy = 0; P1.tx = P1.x; P1.ty = P1.y;
+  P2.x = h2.x; P2.y = h2.y; P2.vx = P2.vy = 0; P2.tx = P2.x; P2.ty = P2.y;
+  BALL.x = T.cx; BALL.y = T.cy;
+  if (serveDir) {
+    const a = (Math.random() - 0.5) * 0.5;
+    BALL.vx = Math.sin(a) * SERVE_SPEED;
+    BALL.vy = Math.cos(a) * SERVE_SPEED * serveDir;
+  } else {
+    BALL.vx = 0; BALL.vy = 0;
+  }
+}
+
+// ─── Input (pointer events → multi-touch) ────────────────────
+const held = new Map(); // pointerId -> mallet
+function canvasPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+canvas.addEventListener('pointerdown', (e) => {
+  if (!running || paused || over) return;
+  initAudio();
+  const p = canvasPos(e);
+  const mallet = (p.y < T.cy) ? P2 : P1;
+  // steal if that mallet is already held by another pointer
+  for (const [id, m] of held) if (m === mallet) held.delete(id);
+  held.set(e.pointerId, mallet);
+  mallet.tx = p.x; mallet.ty = p.y;
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('pointermove', (e) => {
+  const mallet = held.get(e.pointerId);
+  if (!mallet) return;
+  const p = canvasPos(e);
+  mallet.tx = p.x; mallet.ty = p.y;
+  e.preventDefault();
+}, { passive: false });
+
+function releasePointer(e) {
+  if (held.delete(e.pointerId)) { /* mallet returns to drift */ }
+}
+canvas.addEventListener('pointerup', releasePointer);
+canvas.addEventListener('pointercancel', releasePointer);
+canvas.addEventListener('lostpointercapture', releasePointer);
+
+// ─── Physics ─────────────────────────────────────────────────
+function moveMallet(p, dt) {
+  const maxSpeed = Math.max(18, T.w * 0.030) * dt;   // px this step
+  let dx = p.tx - p.x, dy = p.ty - p.y;
+  const d = Math.hypot(dx, dy);
+  if (d > maxSpeed) { dx = dx / d * maxSpeed; dy = dy / d * maxSpeed; }
+  p.x += dx; p.y += dy;
+  clampMallet(p);
+  // velocity in px/frame for collision impulse
+  p.vx = dx / dt; p.vy = dy / dt;
+}
+
+function collideMallet(p) {
+  const dx = BALL.x - p.x, dy = BALL.y - p.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+  const minD = BALL.r + p.r;
+  if (dist >= minD) return;
+  const nx = dx / dist, ny = dy / dist;
+  // separate
+  BALL.x = p.x + nx * minD;
+  BALL.y = p.y + ny * minD;
+  // reflect relative velocity
+  const rvx = BALL.vx - p.vx, rvy = BALL.vy - p.vy;
+  const vn = rvx * nx + rvy * ny;
+  if (vn < 0) {
+    const j = (1 + MALL_RESTITUTION) * vn;
+    BALL.vx = p.vx + (rvx - j * nx);
+    BALL.vy = p.vy + (rvy - j * ny);
+    const impact = Math.hypot(p.vx, p.vy, -vn);
+    SFX.hit(impact);
+    spawnSparks(BALL.x, BALL.y, p.color, 6, Math.min(6, impact * 0.4));
+    shake = Math.min(14, 3 + impact * 0.5);
+  }
+}
+
+function stepBall(dt) {
+  // substep to avoid tunneling through mallets/walls at high speed
+  const speed = Math.hypot(BALL.vx, BALL.vy);
+  const steps = Math.max(1, Math.min(6, Math.ceil(speed / (BALL.r * 0.9))));
+  const sdt = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    BALL.x += BALL.vx * sdt;
+    BALL.y += BALL.vy * sdt;
+
+    // side walls
+    if (BALL.x - BALL.r < T.left)  { BALL.x = T.left + BALL.r;  BALL.vx = Math.abs(BALL.vx) * WALL_RESTITUTION; SFX.wall(); }
+    if (BALL.x + BALL.r > T.right) { BALL.x = T.right - BALL.r; BALL.vx = -Math.abs(BALL.vx) * WALL_RESTITUTION; SFX.wall(); }
+
+    // top / bottom — goal mouth or wall
+    const inMouth = BALL.x > T.goalL && BALL.x < T.goalR;
+    if (BALL.y - BALL.r < T.top) {
+      if (inMouth) { if (BALL.y < T.top - BALL.r * 0.5) return goal(1); }
+      else { BALL.y = T.top + BALL.r; BALL.vy = Math.abs(BALL.vy) * WALL_RESTITUTION; SFX.wall(); }
+    }
+    if (BALL.y + BALL.r > T.bottom) {
+      if (inMouth) { if (BALL.y > T.bottom + BALL.r * 0.5) return goal(2); }
+      else { BALL.y = T.bottom - BALL.r; BALL.vy = -Math.abs(BALL.vy) * WALL_RESTITUTION; SFX.wall(); }
+    }
+
+    collideMallet(P1);
+    collideMallet(P2);
+  }
+
+  // friction + speed cap
+  const f = Math.pow(BALL_FRICTION, dt);
+  BALL.vx *= f; BALL.vy *= f;
+  const sp = Math.hypot(BALL.vx, BALL.vy);
+  if (sp > MAX_BALL_SPEED) { BALL.vx = BALL.vx / sp * MAX_BALL_SPEED; BALL.vy = BALL.vy / sp * MAX_BALL_SPEED; }
+  // tiny stall cleanup
+  if (sp < 0.05) { BALL.vx = 0; BALL.vy = 0; }
+}
+
+function goal(who) {
+  if (who === 1) { score1++; SFX.goal(true); goalFlashColor = P1.color; }
+  else           { score2++; SFX.goal(false); goalFlashColor = P2.color; }
+  lastGoalFlash = performance.now();
+  shake = 16;
+  spawnSparks(BALL.x, BALL.y, goalFlashColor, 26, 9);
+  updateScore();
+  if (score1 >= WIN_SCORE || score2 >= WIN_SCORE) { endMatch(); return; }
+  // serve toward the player who just conceded
+  resetPositions(who === 1 ? 1 : -1);
+  serveTimer = 45; // short freeze
+}
+
+// ─── Particles ───────────────────────────────────────────────
+function spawnSparks(x, y, color, n, power) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = (Math.random() * 0.7 + 0.3) * power;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, color, r: Math.random() * 3 + 1.5 });
+  }
+}
+function stepParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.94; p.vy *= 0.94;
+    p.life -= 0.03 * dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+// ─── Rendering ───────────────────────────────────────────────
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // screen shake
+  if (shake > 0.3) {
+    ctx.save();
+    ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    shake *= 0.86;
+  } else shake = 0;
+
+  // background vignette
+  const bg = ctx.createRadialGradient(T.cx, T.cy, 10, T.cx, T.cy, Math.max(W, H) * 0.7);
+  bg.addColorStop(0, '#0a2009'); bg.addColorStop(1, '#061204');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // table body
+  const tw = T.right - T.left, th = T.bottom - T.top;
+  const tbl = ctx.createLinearGradient(0, T.top, 0, T.bottom);
+  tbl.addColorStop(0, '#0c1a12'); tbl.addColorStop(0.5, '#0f2417'); tbl.addColorStop(1, '#0c1a12');
+  ctx.fillStyle = tbl;
+  roundRect(T.left, T.top, tw, th, 18); ctx.fill();
+
+  // subtle grid
+  ctx.save();
+  roundRect(T.left, T.top, tw, th, 18); ctx.clip();
+  ctx.strokeStyle = 'rgba(107,223,74,0.05)'; ctx.lineWidth = 1;
+  const grid = 34;
+  for (let x = T.left; x < T.right; x += grid) { ctx.beginPath(); ctx.moveTo(x, T.top); ctx.lineTo(x, T.bottom); ctx.stroke(); }
+  for (let y = T.top; y < T.bottom; y += grid) { ctx.beginPath(); ctx.moveTo(T.left, y); ctx.lineTo(T.right, y); ctx.stroke(); }
+  ctx.restore();
+
+  // center line + circle
+  ctx.strokeStyle = 'rgba(236,252,203,0.28)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(T.left, T.cy); ctx.lineTo(T.right, T.cy); ctx.stroke();
+  ctx.beginPath(); ctx.arc(T.cx, T.cy, Math.min(tw, th) * 0.14, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(236,252,203,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+
+  // goal mouths (glowing arcs)
+  drawGoal(T.top, P2.color, -1);   // top goal → P1 scores
+  drawGoal(T.bottom, P1.color, 1); // bottom goal → P2 scores
+
+  // table border
+  ctx.strokeStyle = 'rgba(167,139,108,0.5)'; ctx.lineWidth = 3;
+  roundRect(T.left, T.top, tw, th, 18); ctx.stroke();
+
+  // goal flash
+  const flashAge = performance.now() - lastGoalFlash;
+  if (flashAge < 450) {
+    const a = (1 - flashAge / 450) * 0.4;
+    ctx.save();
+    roundRect(T.left, T.top, tw, th, 18); ctx.clip();
+    ctx.fillStyle = goalFlashColor; ctx.globalAlpha = a;
+    ctx.fillRect(T.left, T.top, tw, th);
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+
+  // particles
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // mallets
+  drawMallet(P2);
+  drawMallet(P1);
+
+  // ball
+  drawBall();
+
+  if (shake > 0.3) ctx.restore();
+}
+
+function drawGoal(y, color, dir) {
+  const x0 = T.goalL, x1 = T.goalR;
+  ctx.save();
+  ctx.lineCap = 'round';
+  const glow = ctx.createLinearGradient(0, y, 0, y + dir * 26);
+  glow.addColorStop(0, color); glow.addColorStop(1, 'transparent');
+  ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.globalAlpha = 0.9;
+  ctx.shadowColor = color; ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+
+function drawMallet(p) {
+  ctx.save();
+  ctx.shadowColor = p.glow; ctx.shadowBlur = 22;
+  const g = ctx.createRadialGradient(p.x - p.r * 0.3, p.y - p.r * 0.3, 2, p.x, p.y, p.r);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.25, p.color); g.addColorStop(1, shade(p.color, -45));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
+  // knob
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.42, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.16, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawBall() {
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,255,255,0.8)'; ctx.shadowBlur = 16;
+  const g = ctx.createRadialGradient(BALL.x - BALL.r * 0.3, BALL.y - BALL.r * 0.3, 1, BALL.x, BALL.y, BALL.r);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.6, '#dfe9d8'); g.addColorStop(1, '#9fb09a');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(BALL.x, BALL.y, BALL.r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) + amt, g = ((n >> 8) & 0xff) + amt, b = (n & 0xff) + amt;
+  r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ─── Loop ────────────────────────────────────────────────────
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!last) last = now;
+  let dt = (now - last) / 16.667; // in "60fps frames"
+  last = now;
+  dt = Math.max(0.2, Math.min(3, dt));
+
+  if (running && !paused && !over) {
+    if (serveTimer > 0) {
+      serveTimer -= dt;
+      moveMallet(P1, dt); moveMallet(P2, dt);
+      stepParticles(dt);
+    } else {
+      moveMallet(P1, dt);
+      moveMallet(P2, dt);
+      stepBall(dt);
+      stepParticles(dt);
+    }
+  } else {
+    stepParticles(dt);
+  }
+  draw();
+}
+
+// ─── Game flow ───────────────────────────────────────────────
+function updateScore() {
+  document.getElementById('s1').textContent = score1;
+  document.getElementById('s2').textContent = score2;
+}
+function show(el) { el.classList.remove('hidden'); }
+function hide(el) { el.classList.add('hidden'); }
+
+function startMatch() {
+  initAudio(); SFX.start();
+  score1 = 0; score2 = 0; updateScore();
+  particles.length = 0;
+  resetPositions(0);
+  over = false; paused = false; running = true;
+  serveTimer = 30;
+  hide(document.getElementById('start-screen'));
+  hide(document.getElementById('gameover-screen'));
+  hide(document.getElementById('pause-screen'));
+}
+function endMatch() {
+  over = true; running = false;
+  const p1won = score1 > score2;
+  const wt = document.getElementById('winner-text');
+  wt.textContent = p1won ? 'GREEN WINS 🏆' : 'GOLD WINS 🏆';
+  wt.className = 'winner ' + (p1won ? 'p1' : 'p2');
+  document.getElementById('f1').textContent = score1;
+  document.getElementById('f2').textContent = score2;
+  document.getElementById('go-sub').textContent =
+    p1won ? 'Bottom half takes the crown' : 'Top half takes the crown';
+  show(document.getElementById('gameover-screen'));
+}
+function togglePause(force) {
+  if (over) return;
+  paused = (force !== undefined) ? force : !paused;
+  if (paused) show(document.getElementById('pause-screen'));
+  else hide(document.getElementById('pause-screen'));
+}
+
+// ─── Wire up UI ──────────────────────────────────────────────
+document.getElementById('start-btn').addEventListener('click', startMatch);
+document.getElementById('again-btn').addEventListener('click', startMatch);
+document.getElementById('resume-btn').addEventListener('click', () => togglePause(false));
+document.getElementById('pause-btn').addEventListener('click', (e) => { e.stopPropagation(); togglePause(); });
+document.getElementById('pause-quit-btn').addEventListener('click', () => {
+  paused = false; running = false; over = false;
+  hide(document.getElementById('pause-screen'));
+  show(document.getElementById('start-screen'));
+});
+document.getElementById('menu-btn').addEventListener('click', () => {
+  over = false; running = false;
+  hide(document.getElementById('gameover-screen'));
+  show(document.getElementById('start-screen'));
+});
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+  e.stopPropagation(); muted = !muted;
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
+});
+document.getElementById('target').textContent = WIN_SCORE;
+
+// keep game alive in background-ish; resume audio on any tap
+window.addEventListener('touchstart', initAudio, { passive: true });
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
