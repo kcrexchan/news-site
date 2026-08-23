@@ -147,6 +147,9 @@
   .btn.clear { background: rgba(120,200,160,0.14); border: 1px solid rgba(120,200,160,0.35); color: #a7d4bd; padding: 15px 18px; }
   .btn.newhand { background: linear-gradient(135deg, #2f9e6a, #1f7a4c); width: 100%; }
   .btn.rebuy { background: linear-gradient(135deg, #b8862b, #93691f); width: 100%; }
+  .btn.insure { background: linear-gradient(135deg, #b8862b, #93691f); flex: 1; }
+  .btn.decline { background: linear-gradient(135deg, #5a6b7a, #3f4d5a); flex: 1; }
+  .ins-badge { font-size: 11px; font-weight: 700; color: #f5e6a8; letter-spacing: 1px; }
 
   #betLine { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 2px; }
   #betLabel { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #6f9c86; }
@@ -237,6 +240,11 @@
       <button class="btn hit"    id="hitBtn">Hit</button>
       <button class="btn stand"  id="standBtn">Stand</button>
       <button class="btn double" id="doubleBtn">Double</button>
+    </div>
+    <div class="row hidden" id="insRow">
+      <span class="ins-badge" id="insBadge">Insurance?</span>
+      <button class="btn insure"  id="insBtn">Insure</button>
+      <button class="btn decline" id="declineBtn">Decline</button>
     </div>
     <div class="row" id="dealRow">
       <button class="btn deal" id="dealBtn">Deal</button>
@@ -333,6 +341,10 @@
   var standBtn = $('standBtn');
   var doubleBtn = $('doubleBtn');
   var dealBtn = $('dealBtn');
+  var insRow = $('insRow');
+  var insBtn = $('insBtn');
+  var declineBtn = $('declineBtn');
+  var insBadge = $('insBadge');
   var overlay = $('overlay');
   var newHandBtn = $('newHandBtn');
   var rebuyBtn = $('rebuyBtn');
@@ -411,14 +423,18 @@
   var rng = makeRng((Date.now() & 0xffff) ^ 0x9e3779b9);
   var shoe = [];
   var state = {
-    phase: 'bet',            // bet | player | dealer | settle
+    phase: 'bet',            // bet | insurance | player | dealer | settle
     balance: START_BALANCE,
     bet: 0,
     player: [],
     dealer: [],
     holeHidden: true,
+    insurance: 0,            // side-bet amount (0 = none)
+    insurancePaid: false,    // true once insurance decided for this hand
     best: 0
   };
+  // Insurance = half the main bet (floored to whole chips). 2:1 payout if dealer has BJ.
+  function insuranceAmount(bet) { return Math.floor(bet / 2); }
 
   function loadState() {
     try {
@@ -518,12 +534,15 @@
     betRow.className = state.phase === 'bet' ? 'row' : 'row hidden';
     dealRow.className = state.phase === 'bet' ? 'row' : 'row hidden';
     playRow.className = state.phase === 'player' ? 'row' : 'row hidden';
+    insRow.className = state.phase === 'insurance' ? 'row' : 'row hidden';
     // button states
     dealBtn.disabled = state.bet <= 0 || state.bet > state.balance;
     clearBtn.disabled = state.bet <= 0;
     hitBtn.disabled = state.phase !== 'player';
     standBtn.disabled = state.phase !== 'player';
     doubleBtn.disabled = !(state.phase === 'player' && state.player.length === 2 && state.bet <= state.balance);
+    insBtn.disabled = state.phase !== 'insurance';
+    declineBtn.disabled = state.phase !== 'insurance';
     chipBtns.forEach(function (b) {
       var v = parseInt(b.getAttribute('data-chip'), 10);
       b.disabled = state.bet + v > state.balance;
@@ -550,10 +569,11 @@
   function startDeal() {
     if (state.phase !== 'bet') return;
     if (state.bet <= 0 || state.bet > state.balance) return;
-    state.phase = 'player';
     state.player = [];
     state.dealer = [];
     state.holeHidden = true;
+    state.insurance = 0;
+    state.insurancePaid = false;
     hideMsg();
     // deal: player 2, dealer 2 (one face down)
     state.player.push(drawCard());
@@ -563,13 +583,43 @@
     sfx.deal();
     renderHand(playerCardsEl, state.player, false);
     renderHand(dealerCardsEl, state.dealer, true);
-    // natural blackjack for player? auto-stand
+    // natural blackjack for player? auto-stand (insurance not offered — no point)
     if (isBlackjack(state.player)) {
       showMsg('Blackjack!');
       render();
       dealerPhase();
       return;
     }
+    // dealer upcard is an Ace → offer insurance
+    if (state.dealer[0].rank === 'A' && insuranceAmount(state.bet) > 0) {
+      state.phase = 'insurance';
+      insBadge.textContent = 'Insurance 2:1 — ' + insuranceAmount(state.bet);
+      showMsg('Dealer Ace — take insurance?');
+      render();
+      return;
+    }
+    state.phase = 'player';
+    showMsg('Your move — ' + handValue(state.player));
+    render();
+  }
+
+  function takeInsurance() {
+    if (state.phase !== 'insurance') return;
+    var amt = insuranceAmount(state.bet);
+    if (amt <= 0 || amt > state.balance) return;
+    state.balance -= amt;
+    state.insurance = amt;
+    state.insurancePaid = true;
+    sfx.chip();
+    state.phase = 'player';
+    showMsg('Insured — your move · ' + handValue(state.player));
+    render();
+  }
+  function declineInsurance() {
+    if (state.phase !== 'insurance') return;
+    state.insurance = 0;
+    state.insurancePaid = true;
+    state.phase = 'player';
     showMsg('Your move — ' + handValue(state.player));
     render();
   }
@@ -648,6 +698,14 @@
     var dv = handValue(state.dealer);
     var pBJ = isBlackjack(state.player);
     var dBJ = isBlackjack(state.dealer);
+    var balStart = state.balance; // after any insurance was paid, before main payout
+
+    // Insurance settles first: pays 2:1 (profit = 1.5x) ONLY if dealer has blackjack.
+    var insNet = 0;
+    if (state.insurance > 0) {
+      if (dBJ) { insNet = Math.floor(state.insurance * 1.5); state.balance += insNet; }
+      // else: side bet already lost (deducted at takeInsurance)
+    }
 
     var outcome, net;
     if (pBJ && dBJ) { outcome = 'push'; net = 0; }
@@ -660,8 +718,9 @@
     else { outcome = 'push'; net = 0; }
 
     state.balance = Math.max(0, state.balance);
+    var handNet = state.balance - balStart; // main outcome + insurance, relative to hand start
     var newHigh = false;
-    if (net > state.best) { state.best = net; newHigh = true; }
+    if (handNet > state.best) { state.best = handNet; newHigh = true; }
     saveState();
     render();
 
@@ -671,10 +730,10 @@
     else if (outcome === 'push') sfx.push();
     else sfx.lose();
 
-    showResult(outcome, net, pv, dv, pBJ, dBJ, newHigh);
+    showResult(outcome, handNet, pv, dv, pBJ, dBJ, newHigh, state.insurance, insNet);
   }
 
-  function showResult(outcome, net, pv, dv, pBJ, dBJ, newHigh) {
+  function showResult(outcome, net, pv, dv, pBJ, dBJ, newHigh, insAmt, insNet) {
     var label, cls;
     if (outcome === 'blackjack') { label = 'BLACKJACK!'; cls = 'bj'; }
     else if (outcome === 'win') { label = 'YOU WIN'; cls = 'win'; }
@@ -690,6 +749,7 @@
     var sub = 'You ' + pv + ' · Dealer ' + dv;
     if (pBJ) sub = 'Blackjack · Dealer ' + dv;
     else if (dBJ) sub = 'Dealer Blackjack · You ' + pv;
+    if (insAmt > 0) sub += insNet > 0 ? (' · Insurance won +$' + insNet) : (' · Insurance lost −$' + insAmt);
     resultSub.textContent = sub;
 
     newHighEl.classList.toggle('show', !!newHigh);
@@ -708,6 +768,8 @@
     state.dealer = [];
     state.holeHidden = true;
     state.bet = 0;
+    state.insurance = 0;
+    state.insurancePaid = false;
     clearCards(playerCardsEl);
     clearCards(dealerCardsEl);
     overlay.className = '';
@@ -733,6 +795,8 @@
   hitBtn.addEventListener('click', doHit);
   standBtn.addEventListener('click', doStand);
   doubleBtn.addEventListener('click', doDouble);
+  insBtn.addEventListener('click', takeInsurance);
+  declineBtn.addEventListener('click', declineInsurance);
   newHandBtn.addEventListener('click', newHand);
   rebuyBtn.addEventListener('click', rebuy);
   muteBtn.addEventListener('click', function () {
@@ -745,6 +809,7 @@
     window.addEventListener('keydown', function (e) {
       var k = (e.key || '').toLowerCase();
       if (state.phase === 'bet') { if (k === 'enter' || k === ' ') { e.preventDefault(); startDeal(); } }
+      else if (state.phase === 'insurance') { if (k === 'i') takeInsurance(); else if (k === 'n') declineInsurance(); }
       else if (state.phase === 'player') {
         if (k === 'h') doHit();
         else if (k === 's') doStand();
@@ -766,6 +831,7 @@
           player: state.player.map(function (c) { return c.rank + c.suit; }),
           dealer: state.dealer.map(function (c) { return c.rank + c.suit; }),
           holeHidden: state.holeHidden,
+          insurance: state.insurance,
           best: state.best
         };
       },
@@ -775,6 +841,8 @@
       hit: doHit,
       stand: doStand,
       double: doDouble,
+      insure: takeInsurance,
+      decline: declineInsurance,
       newHand: newHand,
       rebuy: rebuy,
       _setSeed: function (s) { rng = makeRng(s); shoe = []; },
@@ -782,6 +850,7 @@
       _isBlackjack: isBlackjack,
       _cardValue: cardValue,
       _dealerShouldHit: dealerShouldHit,
+      _insuranceAmount: insuranceAmount,
       _makeDeck: makeDeck,
       _shuffle: shuffle
     };

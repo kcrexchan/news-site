@@ -31,7 +31,7 @@ function makeEl(attrs) {
 
 var ids = ['balanceVal','bestVal','dealerTotal','playerTotal','dealerCards','playerCards',
   'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn',
-  'dealBtn','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg'];
+  'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg'];
 var elements = {};
 ids.forEach(function (id) { elements[id] = makeEl(); });
 
@@ -107,6 +107,12 @@ assert(BJ._dealerShouldHit([T, N7]) === false, '10,7 (17) → stand (S17)');
 assert(BJ._dealerShouldHit([A, N6]) === false, 'A,6 (17) → stand (S17)');
 assert(BJ._dealerShouldHit([N6, N6]) === true, '6,6 (12) → hit');
 
+console.log('— unit: insuranceAmount —');
+assert(BJ._insuranceAmount(100) === 50, 'bet 100 → insurance 50');
+assert(BJ._insuranceAmount(25) === 12, 'bet 25 → insurance 12 (floor)');
+assert(BJ._insuranceAmount(10) === 5, 'bet 10 → insurance 5');
+assert(BJ._insuranceAmount(0) === 0, 'bet 0 → insurance 0');
+
 // ═══════════════════════════════════════════════════════════════
 //  2. DEAL INVARIANTS
 // ═══════════════════════════════════════════════════════════════
@@ -123,16 +129,16 @@ var s1 = BJ.state();
 assert(s1.player.length === 2, 'player has 2 cards after deal (got ' + s1.player.length + ': ' + s1.player.join(' ') + ')');
 assert(s1.dealer.length === 2, 'dealer has 2 cards after deal');
 assert(s1.balance === 1000, 'balance unchanged by deal (bet not yet settled)');
-assert(s1.phase === 'player' || s1.phase === 'settle', 'phase is player or settle (got ' + s1.phase + ')');
+assert(s1.phase === 'player' || s1.phase === 'insurance' || s1.phase === 'settle', 'phase is player/insurance/settle (got ' + s1.phase + ')');
 console.log('   player:', s1.player.join(' '), 'dealer:', s1.dealer.join(' '), 'phase:', s1.phase);
 
 // ═══════════════════════════════════════════════════════════════
 //  3. FULL-HAND BALANCE INVARIANTS (seeded, structural)
 // ═══════════════════════════════════════════════════════════════
-console.log('— full-hand balance invariants (200 seeded hands) —');
+console.log('— full-hand balance invariants (200 seeded hands, insurance declined) —');
 var VALID = { 900: true, 1000: true, 1100: true, 1150: true };
 var seen = { win: 0, lose: 0, push: 0, blackjack: 0 };
-var holeRevealed = true;
+var insOffered = 0, holeRevealed = true;
 for (var seed = 1; seed <= 200; seed++) {
   BJ._setSeed(seed);
   BJ.rebuy();      // balance -> 1000
@@ -140,6 +146,7 @@ for (var seed = 1; seed <= 200; seed++) {
   BJ.addChip(100); // bet -> 100
   BJ.deal();
   var st = BJ.state();
+  if (st.phase === 'insurance') { insOffered++; BJ.decline(); st = BJ.state(); }
   if (st.phase === 'player') BJ.stand(); // triggers synchronous dealer + settle
   st = BJ.state();
   if (st.phase !== 'settle') { console.error('   ✗ hand did not settle (phase=' + st.phase + ') seed=' + seed); process.exit(1); }
@@ -152,10 +159,11 @@ for (var seed = 1; seed <= 200; seed++) {
   else if (delta === 0) seen.push++;
   else if (delta === 150) seen.blackjack++;
 }
-console.log('   outcomes over 200 hands:', JSON.stringify(seen));
+console.log('   outcomes over 200 hands:', JSON.stringify(seen), 'insurance-offered hands=' + insOffered);
 assert(seen.win > 0, 'observed at least one win (+100)');
 assert(seen.lose > 0, 'observed at least one loss (-100)');
 assert(seen.blackjack > 0, 'observed at least one blackjack (+150, 3:2 payout)');
+assert(insOffered > 0, 'insurance was offered on at least one hand (dealer Ace)');
 assert(holeRevealed, 'dealer hole card revealed after every settle');
 
 // ═══════════════════════════════════════════════════════════════
@@ -181,6 +189,84 @@ for (var dseed = 1; dseed <= 60 && dcount < 8; dseed++) {
   }
 }
 assert(dcount >= 1, 'exercised double-down at least once (' + dcount + ')');
+
+// ═══════════════════════════════════════════════════════════════
+//  5. INSURANCE MECHANICS (find a dealer-Ace / non-natural hand)
+// ═══════════════════════════════════════════════════════════════
+console.log('— insurance mechanics —');
+function setupIns(seed) {
+  BJ._setSeed(seed);
+  BJ.rebuy();
+  BJ.newHand();
+  BJ.addChip(100);
+  BJ.deal();
+  return BJ.state();
+}
+// find a seed where dealer upcard is Ace and player is NOT a natural → insurance offered
+var insSeed = 0;
+for (var sc = 1; sc <= 2000 && !insSeed; sc++) {
+  var ss = setupIns(sc);
+  if (ss.phase === 'insurance' && ss.dealer[0][0] === 'A') insSeed = sc;
+}
+assert(insSeed > 0, 'found a hand offering insurance (seed ' + insSeed + ')');
+
+// (a) decline → balance unchanged, moves to player
+var da = setupIns(insSeed);
+assert(da.phase === 'insurance' && da.balance === 1000, 'pre-decision balance 1000');
+BJ.decline();
+var dd = BJ.state();
+assert(dd.phase === 'player' && dd.balance === 1000 && dd.insurance === 0, 'decline → player phase, balance 1000, no insurance');
+
+// (b) take → balance drops by 50, insurance recorded
+var tb = setupIns(insSeed);
+BJ.insure();
+var tt = BJ.state();
+assert(tt.phase === 'player' && tt.balance === 950 && tt.insurance === 50, 'take → player phase, balance 950, insurance 50');
+
+// (c) insurance settles correctly at end-of-hand — compute the EXPECTED final
+//     balance from the actual hand and assert equality (robust, no fixed set).
+function cardsFromStrings(arr) {
+  return arr.map(function (s) {
+    var rank = s.charAt(0) === '1' ? '10' : s.charAt(0); // '10♠'→'10', 'A♣'→'A'
+    return { rank: rank, suit: s.slice(rank.length) };
+  });
+}
+function expectedBalance(bet, ins, p, d) {
+  var pBJ = BJ._isBlackjack(p), dBJ = BJ._isBlackjack(d);
+  var bal = 1000 - ins;                                  // insurance paid at take
+  if (ins > 0 && dBJ) bal += Math.floor(ins * 1.5);      // insurance 2:1
+  if (pBJ && dBJ) { /* push */ }
+  else if (pBJ) bal += Math.round(bet * 1.5);
+  else if (dBJ) bal -= bet;
+  else {
+    var pv = BJ._handValue(p), dv = BJ._handValue(d);
+    if (pv > 21) bal -= bet;
+    else if (dv > 21) bal += bet;
+    else if (pv > dv) bal += bet;
+    else if (pv < dv) bal -= bet;
+    /* else push: 0 */
+  }
+  return bal;
+}
+var insHands = 0, insTake = 0, insDecl = 0;
+for (var ic = 1; ic <= 400 && insHands < 14; ic++) {
+  var ist = setupIns(ic);
+  if (ist.phase !== 'insurance') continue;
+  if ((ic % 2) === 1) { BJ.insure(); insTake++; } else { BJ.decline(); insDecl++; }
+  var mid = BJ.state();
+  if (mid.phase === 'player') BJ.stand();
+  var fin = BJ.state();
+  if (fin.phase !== 'settle') { console.error('   ✗ insurance hand did not settle seed=' + ic); process.exit(1); }
+  var p = cardsFromStrings(fin.player), d = cardsFromStrings(fin.dealer);
+  var exp = expectedBalance(100, fin.insurance, p, d);
+  if (fin.balance !== exp) {
+    console.error('   ✗ insurance hand seed=' + ic + ' balance=' + fin.balance + ' expected=' + exp + ' player=' + fin.player.join(' ') + ' dealer=' + fin.dealer.join(' ') + ' ins=' + fin.insurance);
+    process.exit(1);
+  }
+  insHands++;
+}
+assert(insHands >= 2, 'settled ' + insHands + ' insurance-offered hands');
+assert(insTake >= 1 && insDecl >= 1, 'exercised both take (' + insTake + ') and decline (' + insDecl + ') insurance branches');
 
 // ═══════════════════════════════════════════════════════════════
 console.log('ALL CHECKS PASSED');
