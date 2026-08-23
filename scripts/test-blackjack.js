@@ -29,8 +29,8 @@ function makeEl(attrs) {
   return e;
 }
 
-var ids = ['balanceVal','bestVal','dealerTotal','playerTotal','dealerCards','playerCards',
-  'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn',
+var ids = ['balanceVal','bestVal','dealerTotal','playerTotal','dealerCards','playerCards','playerArea',
+  'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn','splitBtn',
   'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg'];
 var elements = {};
 ids.forEach(function (id) { elements[id] = makeEl(); });
@@ -170,7 +170,7 @@ assert(holeRevealed, 'dealer hole card revealed after every settle');
 //  4. DOUBLE-DOWN INVARIANTS
 // ═══════════════════════════════════════════════════════════════
 console.log('— double-down invariants —');
-var DVALID = { 700: true, 900: true, 1100: true };
+var DVALID = { 800: true, 1000: true, 1200: true };
 var dcount = 0;
 for (var dseed = 1; dseed <= 60 && dcount < 8; dseed++) {
   BJ._setSeed(1000 + dseed);
@@ -269,4 +269,75 @@ assert(insHands >= 2, 'settled ' + insHands + ' insurance-offered hands');
 assert(insTake >= 1 && insDecl >= 1, 'exercised both take (' + insTake + ') and decline (' + insDecl + ') insurance branches');
 
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  6. SPLIT MECHANICS
+// ═══════════════════════════════════════════════════════════════
+console.log('— split mechanics —');
+
+// 6(a) canSplit: only true for a value-pair on a fresh 2-card hand
+BJ._setSeed(7);
+BJ.rebuy();
+BJ.newHand();
+BJ.addChip(100);
+BJ.deal();
+var cs = BJ.state();
+if (cs.phase === 'insurance') { BJ.decline(); cs = BJ.state(); }
+if (cs.phase === 'player') {
+  var c0 = cs.hands[0].cards[0], c1 = cs.hands[0].cards[1];
+  var pair = (BJ._cardValue(c0.charAt(0) === '1' ? '10' : c0.charAt(0)) ===
+              BJ._cardValue(c1.charAt(0) === '1' ? '10' : c1.charAt(0)));
+  assert(BJ.canSplit(0) === pair, 'canSplit(0) matches whether the two cards are a value-pair (pair=' + pair + ')');
+}
+
+// 6(b) split a pair: two hands, each own bet, balance drops by one stake,
+//      then both hands settle and the final balance is exactly accounted for.
+function splitExpectedBalance(hands, dealerCards, balAfterSplit) {
+  var dBJ = BJ._isBlackjack(dealerCards);
+  var dv = BJ._handValue(dealerCards);
+  var bal = balAfterSplit; // split stake(s) already deducted; settle resolves each hand ±bet
+  for (var i = 0; i < hands.length; i++) {
+    var h = hands[i];
+    var pv = BJ._handValue(h.cards);
+    var pBJ = false; // split hands never count as a natural blackjack
+    if (dBJ) bal -= h.bet;
+    else if (pv > 21) bal -= h.bet;
+    else if (dv > 21) bal += h.bet;
+    else if (pv > dv) bal += h.bet;
+    else if (pv < dv) bal -= h.bet;
+    /* else push: 0 */
+  }
+  return bal;
+}
+var splitHands = 0;
+for (var sp = 1; sp <= 1200 && splitHands < 12; sp++) {
+  BJ._setSeed(5000 + sp);
+  BJ.rebuy();
+  BJ.newHand();
+  BJ.addChip(100);
+  BJ.deal();
+  var st = BJ.state();
+  if (st.phase === 'insurance') { BJ.decline(); st = BJ.state(); }
+  if (st.phase !== 'player') continue;
+  if (!BJ.canSplit(0)) continue;
+  var balBeforeSplit = st.balance;
+  BJ.split();
+  var mid = BJ.state();
+  if (mid.phase !== 'player') { console.error('   ✗ split did not enter player phase seed=' + sp); process.exit(1); }
+  if (mid.hands.length !== 2) { console.error('   ✗ split should create 2 hands (got ' + mid.hands.length + ') seed=' + sp); process.exit(1); }
+  if (mid.balance !== balBeforeSplit - 100) { console.error('   ✗ split should deduct one stake (before=' + balBeforeSplit + ' after=' + mid.balance + ') seed=' + sp); process.exit(1); }
+  // stand on each hand in turn until the dealer settles (max 2 hands here)
+  for (var stands = 0; stands < 4 && BJ.state().phase === 'player'; stands++) BJ.stand();
+  var mid2 = BJ.state();
+  if (mid2.phase !== 'settle') { console.error('   ✗ split hands did not settle seed=' + sp + ' phase=' + mid2.phase); process.exit(1); }
+  var hands = mid2.hands.map(function (h) { return { cards: cardsFromStrings(h.cards), bet: h.bet }; });
+  var d = cardsFromStrings(mid2.dealer);
+  var exp = splitExpectedBalance(hands, d, mid.balance);
+  if (mid2.balance !== exp) {
+    console.error('   ✗ split balance seed=' + sp + ' got=' + mid2.balance + ' expected=' + exp + ' hands=' + JSON.stringify(mid2.hands) + ' dealer=' + mid2.dealer.join(' '));
+    process.exit(1);
+  }
+  splitHands++;
+}
+assert(splitHands >= 2, 'settled ' + splitHands + ' split hands with exact balance accounting');
+
 console.log('ALL CHECKS PASSED');

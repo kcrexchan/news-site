@@ -52,9 +52,14 @@
     font-size: 200px; color: rgba(120,200,160,0.05); pointer-events: none;
   }
 
-  .hand { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
-  .hand.dealer { top: 14px; }
-  .hand.player { bottom: 14px; }
+  .hand { display: flex; flex-direction: column; align-items: center; }
+  .hand.dealer { position: absolute; left: 0; right: 0; top: 14px; }
+  #playerArea {
+    position: absolute; left: 0; right: 0; bottom: 14px;
+    display: flex; flex-direction: row; justify-content: center; align-items: flex-end; gap: 22px;
+  }
+  .hand.player.active .total-badge { box-shadow: 0 0 0 2px #f5e6a8, 0 0 12px rgba(245,230,168,0.55); }
+  .hand.player.active .cards { filter: drop-shadow(0 4px 14px rgba(245,230,168,0.4)); }
   .hand-label {
     font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
     color: #8fc4a8; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;
@@ -149,6 +154,7 @@
   .btn.rebuy { background: linear-gradient(135deg, #b8862b, #93691f); width: 100%; }
   .btn.insure { background: linear-gradient(135deg, #b8862b, #93691f); flex: 1; }
   .btn.decline { background: linear-gradient(135deg, #5a6b7a, #3f4d5a); flex: 1; }
+  .btn.split { background: linear-gradient(135deg, #2f7d8f, #1f5a6a); }
   .ins-badge { font-size: 11px; font-weight: 700; color: #f5e6a8; letter-spacing: 1px; }
 
   #betLine { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 2px; }
@@ -207,10 +213,7 @@
       <div class="cards" id="dealerCards"></div>
     </div>
     <div id="msg" class="hidden">Place your bet</div>
-    <div class="hand player">
-      <div class="hand-label">You <span class="total-badge" id="playerTotal">—</span></div>
-      <div class="cards" id="playerCards"></div>
-    </div>
+    <div id="playerArea"></div>
     <div id="overlay">
       <div class="panel">
         <div class="newhigh" id="newHigh">★ NEW BEST HAND ★</div>
@@ -240,6 +243,7 @@
       <button class="btn hit"    id="hitBtn">Hit</button>
       <button class="btn stand"  id="standBtn">Stand</button>
       <button class="btn double" id="doubleBtn">Double</button>
+      <button class="btn split"  id="splitBtn">Split</button>
     </div>
     <div class="row hidden" id="insRow">
       <span class="ins-badge" id="insBadge">Insurance?</span>
@@ -327,9 +331,8 @@
   var balanceEl = $('balanceVal');
   var bestEl = $('bestVal');
   var dealerTotalEl = $('dealerTotal');
-  var playerTotalEl = $('playerTotal');
   var dealerCardsEl = $('dealerCards');
-  var playerCardsEl = $('playerCards');
+  var playerArea = $('playerArea');
   var msgEl = $('msg');
   var betValEl = $('betVal');
   var betRow = $('betRow');
@@ -340,6 +343,7 @@
   var hitBtn = $('hitBtn');
   var standBtn = $('standBtn');
   var doubleBtn = $('doubleBtn');
+  var splitBtn = $('splitBtn');
   var dealBtn = $('dealBtn');
   var insRow = $('insRow');
   var insBtn = $('insBtn');
@@ -425,8 +429,9 @@
   var state = {
     phase: 'bet',            // bet | insurance | player | dealer | settle
     balance: START_BALANCE,
-    bet: 0,
-    player: [],
+    bet: 0,                  // main bet (base) — per-hand bet lives in hands[i].bet
+    hands: [],               // array of { cards:[], bet, doubled, split, done }
+    activeHand: 0,           // index into hands[] being played
     dealer: [],
     holeHidden: true,
     insurance: 0,            // side-bet amount (0 = none)
@@ -506,10 +511,52 @@
     }
   }
 
+  // ── Split rule ──
+  var MAX_HANDS = 4;
+  function canSplit(idx) {
+    var h = state.hands[idx];
+    if (!h || h.cards.length !== 2) return false;
+    if (state.hands.length >= MAX_HANDS) return false;
+    if (h.bet > state.balance) return false; // can't afford the 2nd hand's stake
+    return cardValue(h.cards[0].rank) === cardValue(h.cards[1].rank);
+  }
+
+  // Build/refresh the DOM for every player hand (dynamic — created on demand)
+  var handEls = []; // parallel to state.hands: { el, label, total, cards }
+  function ensureHandEls() {
+    while (handEls.length < state.hands.length) {
+      var wrap = document.createElement('div');
+      wrap.className = 'hand player';
+      var label = document.createElement('div'); label.className = 'hand-label';
+      var name = document.createElement('span'); name.textContent = state.hands.length === 1 ? 'You' : ('Hand ' + (handEls.length + 1));
+      var total = document.createElement('span'); total.className = 'total-badge'; total.textContent = '—';
+      label.appendChild(name); label.appendChild(total);
+      var cards = document.createElement('div'); cards.className = 'cards';
+      wrap.appendChild(label); wrap.appendChild(cards);
+      playerArea.appendChild(wrap);
+      handEls.push({ el: wrap, label: name, total: total, cards: cards });
+    }
+    while (handEls.length > state.hands.length) {
+      var rem = handEls.pop();
+      if (rem.el.parentNode) rem.el.parentNode.removeChild(rem.el);
+    }
+  }
+  function renderAllHands() {
+    ensureHandEls();
+    for (var i = 0; i < state.hands.length; i++) {
+      var he = handEls[i], h = state.hands[i];
+      renderHand(he.cards, h.cards, false);
+      var v = h.cards.length ? handValue(h.cards) : null;
+      he.total.textContent = v === null ? '—' : v;
+      he.total.classList.toggle('bust', v !== null && v > 21);
+      var active = (state.phase === 'player' && i === state.activeHand);
+      he.el.classList.toggle('active', active);
+      he.el.classList.toggle('done', h.done);
+    }
+  }
+
   function updateTotals() {
-    var pv = state.player.length ? handValue(state.player) : null;
-    playerTotalEl.textContent = pv === null ? '—' : pv;
-    playerTotalEl.classList.toggle('bust', pv !== null && pv > 21);
+    renderAllHands();
     var dv;
     if (!state.dealer.length) dv = null;
     else if (state.holeHidden && state.dealer.length >= 2) dv = handValue(state.dealer.slice(0, 1));
@@ -535,12 +582,14 @@
     dealRow.className = state.phase === 'bet' ? 'row' : 'row hidden';
     playRow.className = state.phase === 'player' ? 'row' : 'row hidden';
     insRow.className = state.phase === 'insurance' ? 'row' : 'row hidden';
-    // button states
+    // button states (active hand)
+    var ah = state.hands[state.activeHand];
     dealBtn.disabled = state.bet <= 0 || state.bet > state.balance;
     clearBtn.disabled = state.bet <= 0;
     hitBtn.disabled = state.phase !== 'player';
     standBtn.disabled = state.phase !== 'player';
-    doubleBtn.disabled = !(state.phase === 'player' && state.player.length === 2 && state.bet <= state.balance);
+    doubleBtn.disabled = !(state.phase === 'player' && ah && ah.cards.length === 2 && !ah.doubled && ah.bet * 2 <= state.balance);
+    splitBtn.disabled = !(state.phase === 'player' && canSplit(state.activeHand));
     insBtn.disabled = state.phase !== 'insurance';
     declineBtn.disabled = state.phase !== 'insurance';
     chipBtns.forEach(function (b) {
@@ -569,22 +618,22 @@
   function startDeal() {
     if (state.phase !== 'bet') return;
     if (state.bet <= 0 || state.bet > state.balance) return;
-    state.player = [];
     state.dealer = [];
     state.holeHidden = true;
     state.insurance = 0;
     state.insurancePaid = false;
+    state.activeHand = 0;
     hideMsg();
-    // deal: player 2, dealer 2 (one face down)
-    state.player.push(drawCard());
+    // deal: player 2, dealer 2 (one face down); single hand
+    var p1 = drawCard(), p2 = drawCard();
+    state.hands = [{ cards: [p1, p2], bet: state.bet, doubled: false, split: false, done: false }];
     state.dealer.push(drawCard());
-    state.player.push(drawCard());
     state.dealer.push(drawCard());
     sfx.deal();
-    renderHand(playerCardsEl, state.player, false);
+    renderAllHands();
     renderHand(dealerCardsEl, state.dealer, true);
-    // natural blackjack for player? auto-stand (insurance not offered — no point)
-    if (isBlackjack(state.player)) {
+    // natural blackjack for the (only) hand? auto-stand (insurance not offered — no point)
+    if (isBlackjack(state.hands[0].cards)) {
       showMsg('Blackjack!');
       render();
       dealerPhase();
@@ -599,7 +648,7 @@
       return;
     }
     state.phase = 'player';
-    showMsg('Your move — ' + handValue(state.player));
+    showMsg('Your move — ' + handValue(state.hands[0].cards));
     render();
   }
 
@@ -612,7 +661,7 @@
     state.insurancePaid = true;
     sfx.chip();
     state.phase = 'player';
-    showMsg('Insured — your move · ' + handValue(state.player));
+    showMsg('Insured — your move · ' + handValue(state.hands[state.activeHand].cards));
     render();
   }
   function declineInsurance() {
@@ -620,24 +669,51 @@
     state.insurance = 0;
     state.insurancePaid = true;
     state.phase = 'player';
-    showMsg('Your move — ' + handValue(state.player));
+    showMsg('Your move — ' + handValue(state.hands[state.activeHand].cards));
     render();
+  }
+
+  // After the active hand ends (bust / 21 / stand / double), advance to the
+  // next hand if any remain, otherwise let the dealer play.
+  function advanceOrDealer() {
+    var i = state.activeHand;
+    state.hands[i].done = true;
+    var next = -1;
+    for (var j = i + 1; j < state.hands.length; j++) { if (!state.hands[j].done) { next = j; break; } }
+    if (next >= 0) {
+      state.activeHand = next;
+      state.phase = 'player';
+      var h = state.hands[next];
+      // a split hand that is a natural 21 (e.g. split aces) auto-stands
+      if (h.cards.length === 2 && handValue(h.cards) === 21) {
+        showMsg('21 — next hand');
+        render();
+        advanceOrDealer();
+        return;
+      }
+      showMsg('Hand ' + (next + 1) + ' — your move');
+      render();
+    } else {
+      dealerPhase();
+    }
   }
 
   function doHit() {
     if (state.phase !== 'player') return;
-    state.player.push(drawCard());
+    var h = state.hands[state.activeHand];
+    if (!h || h.done) return;
+    h.cards.push(drawCard());
     sfx.hit();
-    renderHand(playerCardsEl, state.player, false);
-    var v = handValue(state.player);
+    renderAllHands();
+    var v = handValue(h.cards);
     if (v > 21) {
       showMsg('Bust — ' + v, 'lose');
       render();
-      settle();
+      advanceOrDealer();
     } else if (v === 21) {
       showMsg('21!');
       render();
-      dealerPhase();
+      advanceOrDealer();
     } else {
       showMsg('Your move — ' + v);
       render();
@@ -646,26 +722,59 @@
 
   function doStand() {
     if (state.phase !== 'player') return;
-    dealerPhase();
+    var h = state.hands[state.activeHand];
+    if (!h || h.done) return;
+    advanceOrDealer();
   }
 
   function doDouble() {
     if (state.phase !== 'player') return;
-    if (state.player.length !== 2) return;
-    if (state.bet > state.balance) return;
-    state.balance -= state.bet; // pay the extra (double) stake
-    state.bet = state.bet * 2;
-    state.player.push(drawCard());
+    var h = state.hands[state.activeHand];
+    if (!h || h.done) return;
+    if (h.cards.length !== 2 || h.doubled) return;
+    if (h.bet * 2 > state.balance) return; // must afford the doubled total wager
+    h.bet = h.bet * 2;   // total wager is now 2x; settle accounts for it (+/- bet)
+    h.doubled = true;
+    h.cards.push(drawCard());
     sfx.hit();
-    renderHand(playerCardsEl, state.player, false);
-    var v = handValue(state.player);
+    renderAllHands();
+    var v = handValue(h.cards);
     render();
     if (v > 21) {
       showMsg('Bust — ' + v, 'lose');
-      settle();
+      render();
+      advanceOrDealer();
     } else {
       showMsg('Double down — ' + v);
-      dealerPhase();
+      advanceOrDealer();
+    }
+  }
+
+  function doSplit() {
+    if (state.phase !== 'player') return;
+    var i = state.activeHand;
+    if (!canSplit(i)) return;
+    var h = state.hands[i];
+    // pay the second hand's stake
+    state.balance -= h.bet;
+    // move card[1] into a new hand inserted right after the current one
+    var card2 = h.cards.pop();
+    var newHand = { cards: [card2], bet: h.bet, doubled: false, split: true, done: false };
+    h.split = true;
+    state.hands.splice(i + 1, 0, newHand);
+    sfx.deal();
+    // deal one card to each of the two split hands
+    h.cards.push(drawCard());
+    newHand.cards.push(drawCard());
+    renderAllHands();
+    // if the active hand is now a natural 21 (e.g. split aces), it auto-stands
+    if (h.cards.length === 2 && handValue(h.cards) === 21) {
+      showMsg('21 — next hand');
+      render();
+      advanceOrDealer();
+    } else {
+      showMsg('Hand ' + (i + 1) + ' — your move');
+      render();
     }
   }
 
@@ -694,11 +803,9 @@
   function settle() {
     if (state.phase === 'settle') return;
     state.phase = 'settle';
-    var pv = handValue(state.player);
     var dv = handValue(state.dealer);
-    var pBJ = isBlackjack(state.player);
     var dBJ = isBlackjack(state.dealer);
-    var balStart = state.balance; // after any insurance was paid, before main payout
+    var balStart = state.balance; // after any insurance was paid, before main payouts
 
     // Insurance settles first: pays 2:1 (profit = 1.5x) ONLY if dealer has blackjack.
     var insNet = 0;
@@ -707,22 +814,42 @@
       // else: side bet already lost (deducted at takeInsurance)
     }
 
-    var outcome, net;
-    if (pBJ && dBJ) { outcome = 'push'; net = 0; }
-    else if (pBJ) { outcome = 'blackjack'; net = Math.round(state.bet * 1.5); state.balance += net; }
-    else if (dBJ) { outcome = 'lose'; net = -state.bet; state.balance -= state.bet; }
-    else if (pv > 21) { outcome = 'bust'; net = -state.bet; state.balance -= state.bet; }
-    else if (dv > 21) { outcome = 'win'; net = state.bet; state.balance += state.bet; }
-    else if (pv > dv) { outcome = 'win'; net = state.bet; state.balance += state.bet; }
-    else if (pv < dv) { outcome = 'lose'; net = -state.bet; state.balance -= state.bet; }
-    else { outcome = 'push'; net = 0; }
+    // Resolve each hand independently against the dealer.
+    var totalNet = 0;
+    var handResults = [];
+    var anyBJ = false, anyWin = false, anyPush = false;
+    for (var i = 0; i < state.hands.length; i++) {
+      var h = state.hands[i];
+      var pv = handValue(h.cards);
+      var pBJ = isBlackjack(h.cards) && !h.split; // split aces can't be a blackjack
+      var outcome, net;
+      if (pBJ && dBJ) { outcome = 'push'; net = 0; }
+      else if (pBJ) { outcome = 'blackjack'; net = Math.round(h.bet * 1.5); state.balance += net; anyBJ = true; }
+      else if (dBJ) { outcome = 'lose'; net = -h.bet; state.balance -= h.bet; }
+      else if (pv > 21) { outcome = 'bust'; net = -h.bet; state.balance -= h.bet; }
+      else if (dv > 21) { outcome = 'win'; net = h.bet; state.balance += h.bet; anyWin = true; }
+      else if (pv > dv) { outcome = 'win'; net = h.bet; state.balance += h.bet; anyWin = true; }
+      else if (pv < dv) { outcome = 'lose'; net = -h.bet; state.balance -= h.bet; }
+      else { outcome = 'push'; net = 0; anyPush = true; }
+      h.outcome = outcome;
+      h.net = net;
+      totalNet += net;
+      handResults.push({ pv: pv, outcome: outcome, net: net });
+    }
 
     state.balance = Math.max(0, state.balance);
-    var handNet = state.balance - balStart; // main outcome + insurance, relative to hand start
+    var handNet = state.balance - balStart; // main outcomes + insurance, relative to hand start
     var newHigh = false;
     if (handNet > state.best) { state.best = handNet; newHigh = true; }
     saveState();
     render();
+
+    // Aggregate outcome for the banner / SFX
+    var outcome;
+    if (anyBJ) outcome = 'blackjack';
+    else if (anyWin) outcome = 'win';
+    else if (anyPush && !handResults.some(function (r) { return r.outcome === 'lose' || r.outcome === 'bust'; })) outcome = 'push';
+    else outcome = 'lose';
 
     // SFX
     if (outcome === 'blackjack') sfx.bj();
@@ -730,15 +857,14 @@
     else if (outcome === 'push') sfx.push();
     else sfx.lose();
 
-    showResult(outcome, handNet, pv, dv, pBJ, dBJ, newHigh, state.insurance, insNet);
+    showResult(outcome, handNet, handResults, dv, dBJ, newHigh, state.insurance, insNet);
   }
 
-  function showResult(outcome, net, pv, dv, pBJ, dBJ, newHigh, insAmt, insNet) {
+  function showResult(outcome, net, handResults, dv, dBJ, newHigh, insAmt, insNet) {
     var label, cls;
     if (outcome === 'blackjack') { label = 'BLACKJACK!'; cls = 'bj'; }
     else if (outcome === 'win') { label = 'YOU WIN'; cls = 'win'; }
     else if (outcome === 'push') { label = 'PUSH'; cls = 'push'; }
-    else if (outcome === 'bust') { label = 'BUST'; cls = 'lose'; }
     else { label = 'DEALER WINS'; cls = 'lose'; }
 
     resultText.textContent = label;
@@ -746,9 +872,12 @@
     amountText.textContent = (net >= 0 ? '+' : '') + net;
     amountText.className = 'amount' + (net < 0 ? ' neg' : '');
 
-    var sub = 'You ' + pv + ' · Dealer ' + dv;
-    if (pBJ) sub = 'Blackjack · Dealer ' + dv;
-    else if (dBJ) sub = 'Dealer Blackjack · You ' + pv;
+    // Build a per-hand summary line
+    var parts = handResults.map(function (r, idx) {
+      return (handResults.length > 1 ? ('H' + (idx + 1) + ' ' + r.pv) : ('You ' + r.pv));
+    });
+    var sub = parts.join(' · ') + ' · Dealer ' + dv;
+    if (dBJ) sub = 'Dealer Blackjack · ' + sub;
     if (insAmt > 0) sub += insNet > 0 ? (' · Insurance won +$' + insNet) : (' · Insurance lost −$' + insAmt);
     resultSub.textContent = sub;
 
@@ -764,14 +893,17 @@
 
   function newHand() {
     state.phase = 'bet';
-    state.player = [];
+    state.hands = [];
+    state.activeHand = 0;
     state.dealer = [];
     state.holeHidden = true;
     state.bet = 0;
     state.insurance = 0;
     state.insurancePaid = false;
-    clearCards(playerCardsEl);
     clearCards(dealerCardsEl);
+    // tear down any leftover hand DOM
+    handEls.forEach(function (he) { if (he.el.parentNode) he.el.parentNode.removeChild(he.el); });
+    handEls = [];
     overlay.className = '';
     showMsg('Place your bet');
     render();
@@ -795,6 +927,7 @@
   hitBtn.addEventListener('click', doHit);
   standBtn.addEventListener('click', doStand);
   doubleBtn.addEventListener('click', doDouble);
+  splitBtn.addEventListener('click', doSplit);
   insBtn.addEventListener('click', takeInsurance);
   declineBtn.addEventListener('click', declineInsurance);
   newHandBtn.addEventListener('click', newHand);
@@ -814,6 +947,7 @@
         if (k === 'h') doHit();
         else if (k === 's') doStand();
         else if (k === 'd') doDouble();
+        else if (k === 'p') doSplit();
       } else if (state.phase === 'settle') { if (k === 'enter' || k === ' ') newHand(); }
     });
   }
@@ -828,7 +962,14 @@
           phase: state.phase,
           balance: state.balance,
           bet: state.bet,
-          player: state.player.map(function (c) { return c.rank + c.suit; }),
+          player: state.hands[0] ? state.hands[0].cards.map(function (c) { return c.rank + c.suit; }) : [],
+          hands: state.hands.map(function (h) {
+            return {
+              cards: h.cards.map(function (c) { return c.rank + c.suit; }),
+              bet: h.bet, doubled: h.doubled, split: h.split, done: h.done
+            };
+          }),
+          activeHand: state.activeHand,
           dealer: state.dealer.map(function (c) { return c.rank + c.suit; }),
           holeHidden: state.holeHidden,
           insurance: state.insurance,
@@ -841,6 +982,8 @@
       hit: doHit,
       stand: doStand,
       double: doDouble,
+      split: doSplit,
+      canSplit: canSplit,
       insure: takeInsurance,
       decline: declineInsurance,
       newHand: newHand,
