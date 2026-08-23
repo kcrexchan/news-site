@@ -28,8 +28,8 @@
   .hud-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7a8f6e; }
   .hud-value { font-size: 22px; font-weight: 800; color: #f5e6a8; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .hud-block.center { align-items: center; text-align: center; }
-  #ballDots { display: flex; gap: 6px; margin-top: 4px; }
-  .bdot { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd97a, #d4841d 65%, #7a4a10); box-shadow: 0 0 6px rgba(255,190,80,0.5); }
+  #ballDots { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; justify-content: center; max-width: 150px; }
+  .bdot { width: 13px; height: 13px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd97a, #d4841d 65%, #7a4a10); box-shadow: 0 0 6px rgba(255,190,80,0.5); }
   .bdot.spent { background: #2a352a; box-shadow: none; opacity: 0.45; }
   #title { font-size: 15px; font-weight: 800; letter-spacing: 3px; color: #a7c4a0; text-transform: uppercase; }
   #muteBtn {
@@ -92,9 +92,7 @@
     </div>
     <div class="hud-block center">
       <span id="title">🎳 Skee-Ball</span>
-      <div id="ballDots">
-        <span class="bdot"></span><span class="bdot"></span><span class="bdot"></span>
-      </div>
+      <div id="ballDots"></div>
     </div>
     <div class="hud-block" style="align-items:flex-end">
       <span class="hud-label">Best</span>
@@ -125,21 +123,39 @@
   //  Layout (logical units, scaled to fit)
   // ═══════════════════════════════════════════════════════════════
   var LW = 480, LH = 720;                 // logical canvas size
-  var LANE = { x: 60, y: 90, w: 360, h: 600 }; // lane rectangle
-  var COLS = 10, ROWS = 10;
-  var PIN_R = 9, BALL_R = 11;
+  var LANE = { x: 80, y: 300, w: 320, h: 360 }; // lane rectangle (ball rolls up this)
+  var BALL_R = 11;
   var BALL_START = { x: LW / 2, y: 640 };
   var MAX_THROW = 920;                     // max throw speed px/s
   var DECAY = 1.15;                        // exponential friction /s
-  var WALL_REST = 0.82;
-  var PIN_REST = 0.55;
-  var PIN_KEEP = 0.74;                     // speed kept after pin hit
-  var PIN_FALL_SPEED = 70;                 // min speed to knock a pin
-  var BALLS_PER_GAME = 3;
+  var WALL_REST = 0.9;                     // speed kept after wall bounce
 
-  // Row values: front row (nearest player, bottom) = 1000 ... far row = 100
-  function rowValue(rowIdx) { return (ROWS - rowIdx) * 100; } // rowIdx 0 = bottom
-  var ROW_HUES = [18, 40, 90, 140, 180, 210, 250, 285, 320, 350];
+  // ── Hole rows (concentric, 1000 = farthest back, 50 = nearest) ──
+  // Hump top is at LANE.y (300). Rows are above it (smaller y = farther).
+  // More throw power = ball flies farther = reaches the 1000 ring.
+  var HUMP_Y = LANE.y;                     // 300
+  var HOLES = [
+    { value: 1000, y: 155, xs: [240] },
+    { value: 500,  y: 195, xs: [200, 240, 280] },
+    { value: 200,  y: 230, xs: [160, 200, 240, 280, 320] },
+    { value: 100,  y: 260, xs: [120, 160, 200, 240, 280, 320, 360] },
+    { value: 50,   y: 285, xs: [80, 120, 160, 200, 240, 280, 320, 360, 400] }
+  ];
+  var HOLE_R = 15;                         // visual hole radius
+  var CAPTURE_R = 17;                      // landing must be within this of a hole center
+  var BACK_WALL_Y = 145;                   // landing above this = "too far" (overpowered)
+
+  // ── Physics tuning ──
+  // hump speed (s) → flight distance past the hump:
+  //   flightDist = (s - HUMP_DEAD) * FLIGHT_K
+  // A straight throw: s_hump = v0 - 391 (distance to hump = 340, DECAY=1.15).
+  // Tuned so power maps cleanly: 920→1000, 791→500, 691→200, 591→100, 511→50.
+  var HUMP_DEAD = 60;                      // s below this => no meaningful flight
+  var FLIGHT_K = 0.31;                     // px of flight per px/s of hump speed
+  var HUMP_MIN = 120;                      // min hump speed to clear the hump
+  var BALLS_PER_GAME = 9;
+
+  var ROW_HUES = { 1000: 45, 500: 25, 200: 0, 100: 210, 50: 280 };
 
   // ═══════════════════════════════════════════════════════════════
   //  DOM
@@ -154,7 +170,16 @@
   var rankEl = document.getElementById('rankLine');
   var newHighEl = document.getElementById('newHigh');
   var muteBtn = document.getElementById('muteBtn');
-  var bdotEls = document.querySelectorAll('.bdot');
+  var ballDotsEl = document.getElementById('ballDots');
+
+  // Build the 9 ball dots
+  var bdotEls = [];
+  for (var di = 0; di < BALLS_PER_GAME; di++) {
+    var sp = document.createElement('span');
+    sp.className = 'bdot';
+    ballDotsEl.appendChild(sp);
+    bdotEls.push(sp);
+  }
 
   // ═══════════════════════════════════════════════════════════════
   //  Audio (synth, no files)
@@ -209,11 +234,13 @@
   var sfx = {
     throw: function (p) { noise(0.22, { vol: 0.16 + p * 0.12, filter: 'bandpass', freq: 700 + p * 900 }); },
     bounce: function () { tone(120, 0.09, { type: 'sine', vol: 0.14, freqEnd: 70 }); },
-    pin: function (rowIdx) {
-      var f = 320 + (ROWS - rowIdx) * 45;
-      tone(f, 0.07, { type: 'square', vol: 0.1 });
-      noise(0.05, { vol: 0.1, freq: 2400 });
+    hop: function () { tone(180, 0.12, { type: 'triangle', vol: 0.18, freqEnd: 320 }); },
+    score: function (val) {
+      var f = 300 + Math.log2(val + 1) * 60;
+      tone(f, 0.12, { type: 'square', vol: 0.12 });
+      noise(0.06, { vol: 0.12, freq: 2600 });
     },
+    miss: function () { tone(160, 0.16, { type: 'sawtooth', vol: 0.1, freqEnd: 90 }); },
     ballDone: function () { tone(220, 0.18, { type: 'triangle', vol: 0.16, freqEnd: 140 }); },
     gameOver: function () { [392, 330, 262, 196].forEach(function (f, i) { tone(f, 0.3, { type: 'triangle', vol: 0.18, delay: i * 0.18, freqEnd: f * 0.9 }); }); },
     highScore: function () { [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.16, { type: 'sine', vol: 0.18, delay: i * 0.09 }); }); }
@@ -227,46 +254,33 @@
   // ═══════════════════════════════════════════════════════════════
   //  State
   // ═══════════════════════════════════════════════════════════════
-  var pins = [];        // {x,y,rowIdx,standing,fallT,phase}
   var ball = null;      // {x,y,vx,vy}
-  var state = 'ready';  // ready | flying | settle | over
+  var state = 'ready';  // ready | rolling | flying | settle | over
   var score = 0, ballsLeft = BALLS_PER_GAME;
   var best = 0;
   try { best = parseInt(localStorage.getItem('skeeball_best') || '0', 10) || 0; } catch (e) {}
   bestEl.textContent = best;
 
+  // Flight bookkeeping
+  var flight = null;    // {t, T, x0, y0, vx, vy, peakZ}
+
   var particles = [];   // {x,y,vx,vy,life,hue,size}
   var popups = [];      // {x,y,text,life,color}
-
-  function makePins() {
-    pins = [];
-    var top = LANE.y + 76;                    // far row (100) center
-    var spacingY = 26;
-    var left = LANE.x + 30;
-    var spacingX = (LANE.w - 60) / (COLS - 1);
-    for (var r = 0; r < ROWS; r++) {          // r=0 → bottom (1000)
-      var y = top + (ROWS - 1 - r) * spacingY;
-      for (var c = 0; c < COLS; c++) {
-        pins.push({
-          x: left + c * spacingX, y: y,
-          rowIdx: r, standing: true, fallT: 0,
-          phase: Math.random() * Math.PI * 2
-        });
-      }
-    }
-  }
+  var landedBall = null; // {x,y,z,sinkT,hue} visual of ball dropping in a hole
 
   function resetBall() {
     ball = { x: BALL_START.x, y: BALL_START.y, vx: 0, vy: 0 };
     state = 'ready';
+    flight = null;
+    landedBall = null;
   }
 
   function newGame() {
-    makePins();
     score = 0;
     ballsLeft = BALLS_PER_GAME;
     particles = [];
     popups = [];
+    landedBall = null;
     updateHUD();
     resetBall();
     overlay.classList.remove('show');
@@ -330,7 +344,7 @@
     if (ny > -0.15) { ny = -0.15; var n = Math.hypot(nx, ny); nx /= n; ny /= n; }
     ball.vx = nx * speed;
     ball.vy = ny * speed;
-    state = 'flying';
+    state = 'rolling';
     sfx.throw(speed / MAX_THROW);
     hintEl.classList.add('hidden');
     dragStart = null;
@@ -348,88 +362,129 @@
   // ═══════════════════════════════════════════════════════════════
   var lowSpeedTimer = 0;
 
-  function step(dt) {
-    // Pins fall animation
-    for (var i = 0; i < pins.length; i++) {
-      var p = pins[i];
-      if (!p.standing && p.fallT < 1) p.fallT = Math.min(1, p.fallT + dt / 0.38);
-    }
-
-    if (state !== 'flying') return;
-
+  function beginFlight() {
     var b = ball;
-    b.x += b.vx * dt;
-    b.y += b.vy * dt;
+    var s = Math.hypot(b.vx, b.vy);
+    // hump speed determines flight distance
+    var flightDist = Math.max(0, (s - HUMP_DEAD) * FLIGHT_K);
+    var vyAbs = Math.abs(b.vy);
+    if (vyAbs < 1) vyAbs = 1;
+    var T = flightDist / vyAbs;
+    T = Math.max(0.12, Math.min(0.55, T));
+    flight = { t: 0, T: T, x0: b.x, y0: b.y, vx: b.vx, vy: b.vy, peakZ: 26 };
+    state = 'flying';
+    sfx.hop();
+    // spawn a little "hop" spark
+    spawnParticles(b.x, b.y, 55, 6);
+  }
 
-    // Friction (exponential decay)
-    var decay = Math.exp(-DECAY * dt);
-    b.vx *= decay; b.vy *= decay;
-
-    // Lane side walls
-    var lmin = LANE.x + BALL_R, lmax = LANE.x + LANE.w - BALL_R;
-    if (b.x < lmin) { b.x = lmin; b.vx = -b.vx * WALL_REST; sfx.bounce(); }
-    if (b.x > lmax) { b.x = lmax; b.vx = -b.vx * WALL_REST; sfx.bounce(); }
-
-    // Pin collisions
-    for (var j = 0; j < pins.length; j++) {
-      var pin = pins[j];
-      var dx = b.x - pin.x, dy = b.y - pin.y;
-      var dist = Math.hypot(dx, dy);
-      var minD = BALL_R + PIN_R;
-      if (dist >= minD || dist === 0) continue;
-
-      if (pin.standing) {
-        // Knock it down (unless the ball is basically dead)
-        var speed = Math.hypot(b.vx, b.vy);
-        if (speed > PIN_FALL_SPEED) {
-          pin.standing = false;
-          pin.fallT = 0;
-          var val = rowValue(pin.rowIdx);
-          score += val;
-          bestEl.textContent = Math.max(best, score);
-          updateHUD();
-          sfx.pin(pin.rowIdx);
-          spawnParticles(pin.x, pin.y, ROW_HUES[pin.rowIdx]);
-          popups.push({ x: pin.x, y: pin.y - 14, text: '+' + val, life: 1, color: 'hsl(' + ROW_HUES[pin.rowIdx] + ',85%,72%)' });
-        }
-        // Deflect off the pin (standing or just-fallen both block)
-        var nx = dx / dist, ny = dy / dist;
-        var dot = b.vx * nx + b.vy * ny;
-        if (dot < 0) {
-          b.vx -= (1 + PIN_REST) * dot * nx;
-          b.vy -= (1 + PIN_REST) * dot * ny;
-        }
-        b.vx *= PIN_KEEP; b.vy *= PIN_KEEP;
-        // Push ball out of overlap
-        b.x = pin.x + nx * minD;
-        b.y = pin.y + ny * minD;
-      } else if (pin.fallT < 0.35) {
-        // Still tumbling — light bump
-        var nx2 = dx / dist, ny2 = dy / dist;
-        var dot2 = b.vx * nx2 + b.vy * ny2;
-        if (dot2 < 0) {
-          b.vx -= 1.2 * dot2 * nx2;
-          b.vy -= 1.2 * dot2 * ny2;
-        }
-        b.x = pin.x + nx2 * minD;
-        b.y = pin.y + ny2 * minD;
+  function resolveLanding() {
+    var b = ball;
+    // Find nearest hole within capture radius
+    var bestHole = null, bestD = 1e9;
+    for (var r = 0; r < HOLES.length; r++) {
+      var row = HOLES[r];
+      for (var c = 0; c < row.xs.length; c++) {
+        var hx = row.xs[c], hy = row.y;
+        var d = Math.hypot(b.x - hx, b.y - hy);
+        if (d < bestD) { bestD = d; bestHole = { x: hx, y: hy, value: row.value }; }
       }
     }
-
-    // Ball out the top (past the pin wall) or too slow
-    if (b.y < LANE.y + 4) {
+    if (bestHole && bestD <= CAPTURE_R) {
+      // SCORE!
+      score += bestHole.value;
+      bestEl.textContent = Math.max(best, score);
+      updateHUD();
+      sfx.score(bestHole.value);
+      spawnParticles(bestHole.x, bestHole.y, ROW_HUES[bestHole.value], 14);
+      popups.push({ x: bestHole.x, y: bestHole.y - 14, text: '+' + bestHole.value, life: 1, color: 'hsl(' + ROW_HUES[bestHole.value] + ',85%,72%)' });
+      // animate ball sinking into the hole
+      landedBall = { x: bestHole.x, y: bestHole.y, z: 0, sinkT: 0, hue: ROW_HUES[bestHole.value] };
+      ball = null;
       finishBall();
-      return;
-    }
-    var sp = Math.hypot(b.vx, b.vy);
-    if (sp < 22) {
-      lowSpeedTimer += dt;
-      if (lowSpeedTimer > 0.45) finishBall();
+    } else if (b.y < BACK_WALL_Y) {
+      // Too far — flew off the back
+      popups.push({ x: b.x, y: 140, text: 'Too far!', life: 1, color: 'hsl(0,70%,65%)' });
+      sfx.miss();
+      ball = null;
+      finishBall();
     } else {
-      lowSpeedTimer = 0;
+      // Missed all holes
+      popups.push({ x: b.x, y: b.y - 14, text: 'Miss', life: 1, color: 'hsl(0,50%,60%)' });
+      sfx.miss();
+      ball = null;
+      finishBall();
     }
-    // Safety: never let a ball live forever
-    if (b.y > LH + 40 || b.x < -40 || b.x > LW + 40) finishBall();
+  }
+
+  function step(dt) {
+    // landed-ball sink animation
+    if (landedBall && landedBall.sinkT < 1) landedBall.sinkT = Math.min(1, landedBall.sinkT + dt / 0.4);
+
+    if (state === 'rolling') {
+      var b = ball;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+
+      // Friction
+      var decay = Math.exp(-DECAY * dt);
+      b.vx *= decay; b.vy *= decay;
+
+      // Lane side walls
+      var lmin = LANE.x + BALL_R, lmax = LANE.x + LANE.w - BALL_R;
+      if (b.x < lmin) { b.x = lmin; b.vx = -b.vx * WALL_REST; sfx.bounce(); }
+      if (b.x > lmax) { b.x = lmax; b.vx = -b.vx * WALL_REST; sfx.bounce(); }
+
+      // Reached the hump?
+      if (b.y <= HUMP_Y) {
+        var s = Math.hypot(b.vx, b.vy);
+        if (s >= HUMP_MIN) {
+          beginFlight();
+          return;
+        } else {
+          // Didn't clear the hump — ball dies at the hump
+          popups.push({ x: b.x, y: b.y - 14, text: 'No hop', life: 1, color: 'hsl(0,50%,60%)' });
+          sfx.miss();
+          ball = null;
+          finishBall();
+          return;
+        }
+      }
+
+      // Too slow before the hump — stops and rolls back
+      var sp = Math.hypot(b.vx, b.vy);
+      if (sp < 22) {
+        lowSpeedTimer += dt;
+        if (lowSpeedTimer > 0.4) {
+          popups.push({ x: b.x, y: b.y - 14, text: 'Too slow', life: 1, color: 'hsl(0,50%,60%)' });
+          sfx.miss();
+          ball = null;
+          finishBall();
+          return;
+        }
+      } else {
+        lowSpeedTimer = 0;
+      }
+      // Safety: rolled back past the start
+      if (b.y > LH + 20 || b.x < -30 || b.x > LW + 30) {
+        ball = null;
+        finishBall();
+      }
+    }
+    else if (state === 'flying') {
+      var f = flight;
+      f.t += dt;
+      if (f.t >= f.T) {
+        // Land
+        ball.x = f.x0 + f.vx * f.T;
+        ball.y = f.y0 + f.vy * f.T;
+        flight = null;
+        resolveLanding();
+      } else {
+        ball.x = f.x0 + f.vx * f.t;
+        ball.y = f.y0 + f.vy * f.t;
+      }
+    }
   }
 
   function finishBall() {
@@ -440,16 +495,16 @@
       state = 'over';
       endGame();
     } else {
-      setTimeout(function () { if (state === 'flying') resetBall(); }, 500);
+      setTimeout(function () { if (state === 'settle' || state === 'over') { if (state !== 'over') resetBall(); } }, 700);
       state = 'settle';
     }
   }
 
   function rankFor(s) {
-    if (s >= 10000) return '👑 Skee-Ball Legend';
-    if (s >= 8000) return '🥇 Master Thrower';
-    if (s >= 5100) return '🥈 Champion';
-    if (s >= 3100) return '🥉 Pro Player';
+    if (s >= 9000) return '👑 Skee-Ball Legend';
+    if (s >= 7000) return '🥇 Master Thrower';
+    if (s >= 5000) return '🥈 Champion';
+    if (s >= 3000) return '🥉 Pro Player';
     if (s >= 1500) return '⭐ Amateur';
     if (s >= 600) return '🎳 Rookie';
     return '🐣 Bumper Ball';
@@ -474,8 +529,9 @@
   // ═══════════════════════════════════════════════════════════════
   //  Particles & popups
   // ═══════════════════════════════════════════════════════════════
-  function spawnParticles(x, y, hue) {
-    for (var i = 0; i < 10; i++) {
+  function spawnParticles(x, y, hue, count) {
+    count = count || 10;
+    for (var i = 0; i < count; i++) {
       var a = Math.random() * Math.PI * 2;
       var sp = 40 + Math.random() * 130;
       particles.push({
@@ -516,61 +572,6 @@
   }
   window.addEventListener('resize', resize);
 
-  function drawLane(t) {
-    // Floor
-    var floor = ctx.createLinearGradient(0, 0, 0, LH);
-    floor.addColorStop(0, '#0a100a');
-    floor.addColorStop(1, '#0e160e');
-    ctx.fillStyle = floor;
-    ctx.fillRect(0, 0, LW, LH);
-
-    // Lane surface
-    var lg = ctx.createLinearGradient(LANE.x, 0, LANE.x + LANE.w, 0);
-    lg.addColorStop(0, '#1a2418');
-    lg.addColorStop(0.5, '#243421');
-    lg.addColorStop(1, '#1a2418');
-    ctx.fillStyle = lg;
-    roundRect(LANE.x, LANE.y, LANE.w, LANE.h, 14);
-    ctx.fill();
-
-    // Lane center guide lines
-    ctx.strokeStyle = 'rgba(134,196,118,0.10)';
-    ctx.lineWidth = 1;
-    for (var g = 1; g < 4; g++) {
-      var gx = LANE.x + LANE.w * g / 4;
-      ctx.beginPath();
-      ctx.moveTo(gx, LANE.y + 10);
-      ctx.lineTo(gx, LANE.y + LANE.h - 10);
-      ctx.stroke();
-    }
-
-    // Gutters
-    ctx.strokeStyle = 'rgba(134,196,118,0.35)';
-    ctx.lineWidth = 3;
-    roundRect(LANE.x, LANE.y, LANE.w, LANE.h, 14);
-    ctx.stroke();
-
-    // Target wall backdrop (behind pins)
-    var wallTop = LANE.y + 40;
-    var wallBot = LANE.y + 76 + (ROWS - 1) * 26 + 22;
-    var wg = ctx.createLinearGradient(0, wallTop, 0, wallBot);
-    wg.addColorStop(0, 'rgba(20,30,20,0.9)');
-    wg.addColorStop(1, 'rgba(30,44,28,0.55)');
-    ctx.fillStyle = wg;
-    roundRect(LANE.x + 12, wallTop, LANE.w - 24, wallBot - wallTop, 10);
-    ctx.fill();
-
-    // Row value labels on the left side of the wall
-    ctx.font = '700 10px "Segoe UI", sans-serif';
-    ctx.textAlign = 'right';
-    for (var r = 0; r < ROWS; r++) {
-      var y = LANE.y + 76 + (ROWS - 1 - r) * 26;
-      ctx.fillStyle = 'hsla(' + ROW_HUES[r] + ',70%,65%,0.75)';
-      ctx.fillText(rowValue(r), LANE.x + 8, y + 3);
-    }
-    ctx.textAlign = 'left';
-  }
-
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -581,73 +582,167 @@
     ctx.closePath();
   }
 
-  function drawPins(t) {
-    for (var i = 0; i < pins.length; i++) {
-      var p = pins[i];
-      var hue = ROW_HUES[p.rowIdx];
-      if (p.standing) {
-        // Glow
-        var glow = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, PIN_R * 2.2);
-        glow.addColorStop(0, 'hsla(' + hue + ',85%,65%,0.35)');
-        glow.addColorStop(1, 'hsla(' + hue + ',85%,65%,0)');
-        ctx.fillStyle = glow;
-        ctx.beginPath(); ctx.arc(p.x, p.y, PIN_R * 2.2, 0, Math.PI * 2); ctx.fill();
-        // Pin body (top view: circle with highlight)
-        var pg = ctx.createRadialGradient(p.x - 3, p.y - 3, 1, p.x, p.y, PIN_R);
-        pg.addColorStop(0, 'hsl(' + hue + ',90%,75%)');
-        pg.addColorStop(0.7, 'hsl(' + hue + ',80%,55%)');
-        pg.addColorStop(1, 'hsl(' + hue + ',75%,38%)');
-        ctx.fillStyle = pg;
-        ctx.beginPath(); ctx.arc(p.x, p.y, PIN_R, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      } else {
-        // Falling: rotate + shrink, fade to grey
-        var k = p.fallT;
-        var rot = k * 2.6 + p.phase;
-        var rad = PIN_R * (1 - 0.55 * k);
-        var alpha = 1 - 0.75 * k;
-        ctx.save();
-        ctx.translate(p.x, p.y + k * 4);
-        ctx.rotate(rot);
-        ctx.scale(1, 1 - 0.5 * k);
-        ctx.globalAlpha = alpha;
-        var gg = ctx.createRadialGradient(-2, -2, 1, 0, 0, rad);
-        gg.addColorStop(0, 'hsl(' + hue + ',' + (80 - 60 * k) + '%,' + (72 - 38 * k) + '%)');
-        gg.addColorStop(1, 'hsl(' + hue + ',' + (70 - 55 * k) + '%,' + (45 - 25 * k) + '%)');
-        ctx.fillStyle = gg;
-        ctx.beginPath(); ctx.arc(0, 0, rad, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-        ctx.globalAlpha = 1;
-      }
+  function drawLane() {
+    // Floor
+    var floor = ctx.createLinearGradient(0, 0, 0, LH);
+    floor.addColorStop(0, '#0a100a');
+    floor.addColorStop(1, '#0e160e');
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, 0, LW, LH);
+
+    // Target wall backdrop (behind holes)
+    var wallTop = 140, wallBot = 300;
+    var wg = ctx.createLinearGradient(0, wallTop, 0, wallBot);
+    wg.addColorStop(0, 'rgba(22,32,22,0.95)');
+    wg.addColorStop(1, 'rgba(30,44,28,0.6)');
+    ctx.fillStyle = wg;
+    roundRect(60, wallTop, LW - 120, wallBot - wallTop, 12);
+    ctx.fill();
+
+    // Back wall line
+    ctx.strokeStyle = 'rgba(134,196,118,0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(70, BACK_WALL_Y); ctx.lineTo(LW - 70, BACK_WALL_Y); ctx.stroke();
+
+    // Lane surface
+    var lg = ctx.createLinearGradient(LANE.x, 0, LANE.x + LANE.w, 0);
+    lg.addColorStop(0, '#1a2418');
+    lg.addColorStop(0.5, '#243421');
+    lg.addColorStop(1, '#1a2418');
+    ctx.fillStyle = lg;
+    roundRect(LANE.x, LANE.y, LANE.w, LANE.h, 14);
+    ctx.fill();
+
+    // Lane guide lines
+    ctx.strokeStyle = 'rgba(134,196,118,0.10)';
+    ctx.lineWidth = 1;
+    for (var g = 1; g < 4; g++) {
+      var gx = LANE.x + LANE.w * g / 4;
+      ctx.beginPath();
+      ctx.moveTo(gx, LANE.y + 10);
+      ctx.lineTo(gx, LANE.y + LANE.h - 10);
+      ctx.stroke();
     }
+
+    // Lane gutters
+    ctx.strokeStyle = 'rgba(134,196,118,0.35)';
+    ctx.lineWidth = 3;
+    roundRect(LANE.x, LANE.y, LANE.w, LANE.h, 14);
+    ctx.stroke();
+
+    // Hump (ball-hop) — a ski-jump trapezoid at the top of the lane
+    var hx = LANE.x, hw = LANE.w, hy = HUMP_Y;
+    var humpGrad = ctx.createLinearGradient(0, hy - 26, 0, hy + 8);
+    humpGrad.addColorStop(0, 'rgba(245,230,168,0.5)');
+    humpGrad.addColorStop(1, 'rgba(134,196,118,0.15)');
+    ctx.fillStyle = humpGrad;
+    ctx.beginPath();
+    ctx.moveTo(hx + 6, hy + 6);
+    ctx.lineTo(hx + hw * 0.28, hy - 24);
+    ctx.lineTo(hx + hw * 0.72, hy - 24);
+    ctx.lineTo(hx + hw - 6, hy + 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(245,230,168,0.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Hump label
+    ctx.font = '700 9px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(245,230,168,0.6)';
+    ctx.fillText('BALL-HOP', LW / 2, hy - 10);
+    ctx.textAlign = 'left';
   }
 
-  function drawBall(t) {
-    if (!ball) return;
-    var b = ball;
+  function drawHoles() {
+    for (var r = 0; r < HOLES.length; r++) {
+      var row = HOLES[r];
+      var hue = ROW_HUES[row.value];
+      for (var c = 0; c < row.xs.length; c++) {
+        var hx = row.xs[c], hy = row.y;
+        // Outer glow ring
+        var glow = ctx.createRadialGradient(hx, hy, 2, hx, hy, HOLE_R * 1.6);
+        glow.addColorStop(0, 'hsla(' + hue + ',85%,60%,0.28)');
+        glow.addColorStop(1, 'hsla(' + hue + ',85%,60%,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(hx, hy, HOLE_R * 1.6, 0, Math.PI * 2); ctx.fill();
+        // Hole (dark)
+        ctx.fillStyle = '#050805';
+        ctx.beginPath(); ctx.arc(hx, hy, HOLE_R, 0, Math.PI * 2); ctx.fill();
+        // Rim
+        ctx.strokeStyle = 'hsla(' + hue + ',80%,65%,0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(hx, hy, HOLE_R, 0, Math.PI * 2); ctx.stroke();
+        // Value label (only on center column to avoid clutter)
+        if (row.xs.length % 2 === 1 && Math.abs(hx - LW / 2) < 1) {
+          ctx.font = '700 9px "Segoe UI", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = 'hsla(' + hue + ',75%,72%,0.85)';
+          ctx.fillText(row.value, hx, hy + 3);
+          ctx.textAlign = 'left';
+        }
+      }
+    }
+    // Row value labels on the left edge
+    ctx.font = '700 10px "Segoe UI", sans-serif';
+    ctx.textAlign = 'right';
+    for (var r2 = 0; r2 < HOLES.length; r2++) {
+      var row2 = HOLES[r2];
+      ctx.fillStyle = 'hsla(' + ROW_HUES[row2.value] + ',70%,65%,0.7)';
+      ctx.fillText(row2.value, 56, row2.y + 3);
+    }
+    ctx.textAlign = 'left';
+  }
 
-    // Shadow
+  function ballZ() {
+    // current z-height during flight (parabola peaking at peakZ)
+    if (state !== 'flying' || !flight) return 0;
+    var k = flight.t / flight.T;
+    return 4 * flight.peakZ * k * (1 - k);
+  }
+
+  function drawBall() {
+    if (!ball) {
+      // draw the landed/sinking ball instead
+      if (landedBall) {
+        var lb = landedBall;
+        var k = lb.sinkT;
+        var rad = BALL_R * (1 - 0.7 * k);
+        ctx.globalAlpha = 1 - 0.8 * k;
+        var bg = ctx.createRadialGradient(lb.x - 3, lb.y - 3, 1, lb.x, lb.y, rad);
+        bg.addColorStop(0, '#ffe9a8');
+        bg.addColorStop(0.55, '#f5b041');
+        bg.addColorStop(1, '#b06a14');
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.arc(lb.x, lb.y, rad, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      return;
+    }
+    var b = ball;
+    var z = ballZ();
+    var drawY = b.y - z * 0.8;   // lift the ball as it flies
+
+    // Shadow (stays on the ground)
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
     ctx.ellipse(b.x + 3, b.y + 5, BALL_R * 0.95, BALL_R * 0.55, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Glow
-    var gl = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, BALL_R * 2.4);
+    var gl = ctx.createRadialGradient(b.x, drawY, 2, b.x, drawY, BALL_R * 2.4);
     gl.addColorStop(0, 'rgba(255,190,80,0.35)');
     gl.addColorStop(1, 'rgba(255,190,80,0)');
     ctx.fillStyle = gl;
-    ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R * 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(b.x, drawY, BALL_R * 2.4, 0, Math.PI * 2); ctx.fill();
 
     // Body
-    var bg = ctx.createRadialGradient(b.x - 4, b.y - 4, 1, b.x, b.y, BALL_R);
-    bg.addColorStop(0, '#ffe9a8');
-    bg.addColorStop(0.55, '#f5b041');
-    bg.addColorStop(1, '#b06a14');
-    ctx.fillStyle = bg;
-    ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, Math.PI * 2); ctx.fill();
+    var bg2 = ctx.createRadialGradient(b.x - 4, drawY - 4, 1, b.x, drawY, BALL_R);
+    bg2.addColorStop(0, '#ffe9a8');
+    bg2.addColorStop(0.55, '#f5b041');
+    bg2.addColorStop(1, '#b06a14');
+    ctx.fillStyle = bg2;
+    ctx.beginPath(); ctx.arc(b.x, drawY, BALL_R, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(80,45,5,0.5)';
     ctx.lineWidth = 1;
     ctx.stroke();
@@ -663,21 +758,21 @@
     var nx = dx / len, ny = dy / len;
     if (ny > -0.15) { ny = -0.15; var n = Math.hypot(nx, ny); nx /= n; ny /= n; }
 
-    // Trajectory preview (dotted, damped)
+    // Trajectory preview (damped roll up the lane)
     var px = ball.x, py = ball.y, vx = nx * speed, vy = ny * speed;
-    ctx.fillStyle = 'rgba(245,230,168,0.55)';
+    ctx.fillStyle = 'rgba(245,230,168,0.5)';
     var simDt = 1 / 60;
-    for (var s = 0; s < 46; s++) {
+    for (var s = 0; s < 40; s++) {
       px += vx * simDt; py += vy * simDt;
       var d = Math.exp(-DECAY * simDt);
       vx *= d; vy *= d;
       if (px < LANE.x + BALL_R) { px = LANE.x + BALL_R; vx = -vx * WALL_REST; }
       if (px > LANE.x + LANE.w - BALL_R) { px = LANE.x + LANE.w - BALL_R; vx = -vx * WALL_REST; }
-      if (py < LANE.y + 10) break;
-      if (s % 3 === 0) {
-        var a = 0.55 * (1 - s / 46);
+      if (py < HUMP_Y) break;
+      if (s % 2 === 0) {
+        var a = 0.5 * (1 - s / 40);
         ctx.globalAlpha = a;
-        ctx.beginPath(); ctx.arc(px, py, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py, 2.2, 0, Math.PI * 2); ctx.fill();
       }
     }
     ctx.globalAlpha = 1;
@@ -735,9 +830,9 @@
     stepFx(dt);
 
     ctx.setTransform(scale, 0, 0, scale, (canvas.width - LW * scale) / 2, (canvas.height - LH * scale) / 2);
-    drawLane(now);
-    drawPins(now);
-    drawBall(now);
+    drawLane();
+    drawHoles();
+    drawBall();
     drawAim();
     drawFx();
 

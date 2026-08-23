@@ -43,16 +43,14 @@ const elements = {
   muteBtn: { textContent: '🔊', addEventListener(){} },
   againBtn: { addEventListener(){} },
   stage: { clientWidth: 800, clientHeight: 1200 },
+  ballDots: { appendChild(){} },
 };
 elements.game = canvas;
 
 const document = {
   getElementById: (id) => elements[id] || null,
-  querySelectorAll: () => [
-    { classList: { add(){}, remove(){}, toggle(){} } },
-    { classList: { add(){}, remove(){}, toggle(){} } },
-    { classList: { add(){}, remove(){}, toggle(){} } },
-  ],
+  querySelectorAll: () => [],
+  createElement: () => ({ className: '', classList: { add(){}, remove(){}, toggle(){} }, appendChild(){} }),
 };
 
 let rafCb = null;
@@ -115,4 +113,11 @@ try {
 }
 
 console.log('score displayed:', elements.scoreVal.textContent);
+// A full-power straight-up throw must land in the 1000-point center hole
+if (parseInt(elements.scoreVal.textContent, 10) >= 1000) {
+  console.log('✓ full-power straight throw scored into a hole (', elements.scoreVal.textContent, ')');
+} else {
+  console.error('✗ full-power straight throw did not score (got', elements.scoreVal.textContent + ')');
+  process.exit(1);
+}
 console.log('ALL CHECKS PASSED');
