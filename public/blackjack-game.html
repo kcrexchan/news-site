@@ -28,6 +28,18 @@
   .hud-block { display: flex; flex-direction: column; min-width: 66px; }
   .hud-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #6f9c86; }
   .hud-value { font-size: 21px; font-weight: 800; color: #f5e6a8; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  /* ── Shoe (undealt cards) ── */
+  .shoe { display: flex; align-items: center; gap: 8px; }
+  .shoe-visual { position: relative; width: 40px; height: 30px; flex: none; }
+  .shoe-card {
+    position: absolute; left: 0; bottom: 0; width: 19px; height: 27px; border-radius: 3px;
+    background:
+      repeating-linear-gradient(45deg, rgba(120,200,160,0.18) 0 3px, transparent 3px 6px),
+      linear-gradient(160deg, #1c4a34, #123122);
+    border: 1px solid rgba(120,200,160,0.4); box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .shoe-count { font-size: 15px; font-weight: 800; color: #f5e6a8; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .shoe-count.low { color: #ffb27a; }
   #title { font-size: 15px; font-weight: 800; letter-spacing: 3px; color: #a7d4bd; text-transform: uppercase; text-align: center; }
   #muteBtn {
     background: rgba(120,200,160,0.12); border: 1px solid rgba(120,200,160,0.35);
@@ -278,6 +290,13 @@
     <div class="hud-block">
       <span class="hud-label">Balance</span>
       <span class="hud-value" id="balanceVal">1000</span>
+      <div class="shoe" title="Undealt cards in the shoe">
+        <div class="shoe-visual" id="shoeVisual"></div>
+        <div>
+          <span class="hud-label">Shoe</span>
+          <div class="shoe-count" id="shoeCount">312</div>
+        </div>
+      </div>
     </div>
     <div class="hud-block" style="align-items:center">
       <span id="title">🃏 Blackjack</span>
@@ -390,7 +409,10 @@
   var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   var SUITS = ['♠', '♥', '♦', '♣'];
   var NUM_DECKS = 6;
-  var RESHUFFLE_AT = 0.25; // reshuffle when < 25% of shoe remains
+  // Run the WHOLE shoe down — only reshuffle when there aren't enough cards
+  // left to deal a minimum new hand (player 2 + dealer 2). No early shuffle.
+  var MIN_HAND_CARDS = 4;
+  var TOTAL_CARDS = NUM_DECKS * 52;
 
   // mulberry32 — small, fast, seedable PRNG
   function makeRng(seed) {
@@ -454,6 +476,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var balanceEl = $('balanceVal');
   var bestEl = $('bestVal');
+  var shoeCountEl = $('shoeCount');
+  var shoeVisualEl = $('shoeVisual');
   var dealerTotalEl = $('dealerTotal');
   var dealerCardsEl = $('dealerCards');
   var playerArea = $('playerArea');
@@ -583,7 +607,10 @@
   }
 
   function ensureShoe() {
-    if (shoe.length < Math.ceil(NUM_DECKS * 52 * RESHUFFLE_AT)) {
+    // Reshuffle ONLY when the shoe has too few cards left to deal a minimum
+    // new hand (player 2 + dealer 2). Otherwise keep dealing from the same
+    // shoe — the deck is NOT reshuffled mid-run.
+    if (shoe.length < MIN_HAND_CARDS) {
       shoe = shuffle(makeDeck(NUM_DECKS), rng);
     }
   }
@@ -698,10 +725,35 @@
   }
   function hideMsg() { msgEl.classList.add('hidden'); }
 
+  // ── Shoe display: visual stack + live count of undealt cards ──────
+  function renderShoe() {
+    var n = shoe.length;
+    shoeCountEl.textContent = String(n);
+    // Show a stack of card backs (max 6 visible) — fewer as the shoe runs down
+    var shown = Math.min(6, Math.max(1, Math.ceil(n / 50)));
+    shoeVisualEl.innerHTML = '';
+    for (var i = 0; i < shown; i++) {
+      var b = document.createElement('div');
+      b.className = 'shoe-card';
+      shoeVisualEl.appendChild(b);
+    }
+    // Color the count by how low the shoe is
+    if (n <= MIN_HAND_CARDS) {
+      shoeCountEl.classList.add('low');
+      shoeCountEl.classList.remove('mid');
+    } else if (n < TOTAL_CARDS * 0.25) {
+      shoeCountEl.classList.add('mid');
+      shoeCountEl.classList.remove('low');
+    } else {
+      shoeCountEl.classList.remove('low', 'mid');
+    }
+  }
+
   function render() {
     balanceEl.textContent = String(state.balance);
     bestEl.textContent = String(state.best);
     betValEl.textContent = String(state.bet);
+    renderShoe();
     updateTotals();
     // control visibility
     betRow.className = state.phase === 'bet' ? 'row' : 'row hidden';
@@ -1376,6 +1428,7 @@
       newHand: newHand,
       rebuy: rebuy,
       _setSeed: function (s) { rng = makeRng(s); shoe = []; },
+      _shoeLength: function () { return shoe.length; },
       _handValue: handValue,
       _isBlackjack: isBlackjack,
       _cardValue: cardValue,
