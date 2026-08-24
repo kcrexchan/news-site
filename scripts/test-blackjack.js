@@ -31,12 +31,13 @@ function makeEl(attrs) {
 
 var ids = ['balanceVal','bestVal','shoeCount','shoeVisual','dealerTotal','playerTotal','dealerCards','playerCards','playerArea',
   'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn','splitBtn',
-  'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg',
+  'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg','deckGroup',
   'lbBtn','accName','accLogout','accountModal','boardModal','tabCreate','tabLogin','accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot','boardBorrowBtn','brokeBorrowBtn','boardCloseBtn'];
 var elements = {};
 ids.forEach(function (id) { elements[id] = makeEl(); });
 
 var chips = ['10','25','100','500'].map(function (v) { return makeEl({ 'data-chip': v }); });
+var deckBtns = ['1','2','4','6','8'].map(function (v) { return makeEl({ 'data-decks': v }); });
 
 // ── fetch mock: simulates /api/blackjack/leaderboard (wallet + casino loans) ──
 var lbStore = {};   // name -> { pin, wallet, debt, borrows }
@@ -106,7 +107,7 @@ var fetchMock = function (url, opts) {
 
 var document = {
   getElementById: function (id) { return elements[id] || null; },
-  querySelectorAll: function (sel) { return sel === '.chip' ? chips : []; },
+  querySelectorAll: function (sel) { if (sel === '.chip') return chips; if (sel === '.deck-btn') return deckBtns; return []; },
   createElement: function () { return makeEl(); }
 };
 

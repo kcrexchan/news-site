@@ -40,6 +40,18 @@
   }
   .shoe-count { font-size: 15px; font-weight: 800; color: #f5e6a8; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .shoe-count.low { color: #ffb27a; }
+  .shoe-count.mid { color: #ffd27a; }
+  /* ── Deck count selector ── */
+  .deck-sel { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+  .deck-sel-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #6f9c86; margin-right: 2px; }
+  .deck-btn {
+    background: rgba(120,200,160,0.10); border: 1px solid rgba(120,200,160,0.30);
+    color: #a7d4bd; border-radius: 7px; padding: 3px 9px; font-size: 12px; font-weight: 800;
+    cursor: pointer; font-variant-numeric: tabular-nums; transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .deck-btn:active { transform: scale(0.94); }
+  .deck-btn.active { background: linear-gradient(135deg,#2f9e6a,#1f7a4c); color: #fff; border-color: rgba(245,230,168,0.4); }
+  .deck-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   #title { font-size: 15px; font-weight: 800; letter-spacing: 3px; color: #a7d4bd; text-transform: uppercase; text-align: center; }
   #muteBtn {
     background: rgba(120,200,160,0.12); border: 1px solid rgba(120,200,160,0.35);
@@ -301,6 +313,14 @@
     <div class="hud-block" style="align-items:center">
       <span id="title">🃏 Blackjack</span>
       <div style="font-size:11px;color:#6f9c86;margin-top:3px">Dealer stands on 17</div>
+      <div class="deck-sel" id="deckGroup" title="Number of decks in the shoe">
+        <span class="deck-sel-label">Decks</span>
+        <button class="deck-btn" data-decks="1">1</button>
+        <button class="deck-btn" data-decks="2">2</button>
+        <button class="deck-btn" data-decks="4">4</button>
+        <button class="deck-btn" data-decks="6">6</button>
+        <button class="deck-btn" data-decks="8">8</button>
+      </div>
     </div>
     <div class="hud-block" style="align-items:flex-end">
       <span class="hud-label">Best hand</span>
@@ -408,11 +428,11 @@
   // ═══════════════════════════════════════════════════════════════
   var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   var SUITS = ['♠', '♥', '♦', '♣'];
-  var NUM_DECKS = 6;
+  var NUM_DECKS = 6;   // current shoe size in decks (user-selectable: 1 / 2 / 4 / 6 / 8)
   // Run the WHOLE shoe down — only reshuffle when there aren't enough cards
   // left to deal a minimum new hand (player 2 + dealer 2). No early shuffle.
   var MIN_HAND_CARDS = 4;
-  var TOTAL_CARDS = NUM_DECKS * 52;
+  function totalCards() { return NUM_DECKS * 52; }
 
   // mulberry32 — small, fast, seedable PRNG
   function makeRng(seed) {
@@ -498,6 +518,8 @@
   var declineBtn = $('declineBtn');
   var insBadge = $('insBadge');
   var overlay = $('overlay');
+  var deckGroup = $('deckGroup');
+  var deckBtns = Array.prototype.slice.call(document.querySelectorAll('.deck-btn'));
   var newHandBtn = $('newHandBtn');
   var rebuyBtn = $('rebuyBtn');
   var muteBtn = $('muteBtn');
@@ -577,6 +599,7 @@
   var state = {
     phase: 'bet',            // bet | insurance | player | dealer | settle
     balance: START_BALANCE,
+    decks: NUM_DECKS,        // current deck count (1/2/4/6/8)
     bet: 0,                  // main bet (base) — per-hand bet lives in hands[i].bet
     hands: [],               // array of { cards:[], bet, doubled, split, done }
     activeHand: 0,           // index into hands[] being played
@@ -598,11 +621,15 @@
         if (typeof p.balance === 'number') state.balance = Math.max(0, p.balance);
         if (typeof p.best === 'number') state.best = Math.max(0, p.best);
         if (typeof p.blackjacks === 'number') state.blackjacks = Math.max(0, p.blackjacks);
+        if (typeof p.decks === 'number' && [1,2,4,6,8].indexOf(p.decks) >= 0) {
+          NUM_DECKS = p.decks;
+          state.decks = p.decks;
+        }
       }
     } catch (e) { /* ignore */ }
   }
   function saveState() {
-    try { localStorage.setItem('blackjack-state', JSON.stringify({ balance: state.balance, best: state.best, blackjacks: state.blackjacks || 0 })); }
+    try { localStorage.setItem('blackjack-state', JSON.stringify({ balance: state.balance, best: state.best, blackjacks: state.blackjacks || 0, decks: NUM_DECKS })); }
     catch (e) { /* ignore */ }
   }
 
@@ -741,7 +768,7 @@
     if (n <= MIN_HAND_CARDS) {
       shoeCountEl.classList.add('low');
       shoeCountEl.classList.remove('mid');
-    } else if (n < TOTAL_CARDS * 0.25) {
+    } else if (n < totalCards() * 0.25) {
       shoeCountEl.classList.add('mid');
       shoeCountEl.classList.remove('low');
     } else {
@@ -754,6 +781,7 @@
     bestEl.textContent = String(state.best);
     betValEl.textContent = String(state.bet);
     renderShoe();
+    updateDeckSel();
     updateTotals();
     // control visibility
     betRow.className = state.phase === 'bet' ? 'row' : 'row hidden';
@@ -1125,11 +1153,39 @@
     render();
   }
 
+  // ── Deck count selector (1 / 2 / 4 / 6 / 8) ──
+  function setDeckCount(n) {
+    if ([1, 2, 4, 6, 8].indexOf(n) < 0) return;
+    if (state.phase !== 'bet') return;   // only change between hands
+    if (n === NUM_DECKS) return;
+    NUM_DECKS = n;
+    state.decks = n;
+    shoe = [];                            // force a fresh shuffle at the new size
+    ensureShoe();                         // rebuild immediately so the shoe visual updates
+    saveState();
+    updateDeckSel();
+    render();
+    showMsg('Shoe: ' + n + ' deck' + (n > 1 ? 's' : '') + ' — ' + (n * 52) + ' cards');
+  }
+  function updateDeckSel() {
+    deckBtns.forEach(function (b) {
+      var v = parseInt(b.getAttribute('data-decks'), 10);
+      b.classList.toggle('active', v === NUM_DECKS);
+      b.disabled = state.phase !== 'bet';
+    });
+    if (deckGroup) {
+      deckGroup.className = state.phase === 'bet' ? 'deck-sel' : 'deck-sel hidden';
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════
   //  Wire up
   // ═══════════════════════════════════════════════════════════════
   chipBtns.forEach(function (b) {
     b.addEventListener('click', function () { addChip(parseInt(b.getAttribute('data-chip'), 10)); });
+  });
+  deckBtns.forEach(function (b) {
+    b.addEventListener('click', function () { setDeckCount(parseInt(b.getAttribute('data-decks'), 10)); });
   });
   clearBtn.addEventListener('click', clearBet);
   dealBtn.addEventListener('click', startDeal);
@@ -1400,6 +1456,7 @@
           phase: state.phase,
           balance: state.balance,
           bet: state.bet,
+          decks: NUM_DECKS,
           player: state.hands[0] ? state.hands[0].cards.map(function (c) { return c.rank + c.suit; }) : [],
           hands: state.hands.map(function (h) {
             return {
@@ -1427,6 +1484,7 @@
       decline: declineInsurance,
       newHand: newHand,
       rebuy: rebuy,
+      _setDecks: function (n) { setDeckCount(n); },
       _setSeed: function (s) { rng = makeRng(s); shoe = []; },
       _shoeLength: function () { return shoe.length; },
       _handValue: handValue,
