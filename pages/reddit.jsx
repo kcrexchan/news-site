@@ -1,38 +1,11 @@
 import React from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
-import fs from 'fs'
-import path from 'path'
+import data from '../data/reddit.json'
 
-export async function getStaticProps() {
-  try {
-    const dataPath = path.join(process.cwd(), 'data', 'reddit.json')
-    const raw = fs.readFileSync(dataPath, 'utf8')
-    return { props: JSON.parse(raw) }
-  } catch (e) {
-    return { props: { date: '', summaries: [], error: 'No Reddit data available yet.' }, revalidate: 60 }
-  }
-}
-
-export default function Reddit({ date, summaries, error }) {
+export default function Reddit() {
   const router = useRouter()
-  if (error) {
-    return (
-      <>
-        <Head>
-          <title>Reddit Roundup · Local LLM Hub</title>
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-        </Head>
-        <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: "'Inter', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center', color: '#ff9800' }}>
-            <p style={{ fontSize: 28, fontWeight: 700 }}>{error}</p>
-            <button onClick={() => router.back()} style={{ color: '#ffa726', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Back</button>
-          </div>
-        </div>
-      </>
-    )
-  }
+  const { date, summaries } = data
 
   return (
     <>

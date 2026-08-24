@@ -1,22 +1,12 @@
 import React, { useState } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
-import fs from 'fs'
-import path from 'path'
+import data from '../data/news.json'
 
-export async function getStaticProps() {
-  try {
-    const dataPath = path.join(process.cwd(), 'data', 'news.json')
-    const raw = fs.readFileSync(dataPath, 'utf8')
-    return { props: JSON.parse(raw) }
-  } catch (e) {
-    return { props: { summary: '', details: [] }, revalidate: 60 }
-  }
-}
-
-export default function Digest({ summary, details }) {
+export default function Digest() {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
+  const { summary, details } = data
   
   const displayItems = expanded ? details : details.slice(0, 3)
   
