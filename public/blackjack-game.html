@@ -187,6 +187,89 @@
   @keyframes pulse { from { opacity: 0.55; } to { opacity: 1; } }
   .panel .broke { display: none; font-size: 14px; color: #ff9c8f; margin-bottom: 14px; font-weight: 700; }
   .panel .broke.show { display: block; }
+
+  /* ── Leaderboard / account ── */
+  #lbBtn {
+    background: rgba(120,200,160,0.12); border: 1px solid rgba(120,200,160,0.35);
+    color: #a7d4bd; border-radius: 8px; padding: 6px 10px; font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; font-weight: 700;
+  }
+  #lbBtn:active { background: rgba(120,200,160,0.3); }
+  #lbBtn .acc-name { font-size: 12px; letter-spacing: 0.5px; color: #f5e6a8; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #accLogout { background: none; border: none; color: #ff9c8f; cursor: pointer; font-size: 13px; padding: 0 0 0 2px; font-weight: 800; }
+  #accLogout:active { opacity: 0.6; }
+
+  .modal {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(6,12,8,0.78); backdrop-filter: blur(4px); z-index: 40;
+  }
+  .modal.show { display: flex; }
+  .modal .box {
+    background: linear-gradient(160deg, #16352a, #0f241b);
+    border: 1px solid rgba(120,200,160,0.4);
+    border-radius: 18px; padding: 22px 24px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+    max-width: 340px; width: 90%; max-height: 88vh; overflow-y: auto;
+  }
+  .modal .box h2 { font-size: 19px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #a7d4bd; margin-bottom: 4px; }
+  .modal .box .hint { font-size: 12px; color: #8fc4a8; margin-bottom: 16px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab {
+    flex: 1; border: 1px solid rgba(120,200,160,0.3); background: rgba(120,200,160,0.08);
+    color: #a7d4bd; border-radius: 10px; padding: 9px; font-size: 14px; font-weight: 800;
+    letter-spacing: 1px; cursor: pointer;
+  }
+  .tab.active { background: linear-gradient(135deg, #2f9e6a, #1f7a4c); color: #fff; border-color: rgba(245,230,168,0.4); }
+
+  .field { margin-bottom: 14px; text-align: left; }
+  .field label { display: block; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #6f9c86; margin-bottom: 6px; }
+  .field input {
+    width: 100%; background: rgba(0,0,0,0.35); border: 1px solid rgba(120,200,160,0.35);
+    border-radius: 10px; padding: 12px 14px; color: #eafff0; font-size: 16px; font-weight: 700;
+    letter-spacing: 2px; text-align: center; font-variant-numeric: tabular-nums;
+  }
+  .field input::placeholder { color: #4f7a63; letter-spacing: 1px; font-weight: 400; }
+  .field input:focus { outline: none; border-color: #f5e6a8; box-shadow: 0 0 0 2px rgba(245,230,168,0.25); }
+  .field input.pin { letter-spacing: 6px; font-size: 20px; }
+
+  .modal .err { display: none; font-size: 13px; color: #ff9c8f; font-weight: 700; margin: -6px 0 12px; min-height: 16px; }
+  .modal .err.show { display: block; }
+  .modal .ok { display: none; font-size: 13px; color: #7fdbca; font-weight: 700; margin: -6px 0 12px; min-height: 16px; }
+  .modal .ok.show { display: block; }
+
+  .modal .go-btn {
+    width: 100%; border: none; border-radius: 12px; cursor: pointer; font-weight: 800;
+    letter-spacing: 1px; font-size: 16px; padding: 14px; color: #fff;
+    background: linear-gradient(135deg, #2f9e6a, #1f7a4c); box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .modal .go-btn:active { transform: scale(0.98); }
+  .modal .go-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .modal .close-btn {
+    margin-top: 10px; width: 100%; border: 1px solid rgba(120,200,160,0.3);
+    background: rgba(120,200,160,0.08); color: #a7d4bd; border-radius: 12px;
+    cursor: pointer; font-weight: 800; letter-spacing: 1px; font-size: 14px; padding: 11px;
+  }
+  .modal .close-btn:active { background: rgba(120,200,160,0.2); }
+  .modal .hidden { display: none !important; }
+
+  /* leaderboard table */
+  .lb-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .lb-table th {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #6f9c86;
+    text-align: left; padding: 6px 6px; border-bottom: 1px solid rgba(120,200,160,0.25);
+  }
+  .lb-table th.num, .lb-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lb-table td { padding: 9px 6px; border-bottom: 1px solid rgba(120,200,160,0.12); }
+  .lb-table tr:last-child td { border-bottom: none; }
+  .lb-table .rank { font-weight: 900; color: #6f9c86; width: 26px; }
+  .lb-table .lb-name { font-weight: 800; color: #eafff0; }
+  .lb-table .lb-score { font-weight: 900; color: #f5e6a8; }
+  .lb-table tr.me .lb-name { color: #7fdbca; }
+  .lb-table tr.me .lb-name::after { content: '  (you)'; font-size: 10px; color: #6f9c86; font-weight: 700; }
+  .lb-table tr.top1 .lb-score { color: #f5d76b; }
+  .lb-empty { font-size: 13px; color: #8fc4a8; padding: 18px 0; }
+  .lb-foot { font-size: 11px; color: #6f9c86; margin-top: 12px; letter-spacing: 0.5px; }
 </style>
 </head>
 <body>
@@ -203,7 +286,10 @@
     <div class="hud-block" style="align-items:flex-end">
       <span class="hud-label">Best hand</span>
       <span class="hud-value" id="bestVal" style="font-size:16px;color:#a7d4bd">0</span>
-      <button id="muteBtn" title="Toggle sound">🔊</button>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+        <button id="lbBtn" title="Leaderboard">🏆<span class="acc-name" id="accName"></span><span id="accLogout" class="hidden" title="Log out">✕</span></button>
+        <button id="muteBtn" title="Toggle sound">🔊</button>
+      </div>
     </div>
   </div>
 
@@ -253,6 +339,42 @@
     <div class="row" id="dealRow">
       <button class="btn deal" id="dealBtn">Deal</button>
     </div>
+  </div>
+</div>
+
+<!-- ── Account modal (create / login with PIN) ── -->
+<div class="modal" id="accountModal">
+  <div class="box">
+    <h2>🏆 Leaderboard</h2>
+    <div class="hint" id="accHint">Create an account or log in to post your best score.</div>
+    <div class="tabs">
+      <button class="tab active" id="tabCreate">Create</button>
+      <button class="tab" id="tabLogin">Log in</button>
+    </div>
+    <div class="err" id="accErr"></div>
+    <div class="ok" id="accOk"></div>
+    <div class="field">
+      <label for="accNameInput">Player name</label>
+      <input id="accNameInput" type="text" maxlength="12" autocomplete="off" placeholder="e.g. Ace" />
+    </div>
+    <div class="field">
+      <label for="accPinInput">4-digit PIN</label>
+      <input id="accPinInput" class="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+    </div>
+    <button class="go-btn" id="accGoBtn">Create account</button>
+    <button class="close-btn" id="accCloseBtn">Cancel</button>
+  </div>
+</div>
+
+<!-- ── Leaderboard modal (top 10 board) ── -->
+<div class="modal" id="boardModal">
+  <div class="box">
+    <h2>🏆 Top 10</h2>
+    <div class="hint">Best bankroll across all hands.</div>
+    <div id="boardBody"></div>
+    <div class="lb-foot" id="boardFoot"></div>
+    <button class="go-btn" id="boardSubmitBtn" style="margin-top:14px">Submit my best score</button>
+    <button class="close-btn" id="boardCloseBtn">Close</button>
   </div>
 </div>
 
@@ -436,7 +558,8 @@
     holeHidden: true,
     insurance: 0,            // side-bet amount (0 = none)
     insurancePaid: false,    // true once insurance decided for this hand
-    best: 0
+    best: 0,                 // best single-hand net profit
+    blackjacks: 0            // lifetime blackjacks won (leaderboard tiebreaker)
   };
   // Insurance = half the main bet (floored to whole chips). 2:1 payout if dealer has BJ.
   function insuranceAmount(bet) { return Math.floor(bet / 2); }
@@ -448,11 +571,12 @@
         var p = JSON.parse(raw);
         if (typeof p.balance === 'number') state.balance = Math.max(0, p.balance);
         if (typeof p.best === 'number') state.best = Math.max(0, p.best);
+        if (typeof p.blackjacks === 'number') state.blackjacks = Math.max(0, p.blackjacks);
       }
     } catch (e) { /* ignore */ }
   }
   function saveState() {
-    try { localStorage.setItem('blackjack-state', JSON.stringify({ balance: state.balance, best: state.best })); }
+    try { localStorage.setItem('blackjack-state', JSON.stringify({ balance: state.balance, best: state.best, blackjacks: state.blackjacks || 0 })); }
     catch (e) { /* ignore */ }
   }
 
@@ -866,8 +990,10 @@
     var handNet = state.balance - balStart; // main outcomes + insurance, relative to hand start
     var newHigh = false;
     if (handNet > state.best) { state.best = handNet; newHigh = true; }
+    if (anyBJ) state.blackjacks = (state.blackjacks || 0) + 1;
     saveState();
     render();
+    if (typeof lbAutoSubmit === 'function') lbAutoSubmit();
 
     // Aggregate outcome for the banner / SFX
     var outcome;
@@ -978,6 +1104,194 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
+  //  Leaderboard + PIN-protected accounts (R2-backed, like Tetris)
+  //  Score = best single-hand net profit (state.best) + blackjacks won.
+  // ═══════════════════════════════════════════════════════════════
+  var lbBtn = $('lbBtn');
+  var accNameEl = $('accName');
+  var accLogoutEl = $('accLogout');
+  var accountModal = $('accountModal');
+  var boardModal = $('boardModal');
+  var tabCreate = $('tabCreate');
+  var tabLogin = $('tabLogin');
+  var accNameInput = $('accNameInput');
+  var accPinInput = $('accPinInput');
+  var accGoBtn = $('accGoBtn');
+  var accCloseBtn = $('accCloseBtn');
+  var accErr = $('accErr');
+  var accOk = $('accOk');
+  var boardBody = $('boardBody');
+  var boardFoot = $('boardFoot');
+  var boardSubmitBtn = $('boardSubmitBtn');
+  var boardCloseBtn = $('boardCloseBtn');
+
+  var LB_URL = '/api/blackjack/leaderboard';
+  var lbMode = 'create';
+  var lbSession = null;   // { name, pin, best, blackjacks }
+  var lbBoard = null;
+  var lbBusy = false;
+
+  function lbSetErr(msg) { if (accErr) { accErr.textContent = msg || ''; accErr.classList.toggle('show', !!msg); } if (accOk) accOk.classList.remove('show'); }
+  function lbSetOk(msg) { if (accOk) { accOk.textContent = msg || ''; accOk.classList.toggle('show', !!msg); } if (accErr) accErr.classList.remove('show'); }
+
+  function lbFetch(method, body) {
+    if (typeof fetch !== 'function') return Promise.reject(new Error('offline'));
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(LB_URL, opts).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) { var e = new Error((data && data.error) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+        return data;
+      });
+    });
+  }
+
+  function lbEsc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  function lbRenderBoard(board) {
+    if (!boardBody) return;
+    board = board || lbBoard || { scores: [] };
+    lbBoard = board;
+    var rows = board.scores || [];
+    if (!rows.length) {
+      boardBody.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>';
+    } else {
+      var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th class="num">Best</th><th class="num">BJs</th></tr></thead><tbody>';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var me = lbSession && String(r.name).toLowerCase() === String(lbSession.name).toLowerCase();
+        var cls = (i === 0 ? 'top1' : '') + (me ? ' me' : '');
+        html += '<tr class="' + cls + '"><td class="rank">' + (i + 1) + '</td><td class="lb-name">' + lbEsc(r.name) + '</td><td class="num lb-score">' + r.best + '</td><td class="num">' + (r.blackjacks || 0) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      boardBody.innerHTML = html;
+    }
+    if (boardFoot) boardFoot.textContent = board.updated ? ('Updated ' + new Date(board.updated).toLocaleString()) : '';
+  }
+
+  function lbUpdateBadge() {
+    if (!accNameEl) return;
+    if (lbSession) {
+      accNameEl.textContent = lbSession.name;
+      accNameEl.classList.remove('hidden');
+      if (accLogoutEl) accLogoutEl.classList.remove('hidden');
+    } else {
+      accNameEl.textContent = '';
+      accNameEl.classList.add('hidden');
+      if (accLogoutEl) accLogoutEl.classList.add('hidden');
+    }
+  }
+
+  function lbSwitchMode(mode) {
+    lbMode = mode;
+    if (tabCreate) tabCreate.classList.toggle('active', mode === 'create');
+    if (tabLogin) tabLogin.classList.toggle('active', mode === 'login');
+    if (accGoBtn) accGoBtn.textContent = (mode === 'create') ? 'Create account' : 'Log in';
+    if (accNameInput) accNameInput.placeholder = (mode === 'create') ? 'e.g. Ace' : 'Your name';
+    lbSetErr(''); lbSetOk('');
+  }
+
+  function lbOpenAccount() {
+    lbSwitchMode(lbSession ? 'login' : 'create');
+    if (accNameInput) accNameInput.value = lbSession ? lbSession.name : '';
+    if (accPinInput) accPinInput.value = '';
+    if (accountModal) accountModal.classList.add('show');
+    setTimeout(function () { if (accNameInput && accNameInput.focus) accNameInput.focus(); }, 30);
+  }
+  function lbCloseAccount() { if (accountModal) accountModal.classList.remove('show'); }
+
+  function lbDoGo() {
+    if (lbBusy) return;
+    var name = (accNameInput && accNameInput.value || '').trim();
+    var pin = (accPinInput && accPinInput.value || '').trim();
+    if (!name) { lbSetErr('Enter a name'); return; }
+    if (!/^\d{4}$/.test(pin)) { lbSetErr('PIN must be exactly 4 digits'); return; }
+    lbBusy = true;
+    if (accGoBtn) accGoBtn.disabled = true;
+    var fn = (lbMode === 'create') ? lbCreate : lbLogin;
+    fn(name, pin).then(function (res) {
+      lbSetOk((lbMode === 'create') ? ('Account created — welcome, ' + res.name + '!') : ('Logged in as ' + res.name));
+      lbCloseAccount();
+      setTimeout(function () { lbOpenBoard(); }, 120);
+    }).catch(function (e) {
+      lbSetErr(e.message || 'Something went wrong');
+    }).then(function () {
+      lbBusy = false;
+      if (accGoBtn) accGoBtn.disabled = false;
+    });
+  }
+
+  // create / login both establish the session (used by UI and by tests)
+  function lbCreate(name, pin) {
+    return lbFetch('POST', { action: 'create', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, best: res.best || 0, blackjacks: res.blackjacks || 0 };
+      if (res.board) lbBoard = res.board;
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogin(name, pin) {
+    return lbFetch('POST', { action: 'login', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, best: res.best || 0, blackjacks: res.blackjacks || 0 };
+      if (res.board) lbBoard = res.board;
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogout() { lbSession = null; lbUpdateBadge(); if (boardModal) boardModal.classList.remove('show'); }
+
+  function lbOpenBoard() {
+    if (!lbSession) { lbOpenAccount(); return; }
+    if (boardModal) boardModal.classList.add('show');
+    if (boardSubmitBtn) boardSubmitBtn.textContent = 'Submit my best score';
+    if (typeof fetch === 'function') {
+      lbFetch('POST', { action: 'board' }).then(function (b) { lbRenderBoard(b); }).catch(function () { lbRenderBoard(null); });
+    } else { lbRenderBoard(null); }
+  }
+  function lbCloseBoard() { if (boardModal) boardModal.classList.remove('show'); }
+
+  function lbSubmitScore(best, blackjacks) {
+    if (!lbSession) return Promise.resolve();
+    var b = (best == null) ? Math.max(0, Math.floor(state.best || 0)) : Math.max(0, Math.floor(best));
+    var bjs = (blackjacks == null) ? (state.blackjacks || 0) : Math.max(0, Math.floor(blackjacks));
+    return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: b, blackjacks: bjs }).then(function (res) {
+      lbSession.best = res.best;
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+      if (boardSubmitBtn) boardSubmitBtn.textContent = 'Score submitted ✓';
+    }).catch(function () {
+      if (boardSubmitBtn) boardSubmitBtn.textContent = 'Submit failed — try again';
+    });
+  }
+
+  function lbAutoSubmit() {
+    if (!lbSession) return;
+    var best = Math.max(0, Math.floor(state.best || 0));
+    if (best <= 0 || best <= lbSession.best) return;
+    lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: best, blackjacks: state.blackjacks || 0 }).then(function (res) {
+      lbSession.best = res.best;
+      if (res.board) lbBoard = res.board;
+    }).catch(function () { /* user can retry from the board */ });
+  }
+
+  // ── wire up leaderboard UI ──
+  if (lbBtn && lbBtn.addEventListener) lbBtn.addEventListener('click', function () { lbOpenBoard(); });
+  if (accLogoutEl && accLogoutEl.addEventListener) accLogoutEl.addEventListener('click', function (e) { if (e.stopPropagation) e.stopPropagation(); lbLogout(); });
+  if (tabCreate && tabCreate.addEventListener) tabCreate.addEventListener('click', function () { lbSwitchMode('create'); });
+  if (tabLogin && tabLogin.addEventListener) tabLogin.addEventListener('click', function () { lbSwitchMode('login'); });
+  if (accGoBtn && accGoBtn.addEventListener) accGoBtn.addEventListener('click', lbDoGo);
+  if (accCloseBtn && accCloseBtn.addEventListener) accCloseBtn.addEventListener('click', lbCloseAccount);
+  if (boardSubmitBtn && boardSubmitBtn.addEventListener) boardSubmitBtn.addEventListener('click', function () { lbSubmitScore(); });
+  if (boardCloseBtn && boardCloseBtn.addEventListener) boardCloseBtn.addEventListener('click', lbCloseBoard);
+  if (accPinInput && accPinInput.addEventListener) {
+    accPinInput.addEventListener('input', function () { accPinInput.value = accPinInput.value.replace(/[^0-9]/g, '').slice(0, 4); });
+    accPinInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  }
+  if (accNameInput && accNameInput.addEventListener) accNameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  [accountModal, boardModal].forEach(function (m) {
+    if (m && m.addEventListener) m.addEventListener('click', function (e) { if (e.target === m) { lbCloseAccount(); lbCloseBoard(); } });
+  });
+  lbUpdateBadge();
+
+  // ═══════════════════════════════════════════════════════════════
   //  Test-only handle (no effect in the browser UI)
   // ═══════════════════════════════════════════════════════════════
   if (typeof window !== 'undefined') {
@@ -998,7 +1312,8 @@
           dealer: state.dealer.map(function (c) { return c.rank + c.suit; }),
           holeHidden: state.holeHidden,
           insurance: state.insurance,
-          best: state.best
+          best: state.best,
+          blackjacks: state.blackjacks || 0
         };
       },
       addChip: addChip,
@@ -1020,7 +1335,19 @@
       _dealerShouldHit: dealerShouldHit,
       _insuranceAmount: insuranceAmount,
       _makeDeck: makeDeck,
-      _shuffle: shuffle
+      _shuffle: shuffle,
+      // ── leaderboard (PIN-protected accounts) ──
+      _lbCreate: lbCreate,
+      _lbLogin: lbLogin,
+      _lbBoard: function () { return lbFetch('POST', { action: 'board' }); },
+      _lbScore: function (best, blackjacks) {
+        if (!lbSession) return Promise.reject(new Error('no session'));
+        return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: best, blackjacks: blackjacks });
+      },
+      _lbSubmit: lbSubmitScore,
+      _lbLogout: lbLogout,
+      _lbSession: function () { return lbSession; },
+      _lbRender: lbRenderBoard
     };
   }
 

@@ -31,11 +31,53 @@ function makeEl(attrs) {
 
 var ids = ['balanceVal','bestVal','dealerTotal','playerTotal','dealerCards','playerCards','playerArea',
   'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn','splitBtn',
-  'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg'];
+  'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg',
+  'lbBtn','accName','accLogout','accountModal','boardModal','tabCreate','tabLogin','accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot','boardSubmitBtn','boardCloseBtn'];
 var elements = {};
 ids.forEach(function (id) { elements[id] = makeEl(); });
 
 var chips = ['10','25','100','500'].map(function (v) { return makeEl({ 'data-chip': v }); });
+
+// ── fetch mock: simulates /api/blackjack/leaderboard (PIN-protected accounts) ──
+var lbStore = {};   // name -> { pin, best, blackjacks }
+var lbEtag = 'v1';
+function lbApi(body) {
+  var a = body.action;
+  function board() {
+    var rows = Object.keys(lbStore).map(function (n) { return { name: n, best: lbStore[n].best, blackjacks: lbStore[n].blackjacks, at: '2026-08-23T00:00:00.000Z' }; });
+    rows.sort(function (x, y) { return (y.best - x.best) || (y.blackjacks - x.blackjacks) || x.name.localeCompare(y.name); });
+    return { updated: '2026-08-23T00:00:00.000Z', scores: rows.slice(0, 25) };
+  }
+  if (a === 'board') return board();
+  if (a === 'create') {
+    var n = (body.name || '').trim();
+    if (!n) return { ok: false, error: 'Name required' };
+    if (lbStore[n]) return { ok: false, error: 'Name already taken' };
+    lbStore[n] = { pin: body.pin, best: 0, blackjacks: 0 };
+    return { ok: true, name: n, best: 0, blackjacks: 0, board: board() };
+  }
+  if (a === 'login') {
+    var ln = (body.name || '').trim();
+    if (!lbStore[ln]) return { ok: false, error: 'No such account' };
+    if (lbStore[ln].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
+    return { ok: true, name: ln, best: lbStore[ln].best, blackjacks: lbStore[ln].blackjacks, board: board() };
+  }
+  if (a === 'score') {
+    var sn = (body.name || '').trim();
+    if (!lbStore[sn]) return { ok: false, error: 'No such account' };
+    if (lbStore[sn].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
+    if (body.best > lbStore[sn].best) lbStore[sn].best = body.best;
+    lbStore[sn].blackjacks = body.blackjacks;
+    return { ok: true, name: sn, best: lbStore[sn].best, blackjacks: lbStore[sn].blackjacks, board: board() };
+  }
+  return { ok: false, error: 'Unknown action' };
+}
+var fetchMock = function (url, opts) {
+  var body = opts && opts.body ? JSON.parse(opts.body) : {};
+  var res = lbApi(body);
+  var ok = res.ok !== false;
+  return Promise.resolve({ ok: ok, status: ok ? 200 : 400, json: function () { return Promise.resolve(res); } });
+};
 
 var document = {
   getElementById: function (id) { return elements[id] || null; },
@@ -51,6 +93,7 @@ var sandbox = {
   localStorage: { getItem: function () { return null; }, setItem: function () {} },
   Math: Math, console: console,
   Date: Date,
+  fetch: fetchMock,
   // SYNCHRONOUS timeouts so dealer draws + settle run to completion immediately
   setTimeout: function (cb) { try { cb(); } catch (e) { throw e; } return 0; },
   clearTimeout: function () {}
@@ -445,4 +488,54 @@ for (var rs3 = 1; rs3 <= 6000 && blocked < 4; rs3++) {
 }
 assert(blocked >= 1, 'split-ace (A+A) hands block hit + double but allow stand (' + blocked + ')');
 
-console.log('ALL CHECKS PASSED');
+// ═══════════════════════════════════════════════════════════════
+//  8. LEADERBOARD — PIN-protected accounts (create / login / score / board)
+// ═══════════════════════════════════════════════════════════════
+console.log('— leaderboard accounts —');
+function runLB() {
+  return Promise.resolve()
+    .then(function () { return BJ._lbCreate('Rex', '1234'); })
+    .then(function (r) {
+      assert(r.ok === true && r.name === 'Rex', 'create account "Rex" succeeds');
+      return BJ._lbCreate('Rex', '9999').then(function (d) {
+        assert(d.ok === false, 'duplicate name rejected (resolved)');
+      }, function (e) {
+        assert(/taken/i.test(e.message), 'duplicate name rejected (' + e.message + ')');
+      });
+    })
+    .then(function () {
+      return BJ._lbLogin('Rex', '0000').then(function (d) {
+        assert(d.ok === false, 'login with wrong PIN rejected (resolved)');
+      }, function (e) {
+        assert(/wrong pin/i.test(e.message), 'login with wrong PIN rejected (' + e.message + ')');
+      });
+    })
+    .then(function () { return BJ._lbLogin('Rex', '1234'); })
+    .then(function (r) {
+      assert(r.ok === true && r.name === 'Rex', 'login with correct PIN succeeds');
+      assert(BJ._lbSession() && BJ._lbSession().name === 'Rex', 'session holds account name + PIN');
+      return BJ._lbScore(150, 1);
+    })
+    .then(function (r) {
+      assert(r.ok === true && r.best === 150 && r.blackjacks === 1, 'submit score 150 / 1 BJ accepted');
+      return BJ._lbScore(100, 0);
+    })
+    .then(function (r) {
+      assert(r.best === 150, 'lower score does not overwrite the high score');
+      return BJ._lbBoard();
+    })
+    .then(function (r) {
+      assert(Array.isArray(r.scores) && r.scores.length >= 1, 'board returns at least the created account');
+      var top = r.scores[0];
+      assert(top.name === 'Rex' && top.best === 150, 'board top row is Rex @ 150');
+      BJ._lbRender(r);
+      assert(elements['boardBody'].innerHTML.indexOf('Rex') !== -1, 'board render writes the name into the DOM');
+      return BJ._lbLogout();
+    })
+    .then(function () {
+      assert(BJ._lbSession() === null, 'logout clears the session');
+    });
+}
+return runLB().then(function () {
+  console.log('ALL CHECKS PASSED');
+});
