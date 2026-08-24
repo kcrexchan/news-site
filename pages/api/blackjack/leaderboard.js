@@ -22,6 +22,8 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 //     action "score"  : { name, pin, wallet } -> verify PIN, set wallet (can be
 //                        negative), recompute board
 //     action "borrow" : { name, pin } -> verify PIN, wallet += 2000, debt += 2020
+//     action "repay"  : { name, pin } -> verify PIN, pay back full debt (wallet -= debt, debt -> 0)
+//     action "delete" : { name, pin } -> verify PIN, remove the account entirely
 //     action "board"  : same as GET
 //
 // Concurrency: optimistic locking — read the object ETag, PUT with that ETag as
@@ -293,7 +295,58 @@ export default async function handler(req, res) {
         return json(res, result.status, result.body);
       }
 
-      return json(res, 400, { error: "Unknown action", actions: ["create", "login", "score", "borrow", "board"] });
+      if (action === "repay") {
+        const name = normalizeName(body.name);
+        const pin = String(body.pin ?? "").trim();
+        if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
+        const key = nameKey(name);
+        const now = new Date().toISOString();
+        const result = await withLock(bkt, async (doc) => {
+          const a = doc.accounts[key];
+          if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
+          const expect = await hashPin(pin, a.salt);
+          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
+          if (a.debt <= 0) return { ok: false, write: false, status: 400, body: { error: "No debt to repay" } };
+          const paid = a.debt;
+          const newWallet = a.wallet - paid;
+          doc.accounts[key] = { ...a, wallet: newWallet, debt: 0, last: now };
+          doc.updated = now;
+          return {
+            write: true,
+            status: 200,
+            body: {
+              ok: true,
+              name: a.name,
+              wallet: newWallet,
+              debt: 0,
+              borrows: a.borrows,
+              repaid: paid,
+              board: publicBoard(doc),
+            },
+          };
+        });
+        return json(res, result.status, result.body);
+      }
+
+      if (action === "delete") {
+        const name = normalizeName(body.name);
+        const pin = String(body.pin ?? "").trim();
+        if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
+        const key = nameKey(name);
+        const now = new Date().toISOString();
+        const result = await withLock(bkt, async (doc) => {
+          const a = doc.accounts[key];
+          if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
+          const expect = await hashPin(pin, a.salt);
+          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
+          delete doc.accounts[key];
+          doc.updated = now;
+          return { write: true, status: 200, body: { ok: true, name: a.name, deleted: true, board: publicBoard(doc) } };
+        });
+        return json(res, result.status, result.body);
+      }
+
+      return json(res, 400, { error: "Unknown action", actions: ["create", "login", "score", "borrow", "repay", "delete", "board"] });
     }
 
     res.setHeader("Allow", "GET, POST");

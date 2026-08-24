@@ -78,6 +78,23 @@ function lbApi(body) {
     lbStore[bn].borrows += 1;
     return { ok: true, name: bn, wallet: lbStore[bn].wallet, debt: lbStore[bn].debt, borrows: lbStore[bn].borrows, loan: LOAN, interest: 20, board: board() };
   }
+  if (a === 'repay') {
+    var rn = (body.name || '').trim();
+    if (!lbStore[rn]) return { ok: false, error: 'No such account' };
+    if (lbStore[rn].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
+    if (lbStore[rn].debt <= 0) return { ok: false, error: 'No debt to repay' };
+    var paid = lbStore[rn].debt;
+    lbStore[rn].wallet -= paid;
+    lbStore[rn].debt = 0;
+    return { ok: true, name: rn, wallet: lbStore[rn].wallet, debt: 0, borrows: lbStore[rn].borrows, repaid: paid, board: board() };
+  }
+  if (a === 'delete') {
+    var dn = (body.name || '').trim();
+    if (!lbStore[dn]) return { ok: false, error: 'No such account' };
+    if (lbStore[dn].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
+    delete lbStore[dn];
+    return { ok: true, name: dn, deleted: true, board: board() };
+  }
   return { ok: false, error: 'Unknown action' };
 }
 var fetchMock = function (url, opts) {
@@ -551,10 +568,40 @@ function runLB() {
       var html = elements['boardBody'].innerHTML;
       assert(html.indexOf('Rex') !== -1, 'board render writes the name into the DOM');
       assert(html.indexOf('Wallet') !== -1 && html.indexOf('Debt') !== -1 && html.indexOf('Loans') !== -1, 'board render shows Wallet / Debt / Loans columns');
+      // ── REPAY: pay back the full outstanding debt (4040). Wallet drops by the same amount, debt -> 0.
+      return BJ._lbRepay();
+    })
+    .then(function (r) {
+      assert(r.ok === true && r.repaid === 4040, 'repay: repaid 4040 (full debt)');
+      assert(r.wallet === 3750 - 4040 && r.debt === 0, 'repay: wallet 3750-4040 = -290, debt cleared to 0');
+      assert(BJ._lbSession().debt === 0 && BJ._lbSession().wallet === -290, 'session updated after repay');
+      // Repay with no debt must be rejected.
+      return BJ._lbRepay().then(function (r) { assert(r.ok === false, 'repay with no debt is rejected'); return { ok: true }; },
+        function (e) { assert(/debt|repay/i.test(e.message), 'repay-no-debt error message mentions debt'); return { ok: true }; });
+    })
+    .then(function () {
+      // ── DELETE: wrong PIN must be rejected first (account still exists).
+      return fetchMock('/api/blackjack/leaderboard', { body: JSON.stringify({ action: 'delete', name: 'Rex', pin: '9999' }) })
+        .then(function (res) { return res.json ? res.json() : res; })
+        .then(function (r) { assert(r.ok === false, 'delete with wrong PIN rejected'); });
+    })
+    .then(function () {
+      // Then remove the account entirely (correct PIN).
       return BJ._lbLogout();
     })
     .then(function () {
       assert(BJ._lbSession() === null, 'logout clears the session');
+      return fetchMock('/api/blackjack/leaderboard', { body: JSON.stringify({ action: 'delete', name: 'Rex', pin: '1234' }) })
+        .then(function (res) { return res.json ? res.json() : res; });
+    })
+    .then(function (r) {
+      assert(r.ok === true && r.deleted === true, 'delete: account removed');
+      return fetchMock('/api/blackjack/leaderboard', { body: JSON.stringify({ action: 'board' }) })
+        .then(function (res) { return res.json ? res.json() : res; });
+    })
+    .then(function (b) {
+      var names = (b.scores || []).map(function (x) { return x.name; });
+      assert(names.indexOf('Rex') === -1, 'board no longer lists the deleted account');
     });
 }
 return runLB().then(function () {

@@ -375,6 +375,7 @@
     <div id="boardBody"></div>
     <div class="lb-foot" id="boardFoot"></div>
     <button class="go-btn" id="boardBorrowBtn" style="margin-top:14px">🏦 Borrow $2,000 from the casino</button>
+    <button class="go-btn" id="boardRepayBtn" style="margin-top:8px;display:none">💰 Repay debt</button>
     <button class="close-btn" id="boardCloseBtn">Close</button>
   </div>
 </div>
@@ -1128,6 +1129,7 @@
   var boardBody = $('boardBody');
   var boardFoot = $('boardFoot');
   var boardBorrowBtn = $('boardBorrowBtn');
+  var boardRepayBtn = $('boardRepayBtn');
   var brokeBorrowBtn = $('brokeBorrowBtn');
   var boardCloseBtn = $('boardCloseBtn');
 
@@ -1173,6 +1175,11 @@
       boardBody.innerHTML = html;
     }
     if (boardFoot) boardFoot.textContent = board.updated ? ('Updated ' + new Date(board.updated).toLocaleString()) : '';
+    if (boardRepayBtn) {
+      var showRepay = lbSession && lbSession.debt > 0;
+      boardRepayBtn.style.display = showRepay ? '' : 'none';
+      if (showRepay) boardRepayBtn.textContent = '💰 Repay $' + lbSession.debt.toLocaleString() + ' debt';
+    }
   }
 
   function lbUpdateBadge() {
@@ -1294,6 +1301,22 @@
     });
   }
 
+  function lbRepay() {
+    if (!lbSession) return Promise.resolve();
+    return lbFetch('POST', { action: 'repay', name: lbSession.name, pin: lbSession.pin }).then(function (res) {
+      lbSession.wallet = res.wallet;
+      lbSession.debt = res.debt;
+      state.balance = res.wallet;
+      render();
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+      if (boardRepayBtn) boardRepayBtn.textContent = 'Repaid $' + res.repaid.toLocaleString() + ' ✓';
+      return res;
+    }).catch(function (err) {
+      if (boardRepayBtn) boardRepayBtn.textContent = 'Repay failed — try again';
+      throw err;
+    });
+  }
+
   // ── wire up leaderboard UI ──
   if (lbBtn && lbBtn.addEventListener) lbBtn.addEventListener('click', function () { lbOpenBoard(); });
   if (accLogoutEl && accLogoutEl.addEventListener) accLogoutEl.addEventListener('click', function (e) { if (e.stopPropagation) e.stopPropagation(); lbLogout(); });
@@ -1302,6 +1325,7 @@
   if (accGoBtn && accGoBtn.addEventListener) accGoBtn.addEventListener('click', lbDoGo);
   if (accCloseBtn && accCloseBtn.addEventListener) accCloseBtn.addEventListener('click', lbCloseAccount);
   if (boardBorrowBtn && boardBorrowBtn.addEventListener) boardBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
+  if (boardRepayBtn && boardRepayBtn.addEventListener) boardRepayBtn.addEventListener('click', function () { lbRepay().catch(function () {}); });
   if (brokeBorrowBtn && brokeBorrowBtn.addEventListener) brokeBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
   if (boardCloseBtn && boardCloseBtn.addEventListener) boardCloseBtn.addEventListener('click', lbCloseBoard);
   if (accPinInput && accPinInput.addEventListener) {
@@ -1368,6 +1392,7 @@
         return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, wallet: wallet });
       },
       _lbBorrow: lbBorrow,
+      _lbRepay: lbRepay,
       _lbSync: lbSyncWallet,
       _lbLogout: lbLogout,
       _lbSession: function () { return lbSession; },
