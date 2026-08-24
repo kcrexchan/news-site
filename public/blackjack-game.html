@@ -19,13 +19,19 @@
 
   /* ── HUD ── */
   #hud {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; gap: 10px;
+    display: flex; flex-direction: column;
+    padding: 8px 12px; gap: 8px;
     background: linear-gradient(180deg, #10201a, #0b1610);
     border-bottom: 1px solid rgba(120,200,160,0.25);
     z-index: 5;
   }
+  .hud-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .hud-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+  .hud-actions { display: flex; align-items: center; gap: 6px; }
+  .hud-sub { font-size: 11px; color: #6f9c86; margin-top: 3px; }
   .hud-block { display: flex; flex-direction: column; min-width: 66px; }
+  .hud-block.hud-mid { align-items: center; }
+  .hud-block.hud-end { align-items: flex-end; }
   .hud-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #6f9c86; }
   .hud-value { font-size: 21px; font-weight: 800; color: #f5e6a8; font-variant-numeric: tabular-nums; line-height: 1.1; }
   /* ── Shoe (undealt cards) ── */
@@ -42,7 +48,7 @@
   .shoe-count.low { color: #ffb27a; }
   .shoe-count.mid { color: #ffd27a; }
   /* ── Deck count selector ── */
-  .deck-sel { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+  .deck-sel { display: flex; align-items: center; gap: 5px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
   .deck-sel-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #6f9c86; margin-right: 2px; }
   .deck-btn {
     background: rgba(120,200,160,0.10); border: 1px solid rgba(120,200,160,0.30);
@@ -61,7 +67,7 @@
   .cc-toggle.active { background: linear-gradient(135deg,#2f9e6a,#1f7a4c); color: #fff; border-color: rgba(245,230,168,0.4); }
   .cc-panel {
     background: rgba(8,22,16,0.92); border: 1px solid rgba(120,200,160,0.25); border-radius: 12px;
-    padding: 12px 14px; margin: 10px auto 0; max-width: 520px;
+    padding: 10px 12px; margin: 0; width: 100%;
   }
   .cc-row { display: flex; gap: 18px; justify-content: space-between; }
   .cc-stat { text-align: center; }
@@ -323,14 +329,80 @@
   .lb-table tr.top1 .lb-score { color: #f5d76b; }
   .lb-empty { font-size: 13px; color: #8fc4a8; padding: 18px 0; }
   .lb-foot { font-size: 11px; color: #6f9c86; margin-top: 12px; letter-spacing: 0.5px; }
+
+  /* ── Phone / small-screen layout ── */
+  @media (max-width: 640px) {
+    #hud { padding: 7px 10px; gap: 6px; }
+    .hud-label { font-size: 9px; letter-spacing: 1.5px; }
+    .hud-value { font-size: 17px; }
+    .hud-block { min-width: 54px; }
+    .shoe-count { font-size: 13px; }
+    .shoe-visual { width: 34px; height: 26px; }
+    .shoe-card { width: 16px; height: 23px; }
+    .deck-btn { padding: 2px 7px; font-size: 11px; }
+    .cc-toggle { padding: 3px 8px; font-size: 10px; }
+    #title { font-size: 13px; letter-spacing: 2px; }
+    .hud-sub { font-size: 10px; }
+    #lbBtn { padding: 5px 8px; font-size: 13px; }
+    #muteBtn { padding: 5px 8px; font-size: 13px; }
+    #lbBtn .acc-name { max-width: 46px; font-size: 11px; }
+
+    #table::after { font-size: 120px; }
+    .hand.dealer { top: 10px; }
+    #playerArea { gap: 12px; bottom: 10px; }
+    .hand-label { font-size: 10px; margin-bottom: 6px; gap: 8px; }
+    .total-badge { font-size: 11px; padding: 2px 8px; min-width: 30px; }
+    .cards { min-height: 84px; min-width: 96px; }
+    .card { width: 52px; height: 76px; margin: 0 -9px; }
+    .card .corner { font-size: 12px; }
+    .card .corner.tl { top: 5px; left: 6px; }
+    .card .corner.br { bottom: 5px; right: 6px; }
+    .card .center { font-size: 26px; }
+    .card.back .back-inner { font-size: 20px; }
+    #msg { font-size: 14px; }
+
+    #controls { padding: 10px 10px 12px; gap: 9px; }
+    .chip { width: 46px; height: 46px; font-size: 13px; }
+    .btn { font-size: 14px; padding: 12px 14px; }
+    .btn.clear { padding: 12px 12px; }
+    #betVal { font-size: 19px; }
+    #betLabel { font-size: 11px; }
+
+    .panel { padding: 20px 20px; }
+    .panel .result { font-size: 25px; }
+    .panel .amount { font-size: 32px; }
+  }
+
+  /* short / landscape phones */
+  @media (max-height: 560px) and (orientation: landscape) {
+    #controls { padding: 8px 10px; gap: 7px; }
+    .chip { width: 40px; height: 40px; }
+    .btn { padding: 9px 12px; font-size: 13px; }
+    .card { width: 46px; height: 66px; }
+    .card .center { font-size: 22px; }
+    .cards { min-height: 72px; }
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="hud">
-    <div class="hud-block">
-      <span class="hud-label">Balance</span>
-      <span class="hud-value" id="balanceVal">1000</span>
+    <div class="hud-top">
+      <div class="hud-block">
+        <span class="hud-label">Balance</span>
+        <span class="hud-value" id="balanceVal">1000</span>
+      </div>
+      <div class="hud-block hud-mid">
+        <span id="title">🃏 Blackjack</span>
+        <div class="hud-sub">Dealer stands on 17</div>
+      </div>
+      <div class="hud-block hud-end">
+        <span class="hud-label">Best hand</span>
+        <span class="hud-value" id="bestVal" style="font-size:16px;color:#a7d4bd">0</span>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
       <div class="shoe" title="Undealt cards in the shoe">
         <div class="shoe-visual" id="shoeVisual"></div>
         <div>
@@ -338,10 +410,7 @@
           <div class="shoe-count" id="shoeCount">312</div>
         </div>
       </div>
-    </div>
-    <div class="hud-block" style="align-items:center">
-      <span id="title">🃏 Blackjack</span>
-      <div style="font-size:11px;color:#6f9c86;margin-top:3px">Dealer stands on 17</div>
+
       <div class="deck-sel" id="deckGroup" title="Number of decks in the shoe">
         <span class="deck-sel-label">Decks</span>
         <button class="deck-btn" data-decks="1">1</button>
@@ -350,24 +419,22 @@
         <button class="deck-btn" data-decks="6">6</button>
         <button class="deck-btn" data-decks="8">8</button>
       </div>
-      <button id="ccToggle" class="cc-toggle" title="Show/hide card counting assist">🧮 Count assist</button>
-      <div id="ccPanel" class="cc-panel" hidden>
-        <div class="cc-row">
-          <div class="cc-stat"><div class="cc-val" id="ccRunning">0</div><div class="cc-lbl">Running</div></div>
-          <div class="cc-stat"><div class="cc-val" id="ccTrue">0.0</div><div class="cc-lbl">True</div></div>
-          <div class="cc-stat"><div class="cc-val" id="ccDecks">6.0</div><div class="cc-lbl">Decks left</div></div>
-        </div>
-        <div class="cc-moves" id="ccMoves"></div>
-        <div class="cc-note" id="ccNote"></div>
-      </div>
-    </div>
-    <div class="hud-block" style="align-items:flex-end">
-      <span class="hud-label">Best hand</span>
-      <span class="hud-value" id="bestVal" style="font-size:16px;color:#a7d4bd">0</span>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+
+      <div class="hud-actions">
+        <button id="ccToggle" class="cc-toggle" title="Show/hide card counting assist">🧮 Count</button>
         <button id="lbBtn" title="Leaderboard">🏆<span class="acc-name" id="accName"></span><span id="accLogout" class="hidden" title="Log out">✕</span></button>
         <button id="muteBtn" title="Toggle sound">🔊</button>
       </div>
+    </div>
+
+    <div id="ccPanel" class="cc-panel" hidden>
+      <div class="cc-row">
+        <div class="cc-stat"><div class="cc-val" id="ccRunning">0</div><div class="cc-lbl">Running</div></div>
+        <div class="cc-stat"><div class="cc-val" id="ccTrue">0.0</div><div class="cc-lbl">True</div></div>
+        <div class="cc-stat"><div class="cc-val" id="ccDecks">6.0</div><div class="cc-lbl">Decks left</div></div>
+      </div>
+      <div class="cc-moves" id="ccMoves"></div>
+      <div class="cc-note" id="ccNote"></div>
     </div>
   </div>
 
