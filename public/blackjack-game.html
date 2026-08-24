@@ -52,6 +52,35 @@
   .deck-btn:active { transform: scale(0.94); }
   .deck-btn.active { background: linear-gradient(135deg,#2f9e6a,#1f7a4c); color: #fff; border-color: rgba(245,230,168,0.4); }
   .deck-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* ── Card-counter assist ── */
+  .cc-toggle {
+    margin-top: 8px; background: rgba(120,200,160,0.12); border: 1px solid rgba(120,200,160,0.35);
+    color: #a7d4bd; border-radius: 7px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .cc-toggle.active { background: linear-gradient(135deg,#2f9e6a,#1f7a4c); color: #fff; border-color: rgba(245,230,168,0.4); }
+  .cc-panel {
+    background: rgba(8,22,16,0.92); border: 1px solid rgba(120,200,160,0.25); border-radius: 12px;
+    padding: 12px 14px; margin: 10px auto 0; max-width: 520px;
+  }
+  .cc-row { display: flex; gap: 18px; justify-content: space-between; }
+  .cc-stat { text-align: center; }
+  .cc-val { font-size: 22px; font-weight: 800; color: #f5e6a8; font-variant-numeric: tabular-nums; }
+  .cc-lbl { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #6f9c86; margin-top: 2px; }
+  .cc-moves { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; }
+  .cc-move {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 12px; border-radius: 10px;
+    background: rgba(120,200,160,0.06); border: 1px solid rgba(120,200,160,0.15);
+  }
+  .cc-move-label { font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #9fc4b0; }
+  .cc-move-pct { font-size: 18px; font-weight: 800; color: #cfe8d8; font-variant-numeric: tabular-nums; }
+  .cc-move-push { font-size: 10px; color: #6f9c86; }
+  .cc-move.best { background: rgba(47,158,106,0.22); border-color: rgba(245,230,168,0.5); }
+  .cc-move.best .cc-move-label { color: #f5e6a8; }
+  .cc-move.best .cc-move-pct { color: #fff; }
+  .cc-best { font-size: 10px; color: #f5e6a8; font-weight: 800; letter-spacing: 0.5px; }
+  .cc-note { margin-top: 10px; font-size: 10px; line-height: 1.5; color: #6f9c86; }
   #title { font-size: 15px; font-weight: 800; letter-spacing: 3px; color: #a7d4bd; text-transform: uppercase; text-align: center; }
   #muteBtn {
     background: rgba(120,200,160,0.12); border: 1px solid rgba(120,200,160,0.35);
@@ -321,6 +350,16 @@
         <button class="deck-btn" data-decks="6">6</button>
         <button class="deck-btn" data-decks="8">8</button>
       </div>
+      <button id="ccToggle" class="cc-toggle" title="Show/hide card counting assist">🧮 Count assist</button>
+      <div id="ccPanel" class="cc-panel" hidden>
+        <div class="cc-row">
+          <div class="cc-stat"><div class="cc-val" id="ccRunning">0</div><div class="cc-lbl">Running</div></div>
+          <div class="cc-stat"><div class="cc-val" id="ccTrue">0.0</div><div class="cc-lbl">True</div></div>
+          <div class="cc-stat"><div class="cc-val" id="ccDecks">6.0</div><div class="cc-lbl">Decks left</div></div>
+        </div>
+        <div class="cc-moves" id="ccMoves"></div>
+        <div class="cc-note" id="ccNote"></div>
+      </div>
     </div>
     <div class="hud-block" style="align-items:flex-end">
       <span class="hud-label">Best hand</span>
@@ -433,6 +472,7 @@
   // left to deal a minimum new hand (player 2 + dealer 2). No early shuffle.
   var MIN_HAND_CARDS = 4;
   function totalCards() { return NUM_DECKS * 52; }
+  var runningCount = 0;   // Hi-Lo running count for the current shoe
 
   // mulberry32 — small, fast, seedable PRNG
   function makeRng(seed) {
@@ -482,6 +522,17 @@
     while (total > 21 && aces > 0) { total -= 10; aces--; }
     return total;
   }
+  // { total, aces } — used by the card-count assist Monte-Carlo
+  function handTotals(cards) {
+    var total = 0, aces = 0;
+    for (var i = 0; i < cards.length; i++) {
+      var r = cards[i].rank;
+      if (r === 'A') { aces++; total += 11; }
+      else total += cardValue(r);
+    }
+    while (total > 21 && aces > 0) { total -= 10; aces--; }
+    return { total: total, aces: aces };
+  }
   function isBlackjack(cards) {
     return cards.length === 2 && handValue(cards) === 21;
   }
@@ -520,6 +571,13 @@
   var overlay = $('overlay');
   var deckGroup = $('deckGroup');
   var deckBtns = Array.prototype.slice.call(document.querySelectorAll('.deck-btn'));
+  var ccToggle = $('ccToggle');
+  var ccPanel = $('ccPanel');
+  var ccRunning = $('ccRunning');
+  var ccTrue = $('ccTrue');
+  var ccDecks = $('ccDecks');
+  var ccMoves = $('ccMoves');
+  var ccNote = $('ccNote');
   var newHandBtn = $('newHandBtn');
   var rebuyBtn = $('rebuyBtn');
   var muteBtn = $('muteBtn');
@@ -639,11 +697,101 @@
     // shoe — the deck is NOT reshuffled mid-run.
     if (shoe.length < MIN_HAND_CARDS) {
       shoe = shuffle(makeDeck(NUM_DECKS), rng);
+      runningCount = 0; // fresh shoe → count resets
     }
   }
   function drawCard() {
     ensureShoe();
-    return shoe.pop();
+    var c = shoe.pop();
+    runningCount += hiLoValue(c);   // track the Hi-Lo count as cards leave the shoe
+    return c;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Card-counting assist: Hi-Lo running/true count + Monte-Carlo
+  // win % for Hit / Stand / Double over the ACTUAL remaining shoe.
+  // ═══════════════════════════════════════════════════════════════
+  function hiLoValue(c) {
+    var r = c.rank;
+    if (r === '2' || r === '3' || r === '4' || r === '5' || r === '6') return 1;
+    if (r === '7' || r === '8' || r === '9') return 0;
+    return -1; // 10, J, Q, K, A
+  }
+  function bestTotal(total, aces) {
+    // total = raw sum (aces counted as 11). Best value = reduce aces 11→1 while >21.
+    var best = total;
+    while (best > 21 && aces > 0) { best -= 10; aces--; }
+    return best;
+  }
+  // Monte-Carlo win % for a player move, sampling uniformly at random from the
+  // real remaining shoe (without replacement). Dealer's hidden hole is drawn
+  // from the same shoe; dealer then plays S17.
+  function simulateMove(playerCards, upCard, move) {
+    // Rank composition of the current shoe, for fast uniform sampling.
+    var comp = {};
+    for (var k = 0; k < shoe.length; k++) {
+      var rk = shoe[k].rank;
+      comp[rk] = (comp[rk] || 0) + 1;
+    }
+    var totalInComp = shoe.length;
+    function drawComp(comp, total) {
+      var r = Math.random() * total, acc = 0, key;
+      for (key in comp) {
+        acc += comp[key];
+        if (r < acc) {
+          comp[key]--;
+          if (comp[key] === 0) delete comp[key];
+          return key;
+        }
+      }
+      return Object.keys(comp)[0]; // fallback (shouldn't happen)
+    }
+    var N = 4000, win = 0, push = 0;
+    var ht = handTotals(playerCards);
+    var baseT = ht.total, baseA = ht.aces;
+    for (var i = 0; i < N; i++) {
+      // Fresh copy of the composition for this iteration (without replacement).
+      var c = {}, key;
+      for (key in comp) c[key] = comp[key];
+      var left = totalInComp;
+      function draw() { return drawComp(c, left--); }
+      var t = baseT, a = baseA;
+      if (move === 'hit') {
+        // "Hit" = keep drawing until the hand reaches 17 (basic-strategy continuation).
+        if (left < 1) { /* can't draw → bust below */ }
+        else {
+          var rk = draw();
+          if (rk === 'A') { t += 11; a++; } else t += cardValue(rk);
+          while (bestTotal(t, a) < 17 && left > 0) {
+            var rk2 = draw();
+            if (rk2 === 'A') { t += 11; a++; } else t += cardValue(rk2);
+          }
+        }
+      } else if (move === 'double') {
+        if (left < 1) continue;
+        var rd = draw();
+        if (rd === 'A') { t += 11; a++; } else t += cardValue(rd);
+      }
+      var pBest = bestTotal(t, a);
+      if (pBest > 21) continue;                       // player bust → loss
+      // Dealer: up-card + hole, then draw to 17 (S17).
+      var dt = upCard.rank === 'A' ? 11 : cardValue(upCard.rank);
+      var da = (upCard.rank === 'A' ? 1 : 0);
+      if (left > 0) {                                  // hole card
+        var rh = draw();
+        if (rh === 'A') { dt += 11; da++; } else dt += cardValue(rh);
+      }
+      while (bestTotal(dt, da) < 17 && left > 0) {
+        var rc = draw();
+        if (rc === 'A') { dt += 11; da++; } else dt += cardValue(rc);
+      }
+      var dBest = bestTotal(dt, da);
+      if (dBest > 21) win++;                           // dealer busts → win
+      else if (dBest < pBest) win++;                   // player higher → win
+      else if (dBest === pBest) push++;
+    }
+    var denom = (N - push) || 1;
+    return { winPct: Math.round(win / denom * 100), pushPct: Math.round(push / N * 100) };
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -776,12 +924,71 @@
     }
   }
 
+  // ── Card-counting assist: running/true count + Monte-Carlo move win % ──
+  var ccCache = null;   // { key, results } — avoid re-simulating on every render
+  function ccKey() {
+    var ah = state.hands[state.activeHand];
+    if (!ah) return '';
+    var pc = ah.cards.map(function (c) { return c.rank; }).join('');
+    var up = state.dealer.length ? state.dealer[0].rank : '';
+    return pc + '|' + up + '|' + shoe.length + '|' + state.activeHand + '|' + (ah.doubled ? 1 : 0);
+  }
+  function computeMoves(ah, up) {
+    var moves = [];
+    var canDouble = ah.cards.length === 2 && !ah.doubled && !ah.splitAce && ah.bet * 2 <= state.balance;
+    if (canDouble) moves.push({ key: 'double', label: 'Double' });
+    moves.push({ key: 'hit', label: 'Hit' });
+    moves.push({ key: 'stand', label: 'Stand' });
+    var results = [];
+    for (var i = 0; i < moves.length; i++) {
+      var r = simulateMove(ah.cards, up, moves[i].key);
+      results.push({ key: moves[i].key, label: moves[i].label, winPct: r.winPct, pushPct: r.pushPct });
+    }
+    results.sort(function (x, y) { return y.winPct - x.winPct; });
+    return results;
+  }
+  function renderCountAssist() {
+    if (!ccPanel || ccPanel.hidden) return;
+    var decksLeft = Math.max(0.5, shoe.length / 52);
+    var trueCount = runningCount / decksLeft;
+    ccRunning.textContent = (runningCount > 0 ? '+' : '') + runningCount;
+    ccRunning.style.color = runningCount > 0 ? '#7fe0a8' : (runningCount < 0 ? '#ff8a7a' : '#cfe9db');
+    ccTrue.textContent = (trueCount > 0 ? '+' : '') + trueCount.toFixed(1);
+    ccTrue.style.color = trueCount > 0 ? '#7fe0a8' : (trueCount < 0 ? '#ff8a7a' : '#cfe9db');
+    ccDecks.textContent = decksLeft.toFixed(1);
+    var ah = state.hands[state.activeHand];
+    var inPlay = state.phase === 'player' && ah && ah.cards.length >= 2 && state.dealer.length >= 1;
+    if (!inPlay) {
+      ccMoves.innerHTML = '';
+      ccNote.textContent = 'Running count updates as cards are dealt. Move % shows once it\u2019s your turn.';
+      return;
+    }
+    var key = ccKey();
+    if (!ccCache || ccCache.key !== key) {
+      ccCache = { key: key, results: computeMoves(ah, state.dealer[0]) };
+    }
+    var results = ccCache.results;
+    var bestKey = results[0].key;
+    ccMoves.innerHTML = '';
+    for (var j = 0; j < results.length; j++) {
+      var m = results[j];
+      var d = document.createElement('div');
+      d.className = 'cc-move' + (m.key === bestKey ? ' best' : '');
+      d.innerHTML = '<span class="cc-move-label">' + m.label + (m.key === bestKey ? ' <span class="cc-best">\u2605 best</span>' : '') + '</span>' +
+                    '<span class="cc-move-pct">' + m.winPct + '%</span>' +
+                    '<span class="cc-move-push">push ' + m.pushPct + '%</span>';
+      ccMoves.appendChild(d);
+    }
+    ccNote.textContent = 'Estimates from ' + shoe.length + ' cards left in the shoe. Dealer S17. Not a guarantee.';
+  }
+
   function render() {
     balanceEl.textContent = String(state.balance);
     bestEl.textContent = String(state.best);
     betValEl.textContent = String(state.bet);
     renderShoe();
     updateDeckSel();
+    renderCountAssist();
     updateTotals();
     // control visibility
     betRow.className = state.phase === 'bet' ? 'row' : 'row hidden';
@@ -1173,6 +1380,15 @@
       b.classList.toggle('active', v === NUM_DECKS);
       b.disabled = state.phase !== 'bet';
     });
+
+  if (ccToggle) {
+    ccToggle.addEventListener('click', function () {
+      ccPanel.hidden = !ccPanel.hidden;
+      ccToggle.classList.toggle('active', !ccPanel.hidden);
+      renderCountAssist();
+    });
+  }
+
     if (deckGroup) {
       deckGroup.className = state.phase === 'bet' ? 'deck-sel' : 'deck-sel hidden';
     }
@@ -1486,7 +1702,12 @@
       rebuy: rebuy,
       _setDecks: function (n) { setDeckCount(n); },
       _setSeed: function (s) { rng = makeRng(s); shoe = []; },
+      _ensureShoe: function () { ensureShoe(); },
       _shoeLength: function () { return shoe.length; },
+      _runningCount: function () { return runningCount; },
+      _trueCount: function () { return runningCount / Math.max(0.5, shoe.length / 52); },
+      _simulateMove: function (playerCards, upCard, move) { return simulateMove(playerCards, upCard, move); },
+      _hiLoValue: hiLoValue,
       _handValue: handValue,
       _isBlackjack: isBlackjack,
       _cardValue: cardValue,

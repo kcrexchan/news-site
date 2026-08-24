@@ -15,7 +15,7 @@ const code = m[1];
 // ── DOM element factory (supports firstChild/lastChild/appendChild/removeChild) ──
 function makeEl(attrs) {
   var e = {
-    textContent: '', className: '', disabled: false, style: {},
+    textContent: '', className: '', disabled: false, hidden: false, style: {},
     _children: [], _attrs: attrs || {},
     appendChild: function (c) { e._children.push(c); return c; },
     removeChild: function (c) { var i = e._children.indexOf(c); if (i >= 0) e._children.splice(i, 1); return c; },
@@ -31,10 +31,12 @@ function makeEl(attrs) {
 
 var ids = ['balanceVal','bestVal','shoeCount','shoeVisual','dealerTotal','playerTotal','dealerCards','playerCards','playerArea',
   'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn','splitBtn',
-  'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg','deckGroup',
+  'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg','deckGroup','ccToggle','ccPanel','ccRunning','ccTrue','ccDecks','ccMoves','ccNote',
   'lbBtn','accName','accLogout','accountModal','boardModal','tabCreate','tabLogin','accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot','boardBorrowBtn','brokeBorrowBtn','boardCloseBtn'];
 var elements = {};
 ids.forEach(function (id) { elements[id] = makeEl(); });
+// Match the real game: the count-assist panel starts hidden (user toggles it on).
+elements.ccPanel.hidden = true;
 
 var chips = ['10','25','100','500'].map(function (v) { return makeEl({ 'data-chip': v }); });
 var deckBtns = ['1','2','4','6','8'].map(function (v) { return makeEl({ 'data-decks': v }); });
