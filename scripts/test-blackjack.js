@@ -32,20 +32,20 @@ function makeEl(attrs) {
 var ids = ['balanceVal','bestVal','dealerTotal','playerTotal','dealerCards','playerCards','playerArea',
   'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn','splitBtn',
   'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg',
-  'lbBtn','accName','accLogout','accountModal','boardModal','tabCreate','tabLogin','accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot','boardSubmitBtn','boardCloseBtn'];
+  'lbBtn','accName','accLogout','accountModal','boardModal','tabCreate','tabLogin','accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot','boardBorrowBtn','brokeBorrowBtn','boardCloseBtn'];
 var elements = {};
 ids.forEach(function (id) { elements[id] = makeEl(); });
 
 var chips = ['10','25','100','500'].map(function (v) { return makeEl({ 'data-chip': v }); });
 
-// ── fetch mock: simulates /api/blackjack/leaderboard (PIN-protected accounts) ──
-var lbStore = {};   // name -> { pin, best, blackjacks }
-var lbEtag = 'v1';
+// ── fetch mock: simulates /api/blackjack/leaderboard (wallet + casino loans) ──
+var lbStore = {};   // name -> { pin, wallet, debt, borrows }
+var LOAN = 2000, LOAN_TOTAL = 2020;
 function lbApi(body) {
   var a = body.action;
   function board() {
-    var rows = Object.keys(lbStore).map(function (n) { return { name: n, best: lbStore[n].best, blackjacks: lbStore[n].blackjacks, at: '2026-08-23T00:00:00.000Z' }; });
-    rows.sort(function (x, y) { return (y.best - x.best) || (y.blackjacks - x.blackjacks) || x.name.localeCompare(y.name); });
+    var rows = Object.keys(lbStore).map(function (n) { return { name: n, wallet: lbStore[n].wallet, debt: lbStore[n].debt, borrows: lbStore[n].borrows, at: '2026-08-23T00:00:00.000Z' }; });
+    rows.sort(function (x, y) { return (y.wallet - x.wallet) || x.name.localeCompare(y.name); });
     return { updated: '2026-08-23T00:00:00.000Z', scores: rows.slice(0, 25) };
   }
   if (a === 'board') return board();
@@ -53,22 +53,30 @@ function lbApi(body) {
     var n = (body.name || '').trim();
     if (!n) return { ok: false, error: 'Name required' };
     if (lbStore[n]) return { ok: false, error: 'Name already taken' };
-    lbStore[n] = { pin: body.pin, best: 0, blackjacks: 0 };
-    return { ok: true, name: n, best: 0, blackjacks: 0, board: board() };
+    lbStore[n] = { pin: body.pin, wallet: 1000, debt: 0, borrows: 0 };
+    return { ok: true, name: n, wallet: 1000, debt: 0, borrows: 0, board: board() };
   }
   if (a === 'login') {
     var ln = (body.name || '').trim();
     if (!lbStore[ln]) return { ok: false, error: 'No such account' };
     if (lbStore[ln].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
-    return { ok: true, name: ln, best: lbStore[ln].best, blackjacks: lbStore[ln].blackjacks, board: board() };
+    return { ok: true, name: ln, wallet: lbStore[ln].wallet, debt: lbStore[ln].debt, borrows: lbStore[ln].borrows, board: board() };
   }
   if (a === 'score') {
     var sn = (body.name || '').trim();
     if (!lbStore[sn]) return { ok: false, error: 'No such account' };
     if (lbStore[sn].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
-    if (body.best > lbStore[sn].best) lbStore[sn].best = body.best;
-    lbStore[sn].blackjacks = body.blackjacks;
-    return { ok: true, name: sn, best: lbStore[sn].best, blackjacks: lbStore[sn].blackjacks, board: board() };
+    lbStore[sn].wallet = Math.floor(Number(body.wallet) || 0);   // can be negative
+    return { ok: true, name: sn, wallet: lbStore[sn].wallet, board: board() };
+  }
+  if (a === 'borrow') {
+    var bn = (body.name || '').trim();
+    if (!lbStore[bn]) return { ok: false, error: 'No such account' };
+    if (lbStore[bn].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
+    lbStore[bn].wallet += LOAN;
+    lbStore[bn].debt += LOAN_TOTAL;
+    lbStore[bn].borrows += 1;
+    return { ok: true, name: bn, wallet: lbStore[bn].wallet, debt: lbStore[bn].debt, borrows: lbStore[bn].borrows, loan: LOAN, interest: 20, board: board() };
   }
   return { ok: false, error: 'Unknown action' };
 }
@@ -488,15 +496,16 @@ for (var rs3 = 1; rs3 <= 6000 && blocked < 4; rs3++) {
 }
 assert(blocked >= 1, 'split-ace (A+A) hands block hit + double but allow stand (' + blocked + ')');
 
-// ═══════════════════════════════════════════════════════════════
-//  8. LEADERBOARD — PIN-protected accounts (create / login / score / board)
-// ═══════════════════════════════════════════════════════════════
-console.log('— leaderboard accounts —');
+// ═════════════════════════════════════════════════════════════════════
+//  8. LEADERBOARD — PIN accounts with a wallet + casino loans
+// ═════════════════════════════════════════════════════════════════════
+console.log('— leaderboard wallet + casino loans —');
 function runLB() {
   return Promise.resolve()
     .then(function () { return BJ._lbCreate('Rex', '1234'); })
     .then(function (r) {
       assert(r.ok === true && r.name === 'Rex', 'create account "Rex" succeeds');
+      assert(r.wallet === 1000 && r.debt === 0 && r.borrows === 0, 'new account starts with $1000, no debt, 0 loans');
       return BJ._lbCreate('Rex', '9999').then(function (d) {
         assert(d.ok === false, 'duplicate name rejected (resolved)');
       }, function (e) {
@@ -514,22 +523,34 @@ function runLB() {
     .then(function (r) {
       assert(r.ok === true && r.name === 'Rex', 'login with correct PIN succeeds');
       assert(BJ._lbSession() && BJ._lbSession().name === 'Rex', 'session holds account name + PIN');
-      return BJ._lbScore(150, 1);
+      assert(BJ._lbSession().wallet === 1000, 'session wallet matches account ($1000)');
+      // A losing hand: wallet drops below the start (can go negative).
+      return BJ._lbScore(-250);
     })
     .then(function (r) {
-      assert(r.ok === true && r.best === 150 && r.blackjacks === 1, 'submit score 150 / 1 BJ accepted');
-      return BJ._lbScore(100, 0);
+      assert(r.ok === true && r.wallet === -250, 'losing hand sets a NEGATIVE wallet (-250)');
+      // Recover by borrowing $2000 (1% interest -> debt 2020).
+      return BJ._lbBorrow();
     })
     .then(function (r) {
-      assert(r.best === 150, 'lower score does not overwrite the high score');
+      assert(r.ok === true && r.wallet === 1750, 'borrow: wallet -250 + 2000 = 1750');
+      assert(r.debt === 2020 && r.borrows === 1, 'borrow: debt 2020 (1% interest), 1 loan recorded');
+      assert(BJ._lbSession().wallet === 1750 && BJ._lbSession().borrows === 1, 'session updated after borrow');
+      // Unlimited borrowing: a second loan is allowed.
+      return BJ._lbBorrow();
+    })
+    .then(function (r) {
+      assert(r.wallet === 3750 && r.borrows === 2 && r.debt === 4040, 'second borrow allowed (unlimited): wallet 3750, 2 loans, debt 4040');
       return BJ._lbBoard();
     })
     .then(function (r) {
       assert(Array.isArray(r.scores) && r.scores.length >= 1, 'board returns at least the created account');
       var top = r.scores[0];
-      assert(top.name === 'Rex' && top.best === 150, 'board top row is Rex @ 150');
+      assert(top.name === 'Rex' && top.wallet === 3750 && top.debt === 4040 && top.borrows === 2, 'board top row is Rex @ wallet 3750 / debt 4040 / 2 loans');
       BJ._lbRender(r);
-      assert(elements['boardBody'].innerHTML.indexOf('Rex') !== -1, 'board render writes the name into the DOM');
+      var html = elements['boardBody'].innerHTML;
+      assert(html.indexOf('Rex') !== -1, 'board render writes the name into the DOM');
+      assert(html.indexOf('Wallet') !== -1 && html.indexOf('Debt') !== -1 && html.indexOf('Loans') !== -1, 'board render shows Wallet / Debt / Loans columns');
       return BJ._lbLogout();
     })
     .then(function () {

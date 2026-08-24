@@ -3,15 +3,25 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 // Blackjack leaderboard with PIN-protected accounts, backed by an R2 bucket
 // binding (same TETRIS_LEADERBOARD bucket as the Tetris board — separate object
 // key). Accounts hold a salted SHA-256 hash of their 4-digit PIN; the plain PIN
-// is never stored. The public board is the top-10 by best balance, derived at
-// read time from the account table.
+// is never stored.
 //
-//   GET  -> { updated, scores: [ {name, best, blackjacks, at} x10 ] }
+// WALLET MODEL
+//   Each account stores a `wallet` — the player's bankroll, which is the SAME
+//   number as the in-game balance. It can go NEGATIVE (the player can lose more
+//   than they started with). When the wallet can't cover the minimum bet the
+//   player must BORROW from the casino to keep playing.
+//   `borrow`  : wallet += 2000, debt += 2020 (1% interest on the $2000), borrows += 1
+//   `debt`    : total owed to the casino (principal + interest), starts at 0.
+//   `borrows` : how many times the player has borrowed from the casino.
+//   Borrowing is unlimited — no cap on how many $2000 loans a player can take.
+//
+//   GET  -> { updated, scores: [ {name, wallet, debt, borrows, at} x10 ] }
 //   POST -> { action, ... }
-//     action "create" : { name, pin } -> create account (rejects dup name)
-//     action "login"  : { name, pin } -> verify PIN, return account summary
-//     action "score"  : { name, pin, best, blackjacks } -> verify PIN,
-//                         update account (best = max), recompute board
+//     action "create" : { name, pin } -> create account (wallet starts at 1000)
+//     action "login"  : { name, pin } -> verify PIN, return wallet/debt/borrows
+//     action "score"  : { name, pin, wallet } -> verify PIN, set wallet (can be
+//                        negative), recompute board
+//     action "borrow" : { name, pin } -> verify PIN, wallet += 2000, debt += 2020
 //     action "board"  : same as GET
 //
 // Concurrency: optimistic locking — read the object ETag, PUT with that ETag as
@@ -20,6 +30,11 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 const OBJECT_KEY = "leaderboard/blackjack.json";
 const MAX_ENTRIES = 10;
 const MAX_RETRIES = 5;
+
+// Casino loan terms: $2000 at a time, 1% interest, unlimited count.
+const LOAN_AMOUNT = 2000;
+const LOAN_INTEREST = 0.01; // 1%
+const LOAN_TOTAL = LOAN_AMOUNT + Math.round(LOAN_AMOUNT * LOAN_INTEREST); // 2020
 
 // ── Web Crypto helpers (CF Workers + Node 18+ both expose globalThis.crypto) ──
 function bufToHex(buf) {
@@ -71,19 +86,25 @@ function nameKey(name) {
 function validPin(pin) {
   return typeof pin === "string" && /^\d{4}$/.test(pin);
 }
+// Wallet can be negative (player owes the house) — only coerce to an integer.
+function coerceWallet(v) {
+  const n = Math.floor(Number(v) || 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
-// Derive the public top-N board from the account table.
+// Derive the public top-N board from the account table (ranked by wallet).
 function publicBoard(doc) {
   const rows = Object.keys(doc.accounts).map((key) => {
     const a = doc.accounts[key];
     return {
       name: a.name,
-      best: Math.max(0, Math.floor(Number(a.best) || 0)),
-      blackjacks: Math.max(0, Math.floor(Number(a.blackjacks) || 0)),
+      wallet: Math.floor(Number(a.wallet) || 0),
+      debt: Math.max(0, Math.floor(Number(a.debt) || 0)),
+      borrows: Math.max(0, Math.floor(Number(a.borrows) || 0)),
       at: a.last || a.created || new Date(0).toISOString(),
     };
   });
-  rows.sort((x, y) => y.best - x.best || y.blackjacks - x.blackjacks || x.name.localeCompare(y.name));
+  rows.sort((x, y) => y.wallet - x.wallet || x.name.localeCompare(y.name));
   return { updated: doc.updated, scores: rows.slice(0, MAX_ENTRIES) };
 }
 
@@ -97,8 +118,9 @@ function normalizeDoc(raw) {
       name: String(a.name || key).slice(0, 12) || "PLAYER",
       salt: String(a.salt || ""),
       pinHash: String(a.pinHash || ""),
-      best: Math.max(0, Math.floor(Number(a.best) || 0)),
-      blackjacks: Math.max(0, Math.floor(Number(a.blackjacks) || 0)),
+      wallet: coerceWallet(a.wallet),
+      debt: Math.max(0, Math.floor(Number(a.debt) || 0)),
+      borrows: Math.max(0, Math.floor(Number(a.borrows) || 0)),
       created: typeof a.created === "string" ? a.created : new Date(0).toISOString(),
       last: typeof a.last === "string" ? a.last : new Date(0).toISOString(),
     };
@@ -132,7 +154,8 @@ async function readDoc(bkt) {
 }
 
 // Run a read-modify-write with optimistic locking. `mutate(doc)` returns
-// { ok, status?, body? } or { ok:false, ... } to signal an app-level error.
+// { write:true, status?, body? } to persist, or { write:false, ... } for an
+// app-level error / no change.
 async function withLock(bkt, mutate) {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const { doc, etag } = await readDoc(bkt);
@@ -191,57 +214,86 @@ export default async function handler(req, res) {
           if (doc.accounts[key]) {
             return { ok: false, write: false, status: 409, body: { error: "That name is already taken — try logging in" } };
           }
-          doc.accounts[key] = { name, salt, pinHash, best: 0, blackjacks: 0, created, last: created };
+          doc.accounts[key] = { name, salt, pinHash, wallet: 1000, debt: 0, borrows: 0, created, last: created };
           doc.updated = created;
-          return { write: true, status: 200, body: { ok: true, name, board: publicBoard(doc) } };
+          return { write: true, status: 200, body: { ok: true, name, wallet: 1000, debt: 0, borrows: 0, board: publicBoard(doc) } };
         });
         return json(res, result.status, result.body);
       }
 
-      if (action === "login" || action === "score") {
+      if (action === "login") {
         const name = normalizeName(body.name);
         const pin = String(body.pin ?? "").trim();
         if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
         const key = nameKey(name);
+        const { doc } = await readDoc(bkt);
+        const a = doc.accounts[key];
+        if (!a) return json(res, 404, { error: "No such account — create one first" });
+        const expect = await hashPin(pin, a.salt);
+        if (!safeEqual(expect, a.pinHash)) return json(res, 401, { error: "Wrong PIN" });
+        return json(res, 200, {
+          ok: true,
+          name: a.name,
+          wallet: a.wallet,
+          debt: a.debt,
+          borrows: a.borrows,
+          board: publicBoard(doc),
+        });
+      }
 
-        if (action === "login") {
-          const { doc } = await readDoc(bkt);
-          const a = doc.accounts[key];
-          if (!a) return json(res, 404, { error: "No such account — create one first" });
-          const expect = await hashPin(pin, a.salt);
-          if (!safeEqual(expect, a.pinHash)) return json(res, 401, { error: "Wrong PIN" });
-          return json(res, 200, {
-            ok: true,
-            name: a.name,
-            best: a.best,
-            blackjacks: a.blackjacks,
-            board: publicBoard(doc),
-          });
-        }
-
-        // action === "score"
-        const best = Math.max(0, Math.floor(Number(body.best) || 0));
-        const blackjacks = Math.max(0, Math.floor(Number(body.blackjacks) || 0));
+      if (action === "score") {
+        const name = normalizeName(body.name);
+        const pin = String(body.pin ?? "").trim();
+        if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
+        const key = nameKey(name);
+        const wallet = coerceWallet(body.wallet);
         const now = new Date().toISOString();
         const result = await withLock(bkt, async (doc) => {
           const a = doc.accounts[key];
           if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
           const expect = await hashPin(pin, a.salt);
           if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
-          const newBest = Math.max(a.best, best);
-          doc.accounts[key] = {
-            ...a,
-            best: newBest,
-            blackjacks: blackjacks,
-            last: now,
-          };
+          doc.accounts[key] = { ...a, wallet: wallet, last: now };
           doc.updated = now;
-          return { write: true, status: 200, body: { ok: true, name: a.name, best: newBest, board: publicBoard(doc) } };
+          return { write: true, status: 200, body: { ok: true, name: a.name, wallet: wallet, board: publicBoard(doc) } };
         });
         return json(res, result.status, result.body);
       }
 
-      return json(res, 400, { error: "Unknown action", actions: ["create", "login", "score", "board"] });
+      if (action === "borrow") {
+        const name = normalizeName(body.name);
+        const pin = String(body.pin ?? "").trim();
+        if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
+        const key = nameKey(name);
+        const now = new Date().toISOString();
+        const result = await withLock(bkt, async (doc) => {
+          const a = doc.accounts[key];
+          if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
+          const expect = await hashPin(pin, a.salt);
+          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
+          const newWallet = a.wallet + LOAN_AMOUNT;
+          const newDebt = a.debt + LOAN_TOTAL;
+          doc.accounts[key] = { ...a, wallet: newWallet, debt: newDebt, borrows: a.borrows + 1, last: now };
+          doc.updated = now;
+          return {
+            write: true,
+            status: 200,
+            body: {
+              ok: true,
+              name: a.name,
+              wallet: newWallet,
+              debt: newDebt,
+              borrows: a.borrows + 1,
+              loan: LOAN_AMOUNT,
+              interest: LOAN_TOTAL - LOAN_AMOUNT,
+              board: publicBoard(doc),
+            },
+          };
+        });
+        return json(res, result.status, result.body);
+      }
+
+      return json(res, 400, { error: "Unknown action", actions: ["create", "login", "score", "borrow", "board"] });
     }
 
     res.setHeader("Allow", "GET, POST");

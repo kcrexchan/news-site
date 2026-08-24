@@ -309,6 +309,7 @@
         <div class="broke" id="brokeMsg">You're out of chips.</div>
         <button id="newHandBtn" class="btn newhand">New Hand</button>
         <button id="rebuyBtn" class="btn rebuy" style="display:none;margin-top:10px">Rebuy · 1000</button>
+        <button id="brokeBorrowBtn" class="btn rebuy" style="display:none;margin-top:10px">🏦 Borrow $2,000 from the casino</button>
       </div>
     </div>
   </div>
@@ -370,10 +371,10 @@
 <div class="modal" id="boardModal">
   <div class="box">
     <h2>🏆 Top 10</h2>
-    <div class="hint">Best bankroll across all hands.</div>
+    <div class="hint">Wallet, casino debt &amp; loans — ranked by net worth.</div>
     <div id="boardBody"></div>
     <div class="lb-foot" id="boardFoot"></div>
-    <button class="go-btn" id="boardSubmitBtn" style="margin-top:14px">Submit my best score</button>
+    <button class="go-btn" id="boardBorrowBtn" style="margin-top:14px">🏦 Borrow $2,000 from the casino</button>
     <button class="close-btn" id="boardCloseBtn">Close</button>
   </div>
 </div>
@@ -993,7 +994,7 @@
     if (anyBJ) state.blackjacks = (state.blackjacks || 0) + 1;
     saveState();
     render();
-    if (typeof lbAutoSubmit === 'function') lbAutoSubmit();
+    if (typeof lbSyncWallet === 'function') lbSyncWallet();
 
     // Aggregate outcome for the banner / SFX
     var outcome;
@@ -1035,8 +1036,12 @@
     newHighEl.classList.toggle('show', !!newHigh);
 
     var broke = state.balance < MIN_BET && state.bet === 0 && state.balance < 10;
-    brokeMsg.classList.toggle('show', broke);
-    rebuyBtn.style.display = broke ? 'block' : 'none';
+    brokeMsg.classList.toggle("show", broke);
+    // Account players recover by borrowing from the casino; the free local
+    // rebuy is only for anonymous play (it would otherwise corrupt the wallet).
+    var accountPlayer = !!lbSession;
+    rebuyBtn.style.display = (broke && !accountPlayer) ? 'block' : 'none';
+    if (brokeBorrowBtn) brokeBorrowBtn.style.display = (broke && accountPlayer) ? 'block' : 'none';
     newHandBtn.style.display = broke ? 'none' : 'block';
 
     overlay.className = 'show';
@@ -1122,12 +1127,13 @@
   var accOk = $('accOk');
   var boardBody = $('boardBody');
   var boardFoot = $('boardFoot');
-  var boardSubmitBtn = $('boardSubmitBtn');
+  var boardBorrowBtn = $('boardBorrowBtn');
+  var brokeBorrowBtn = $('brokeBorrowBtn');
   var boardCloseBtn = $('boardCloseBtn');
 
   var LB_URL = '/api/blackjack/leaderboard';
   var lbMode = 'create';
-  var lbSession = null;   // { name, pin, best, blackjacks }
+  var lbSession = null;   // { name, pin, wallet, debt, borrows }
   var lbBoard = null;
   var lbBusy = false;
 
@@ -1155,12 +1161,13 @@
     if (!rows.length) {
       boardBody.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>';
     } else {
-      var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th class="num">Best</th><th class="num">BJs</th></tr></thead><tbody>';
+      var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th class="num">Wallet</th><th class="num">Debt</th><th class="num">Loans</th></tr></thead><tbody>';
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         var me = lbSession && String(r.name).toLowerCase() === String(lbSession.name).toLowerCase();
         var cls = (i === 0 ? 'top1' : '') + (me ? ' me' : '');
-        html += '<tr class="' + cls + '"><td class="rank">' + (i + 1) + '</td><td class="lb-name">' + lbEsc(r.name) + '</td><td class="num lb-score">' + r.best + '</td><td class="num">' + (r.blackjacks || 0) + '</td></tr>';
+        var debtCell = (r.debt > 0) ? ('$' + r.debt.toLocaleString()) : '—';
+        html += '<tr class="' + cls + '"><td class="rank">' + (i + 1) + '</td><td class="lb-name">' + lbEsc(r.name) + '</td><td class="num lb-score' + (r.wallet < 0 ? ' neg' : '') + '">' + (r.wallet < 0 ? '-' : '') + '$' + Math.abs(r.wallet).toLocaleString() + '</td><td class="num">' + debtCell + '</td><td class="num">' + (r.borrows || 0) + '</td></tr>';
       }
       html += '</tbody></table>';
       boardBody.innerHTML = html;
@@ -1223,53 +1230,68 @@
   // create / login both establish the session (used by UI and by tests)
   function lbCreate(name, pin) {
     return lbFetch('POST', { action: 'create', name: name, pin: pin }).then(function (res) {
-      lbSession = { name: res.name, pin: pin, best: res.best || 0, blackjacks: res.blackjacks || 0 };
+      lbSession = { name: res.name, pin: pin, wallet: res.wallet != null ? res.wallet : 1000, debt: res.debt || 0, borrows: res.borrows || 0 };
       if (res.board) lbBoard = res.board;
+      state.balance = lbSession.wallet;   // account wallet is the source of truth
+      saveState(); render();
       lbUpdateBadge();
       return res;
     });
   }
   function lbLogin(name, pin) {
     return lbFetch('POST', { action: 'login', name: name, pin: pin }).then(function (res) {
-      lbSession = { name: res.name, pin: pin, best: res.best || 0, blackjacks: res.blackjacks || 0 };
+      lbSession = { name: res.name, pin: pin, wallet: res.wallet != null ? res.wallet : 0, debt: res.debt || 0, borrows: res.borrows || 0 };
       if (res.board) lbBoard = res.board;
+      state.balance = lbSession.wallet;   // account wallet is the source of truth
+      saveState(); render();
       lbUpdateBadge();
       return res;
     });
   }
   function lbLogout() { lbSession = null; lbUpdateBadge(); if (boardModal) boardModal.classList.remove('show'); }
 
+  // Borrow $2000 from the casino (1% interest, unlimited). Returns the updated
+  // account so the caller can refresh the local balance.
   function lbOpenBoard() {
     if (!lbSession) { lbOpenAccount(); return; }
     if (boardModal) boardModal.classList.add('show');
-    if (boardSubmitBtn) boardSubmitBtn.textContent = 'Submit my best score';
+    if (boardBorrowBtn) boardBorrowBtn.textContent = '🏦 Borrow $2,000 from the casino';
     if (typeof fetch === 'function') {
       lbFetch('POST', { action: 'board' }).then(function (b) { lbRenderBoard(b); }).catch(function () { lbRenderBoard(null); });
     } else { lbRenderBoard(null); }
   }
   function lbCloseBoard() { if (boardModal) boardModal.classList.remove('show'); }
 
-  function lbSubmitScore(best, blackjacks) {
+  // Sync the account's wallet with the current game balance after each hand.
+  // The account's wallet IS the player's money: wins raise it, losses lower it,
+  // and it can go negative.
+  function lbSyncWallet(wallet) {
     if (!lbSession) return Promise.resolve();
-    var b = (best == null) ? Math.max(0, Math.floor(state.best || 0)) : Math.max(0, Math.floor(best));
-    var bjs = (blackjacks == null) ? (state.blackjacks || 0) : Math.max(0, Math.floor(blackjacks));
-    return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: b, blackjacks: bjs }).then(function (res) {
-      lbSession.best = res.best;
+    var w = (wallet == null) ? state.balance : wallet;
+    return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, wallet: w }).then(function (res) {
+      lbSession.wallet = res.wallet;
       if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
-      if (boardSubmitBtn) boardSubmitBtn.textContent = 'Score submitted ✓';
-    }).catch(function () {
-      if (boardSubmitBtn) boardSubmitBtn.textContent = 'Submit failed — try again';
-    });
+    }).catch(function () { /* user can retry from the board */ });
   }
 
-  function lbAutoSubmit() {
-    if (!lbSession) return;
-    var best = Math.max(0, Math.floor(state.best || 0));
-    if (best <= 0 || best <= lbSession.best) return;
-    lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: best, blackjacks: state.blackjacks || 0 }).then(function (res) {
-      lbSession.best = res.best;
-      if (res.board) lbBoard = res.board;
-    }).catch(function () { /* user can retry from the board */ });
+  // Borrow $2000 from the casino (low interest, unlimited). Wallet rises, debt rises.
+  function lbBorrow() {
+    if (!lbSession) return Promise.resolve();
+    return lbFetch('POST', { action: 'borrow', name: lbSession.name, pin: lbSession.pin }).then(function (res) {
+      lbSession.wallet = res.wallet;
+      lbSession.debt = res.debt;
+      lbSession.borrows = res.borrows;
+      state.balance = res.wallet;
+      render();
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+      if (boardBorrowBtn) boardBorrowBtn.textContent = 'Borrowed $2,000 ✓';
+      if (brokeBorrowBtn) brokeBorrowBtn.textContent = 'Borrowed $2,000 ✓';
+      return res;
+    }).catch(function (err) {
+      if (boardBorrowBtn) boardBorrowBtn.textContent = 'Borrow failed — try again';
+      if (brokeBorrowBtn) brokeBorrowBtn.textContent = 'Borrow failed — try again';
+      throw err;
+    });
   }
 
   // ── wire up leaderboard UI ──
@@ -1279,7 +1301,8 @@
   if (tabLogin && tabLogin.addEventListener) tabLogin.addEventListener('click', function () { lbSwitchMode('login'); });
   if (accGoBtn && accGoBtn.addEventListener) accGoBtn.addEventListener('click', lbDoGo);
   if (accCloseBtn && accCloseBtn.addEventListener) accCloseBtn.addEventListener('click', lbCloseAccount);
-  if (boardSubmitBtn && boardSubmitBtn.addEventListener) boardSubmitBtn.addEventListener('click', function () { lbSubmitScore(); });
+  if (boardBorrowBtn && boardBorrowBtn.addEventListener) boardBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
+  if (brokeBorrowBtn && brokeBorrowBtn.addEventListener) brokeBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
   if (boardCloseBtn && boardCloseBtn.addEventListener) boardCloseBtn.addEventListener('click', lbCloseBoard);
   if (accPinInput && accPinInput.addEventListener) {
     accPinInput.addEventListener('input', function () { accPinInput.value = accPinInput.value.replace(/[^0-9]/g, '').slice(0, 4); });
@@ -1336,15 +1359,16 @@
       _insuranceAmount: insuranceAmount,
       _makeDeck: makeDeck,
       _shuffle: shuffle,
-      // ── leaderboard (PIN-protected accounts) ──
+      // ── leaderboard (PIN-protected accounts + wallet + casino loans) ──
       _lbCreate: lbCreate,
       _lbLogin: lbLogin,
       _lbBoard: function () { return lbFetch('POST', { action: 'board' }); },
-      _lbScore: function (best, blackjacks) {
+      _lbScore: function (wallet) {
         if (!lbSession) return Promise.reject(new Error('no session'));
-        return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: best, blackjacks: blackjacks });
+        return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, wallet: wallet });
       },
-      _lbSubmit: lbSubmitScore,
+      _lbBorrow: lbBorrow,
+      _lbSync: lbSyncWallet,
       _lbLogout: lbLogout,
       _lbSession: function () { return lbSession; },
       _lbRender: lbRenderBoard
