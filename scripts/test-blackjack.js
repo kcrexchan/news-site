@@ -322,16 +322,16 @@ for (var sp = 1; sp <= 1200 && splitHands < 12; sp++) {
   var balBeforeSplit = st.balance;
   BJ.split();
   var mid = BJ.state();
-  if (mid.phase !== 'player') { console.error('   ✗ split did not enter player phase seed=' + sp); process.exit(1); }
+  if (mid.phase !== 'player' && mid.phase !== 'settle') { console.error('   ✗ split did not enter player/settle phase seed=' + sp + ' phase=' + mid.phase); process.exit(1); }
   if (mid.hands.length !== 2) { console.error('   ✗ split should create 2 hands (got ' + mid.hands.length + ') seed=' + sp); process.exit(1); }
-  if (mid.balance !== balBeforeSplit - 100) { console.error('   ✗ split should deduct one stake (before=' + balBeforeSplit + ' after=' + mid.balance + ') seed=' + sp); process.exit(1); }
+  if (mid.phase === 'player' && mid.balance !== balBeforeSplit - 100) { console.error('   ✗ split should deduct one stake (before=' + balBeforeSplit + ' after=' + mid.balance + ') seed=' + sp); process.exit(1); }
   // stand on each hand in turn until the dealer settles (max 2 hands here)
   for (var stands = 0; stands < 4 && BJ.state().phase === 'player'; stands++) BJ.stand();
   var mid2 = BJ.state();
   if (mid2.phase !== 'settle') { console.error('   ✗ split hands did not settle seed=' + sp + ' phase=' + mid2.phase); process.exit(1); }
   var hands = mid2.hands.map(function (h) { return { cards: cardsFromStrings(h.cards), bet: h.bet }; });
   var d = cardsFromStrings(mid2.dealer);
-  var exp = splitExpectedBalance(hands, d, mid.balance);
+  var exp = splitExpectedBalance(hands, d, balBeforeSplit - 100);
   if (mid2.balance !== exp) {
     console.error('   ✗ split balance seed=' + sp + ' got=' + mid2.balance + ' expected=' + exp + ' hands=' + JSON.stringify(mid2.hands) + ' dealer=' + mid2.dealer.join(' '));
     process.exit(1);
@@ -339,5 +339,110 @@ for (var sp = 1; sp <= 1200 && splitHands < 12; sp++) {
   splitHands++;
 }
 assert(splitHands >= 2, 'settled ' + splitHands + ' split hands with exact balance accounting');
+
+// ═══════════════════════════════════════════════════════════════
+//  7. RESPLIT ACES (split aces: one card each; A+A may resplit; no hit/double)
+// ═══════════════════════════════════════════════════════════════
+console.log('— resplit aces —');
+
+// 7(a) split aces that are NOT A+A auto-stand → all hands settle
+var autoStand = 0;
+for (var rs = 1; rs <= 4000 && autoStand < 6; rs++) {
+  BJ._setSeed(7000 + rs);
+  BJ.rebuy(); BJ.newHand(); BJ.addChip(100); BJ.deal();
+  var st = BJ.state();
+  if (st.phase === 'insurance') { BJ.decline(); st = BJ.state(); }
+  if (st.phase !== 'player' || !BJ.canSplit(0)) continue;
+  if (st.hands[0].cards[0].charAt(0) !== 'A') continue; // must be a pair of aces
+  var balBefore = st.balance;
+  BJ.split();
+  var mid = BJ.state();
+  if (mid.hands.length !== 2) { console.error('   ✗ split aces should make 2 hands seed=' + rs); process.exit(1); }
+  if (mid.phase === 'player' && mid.balance !== balBefore - 100) { console.error('   ✗ split aces should deduct one stake seed=' + rs + ' bal=' + mid.balance + ' phase=' + mid.phase); process.exit(1); }
+  if (!mid.hands[0].splitAce || !mid.hands[1].splitAce) { console.error('   ✗ both split-ace hands should be flagged splitAce seed=' + rs); process.exit(1); }
+  // active hand must be A+A (resplit offered) or non-pair (auto-stand)
+  var active = mid.hands[mid.activeHand];
+  var isPair = (BJ._cardValue(active.cards[0].charAt(0) === '1' ? '10' : active.cards[0].charAt(0)) ===
+                BJ._cardValue(active.cards[1].charAt(0) === '1' ? '10' : active.cards[1].charAt(0)));
+  if (isPair) continue; // resplit case, covered by 7(b)
+  // non-pair split ace → auto-stands; stand the other hand, then settle
+  for (var k = 0; k < 4 && BJ.state().phase === 'player'; k++) BJ.stand();
+  var fin = BJ.state();
+  if (fin.phase !== 'settle') { console.error('   ✗ split-ace auto-stand did not settle seed=' + rs + ' phase=' + fin.phase); process.exit(1); }
+  autoStand++;
+}
+assert(autoStand >= 2, 'split aces (non-A+A) auto-stand and settle (' + autoStand + ')');
+
+// 7(b) split aces that ARE A+A may be resplit into a third hand
+var resplitOk = 0;
+for (var rs2 = 1; rs2 <= 6000 && resplitOk < 5; rs2++) {
+  BJ._setSeed(8000 + rs2);
+  BJ.rebuy(); BJ.newHand(); BJ.addChip(100); BJ.deal();
+  var st = BJ.state();
+  if (st.phase === 'insurance') { BJ.decline(); st = BJ.state(); }
+  if (st.phase !== 'player' || !BJ.canSplit(0)) continue;
+  if (st.hands[0].cards[0].charAt(0) !== 'A') continue;
+  var balBefore = st.balance;
+  BJ.split();
+  var mid = BJ.state();
+  if (mid.phase !== 'player' || !BJ.canSplit(mid.activeHand)) continue; // need an A+A resplit offer
+  // resplit the active A+A hand
+  var balAfterFirst = mid.balance;
+  BJ.split();
+  var mid2 = BJ.state();
+  if (mid2.hands.length !== 3) { console.error('   ✗ resplit aces should make 3 hands (got ' + mid2.hands.length + ') seed=' + rs2); process.exit(1); }
+  if (mid2.phase === 'player' && mid2.balance !== balAfterFirst - 100) { console.error('   ✗ resplit aces should deduct one more stake (before=' + balAfterFirst + ' after=' + mid2.balance + ') seed=' + rs2); process.exit(1); }
+  // settle remaining hands
+  for (var k2 = 0; k2 < 6 && BJ.state().phase === 'player'; k2++) BJ.stand();
+  var fin2 = BJ.state();
+  if (fin2.phase !== 'settle') { console.error('   ✗ resplit-ace hand did not settle seed=' + rs2 + ' phase=' + fin2.phase); process.exit(1); }
+  var hands = fin2.hands.map(function (h) { return { cards: cardsFromStrings(h.cards), bet: h.bet }; });
+  var d = cardsFromStrings(fin2.dealer);
+  var exp = splitExpectedBalance(hands, d, balAfterFirst - 100);
+  if (fin2.balance !== exp) {
+    console.error('   ✗ resplit-ace balance seed=' + rs2 + ' got=' + fin2.balance + ' expected=' + exp + ' hands=' + JSON.stringify(fin2.hands) + ' dealer=' + fin2.dealer.join(' '));
+    process.exit(1);
+  }
+  resplitOk++;
+}
+assert(resplitOk >= 1, 'split aces (A+A) resplit into 3 hands with exact balance (' + resplitOk + ')');
+
+// 7(c) split-ace hands cannot hit or double (one card each).
+//     A split-ace hand that sits in 'player' phase is by definition A+A
+//     (non-pair split aces auto-stand); on that hand hit/double must be no-ops.
+var blocked = 0;
+for (var rs3 = 1; rs3 <= 6000 && blocked < 4; rs3++) {
+  BJ._setSeed(9000 + rs3);
+  BJ.rebuy(); BJ.newHand(); BJ.addChip(100); BJ.deal();
+  var st = BJ.state();
+  if (st.phase === 'insurance') { BJ.decline(); st = BJ.state(); }
+  if (st.phase !== 'player' || !BJ.canSplit(0)) continue;
+  if (st.hands[0].cards[0].charAt(0) !== 'A') continue;
+  BJ.split();
+  var mid = BJ.state();
+  if (mid.phase !== 'player') continue; // non-pair split ace auto-stood; need the A+A case
+  var active = mid.hands[mid.activeHand];
+  if (!active.splitAce) continue;
+  // active split-ace hand in player phase must be A+A (resplit offered)
+  var v0 = BJ._cardValue(active.cards[0].charAt(0) === '1' ? '10' : active.cards[0].charAt(0));
+  var v1 = BJ._cardValue(active.cards[1].charAt(0) === '1' ? '10' : active.cards[1].charAt(0));
+  if (v0 !== v1 || v0 !== 11) { console.error('   ✗ expected A+A split-ace hand in player phase seed=' + rs3); process.exit(1); }
+  // hit must be a no-op on a split-ace hand
+  var cardsBefore = active.cards.length;
+  var balBeforeHit = mid.balance;
+  BJ.hit();
+  var afterHit = BJ.state();
+  if (afterHit.hands[afterHit.activeHand].cards.length !== cardsBefore) { console.error('   ✗ hit should be blocked on split-ace hand seed=' + rs3); process.exit(1); }
+  if (afterHit.balance !== balBeforeHit) { console.error('   ✗ hit should not change balance on split-ace hand seed=' + rs3); process.exit(1); }
+  // double must be a no-op on a split-ace hand
+  BJ.double();
+  var afterDbl = BJ.state();
+  if (afterDbl.hands[afterDbl.activeHand].doubled) { console.error('   ✗ double should be blocked on split-ace hand seed=' + rs3); process.exit(1); }
+  if (afterDbl.balance !== balBeforeHit) { console.error('   ✗ double should not change balance on split-ace hand seed=' + rs3); process.exit(1); }
+  // stand still works → progresses (resplit offer remains or hand advances)
+  BJ.stand();
+  blocked++;
+}
+assert(blocked >= 1, 'split-ace (A+A) hands block hit + double but allow stand (' + blocked + ')');
 
 console.log('ALL CHECKS PASSED');

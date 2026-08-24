@@ -586,9 +586,9 @@
     var ah = state.hands[state.activeHand];
     dealBtn.disabled = state.bet <= 0 || state.bet > state.balance;
     clearBtn.disabled = state.bet <= 0;
-    hitBtn.disabled = state.phase !== 'player';
+    hitBtn.disabled = state.phase !== 'player' || !!(ah && ah.splitAce);
     standBtn.disabled = state.phase !== 'player';
-    doubleBtn.disabled = !(state.phase === 'player' && ah && ah.cards.length === 2 && !ah.doubled && ah.bet * 2 <= state.balance);
+    doubleBtn.disabled = !(state.phase === 'player' && ah && ah.cards.length === 2 && !ah.doubled && ah.bet * 2 <= state.balance && !ah.splitAce);
     splitBtn.disabled = !(state.phase === 'player' && canSplit(state.activeHand));
     insBtn.disabled = state.phase !== 'insurance';
     declineBtn.disabled = state.phase !== 'insurance';
@@ -626,7 +626,7 @@
     hideMsg();
     // deal: player 2, dealer 2 (one face down); single hand
     var p1 = drawCard(), p2 = drawCard();
-    state.hands = [{ cards: [p1, p2], bet: state.bet, doubled: false, split: false, done: false }];
+    state.hands = [{ cards: [p1, p2], bet: state.bet, doubled: false, split: false, splitAce: false, done: false }];
     state.dealer.push(drawCard());
     state.dealer.push(drawCard());
     sfx.deal();
@@ -684,7 +684,19 @@
       state.activeHand = next;
       state.phase = 'player';
       var h = state.hands[next];
-      // a split hand that is a natural 21 (e.g. split aces) auto-stands
+      if (h.splitAce) {
+        // split aces: one card each. A+A may be resplit (or stood on); anything else auto-stands.
+        if (canSplit(next)) {
+          showMsg('Hand ' + (next + 1) + ' — aces again, split or stand');
+          render();
+          return;
+        }
+        showMsg('21 — next hand');
+        render();
+        advanceOrDealer();
+        return;
+      }
+      // a split hand that is a natural 21 auto-stands
       if (h.cards.length === 2 && handValue(h.cards) === 21) {
         showMsg('21 — next hand');
         render();
@@ -702,6 +714,7 @@
     if (state.phase !== 'player') return;
     var h = state.hands[state.activeHand];
     if (!h || h.done) return;
+    if (h.splitAce) return; // split aces: one card only, no hits
     h.cards.push(drawCard());
     sfx.hit();
     renderAllHands();
@@ -731,6 +744,7 @@
     if (state.phase !== 'player') return;
     var h = state.hands[state.activeHand];
     if (!h || h.done) return;
+    if (h.splitAce) return; // split aces can't double
     if (h.cards.length !== 2 || h.doubled) return;
     if (h.bet * 2 > state.balance) return; // must afford the doubled total wager
     h.bet = h.bet * 2;   // total wager is now 2x; settle accounts for it (+/- bet)
@@ -758,17 +772,28 @@
     // pay the second hand's stake
     state.balance -= h.bet;
     // move card[1] into a new hand inserted right after the current one
+    var wasAces = h.cards[0].rank === 'A'; // canSplit guarantees a value-pair, so this means a pair of aces
     var card2 = h.cards.pop();
-    var newHand = { cards: [card2], bet: h.bet, doubled: false, split: true, done: false };
+    var newHand = { cards: [card2], bet: h.bet, doubled: false, split: true, splitAce: wasAces, done: false };
     h.split = true;
+    if (wasAces) h.splitAce = true;
     state.hands.splice(i + 1, 0, newHand);
     sfx.deal();
     // deal one card to each of the two split hands
     h.cards.push(drawCard());
     newHand.cards.push(drawCard());
     renderAllHands();
-    // if the active hand is now a natural 21 (e.g. split aces), it auto-stands
-    if (h.cards.length === 2 && handValue(h.cards) === 21) {
+    if (wasAces) {
+      // split aces: one card each. A+A may be resplit (or stood on); anything else auto-stands.
+      if (canSplit(i)) {
+        showMsg('Aces again — split or stand');
+        render();
+      } else {
+        showMsg('21 — next hand');
+        render();
+        advanceOrDealer();
+      }
+    } else if (h.cards.length === 2 && handValue(h.cards) === 21) {
       showMsg('21 — next hand');
       render();
       advanceOrDealer();
@@ -966,7 +991,7 @@
           hands: state.hands.map(function (h) {
             return {
               cards: h.cards.map(function (c) { return c.rank + c.suit; }),
-              bet: h.bet, doubled: h.doubled, split: h.split, done: h.done
+              bet: h.bet, doubled: h.doubled, split: h.split, splitAce: !!h.splitAce, done: h.done
             };
           }),
           activeHand: state.activeHand,
