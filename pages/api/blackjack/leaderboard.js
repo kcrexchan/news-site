@@ -6,11 +6,11 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 // is never stored. The public board is the top-10 by best balance, derived at
 // read time from the account table.
 //
-//   GET  -> { updated, scores: [ {name, best, hands, blackjacks, at} x10 ] }
+//   GET  -> { updated, scores: [ {name, best, blackjacks, at} x10 ] }
 //   POST -> { action, ... }
 //     action "create" : { name, pin } -> create account (rejects dup name)
 //     action "login"  : { name, pin } -> verify PIN, return account summary
-//     action "score"  : { name, pin, best, hands, blackjacks } -> verify PIN,
+//     action "score"  : { name, pin, best, blackjacks } -> verify PIN,
 //                         update account (best = max), recompute board
 //     action "board"  : same as GET
 //
@@ -79,12 +79,11 @@ function publicBoard(doc) {
     return {
       name: a.name,
       best: Math.max(0, Math.floor(Number(a.best) || 0)),
-      hands: Math.max(0, Math.floor(Number(a.hands) || 0)),
       blackjacks: Math.max(0, Math.floor(Number(a.blackjacks) || 0)),
       at: a.last || a.created || new Date(0).toISOString(),
     };
   });
-  rows.sort((x, y) => y.best - x.best || y.hands - x.hands);
+  rows.sort((x, y) => y.best - x.best || y.blackjacks - x.blackjacks || x.name.localeCompare(y.name));
   return { updated: doc.updated, scores: rows.slice(0, MAX_ENTRIES) };
 }
 
@@ -99,7 +98,6 @@ function normalizeDoc(raw) {
       salt: String(a.salt || ""),
       pinHash: String(a.pinHash || ""),
       best: Math.max(0, Math.floor(Number(a.best) || 0)),
-      hands: Math.max(0, Math.floor(Number(a.hands) || 0)),
       blackjacks: Math.max(0, Math.floor(Number(a.blackjacks) || 0)),
       created: typeof a.created === "string" ? a.created : new Date(0).toISOString(),
       last: typeof a.last === "string" ? a.last : new Date(0).toISOString(),
@@ -138,13 +136,12 @@ async function readDoc(bkt) {
 async function withLock(bkt, mutate) {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const { doc, etag } = await readDoc(bkt);
-    const result = await mutate(doc);
+    const result = await mutate(doc); // mutate() mutates `doc` in place
     if (!result.write) return result; // app-level error / no change -> respond as-is
-    const next = result.doc;
     const putOpts = { httpMetadata: { contentType: "application/json" } };
     if (etag) putOpts.httpEtag = etag;
     try {
-      await bkt.put(OBJECT_KEY, JSON.stringify(next), putOpts);
+      await bkt.put(OBJECT_KEY, JSON.stringify(doc), putOpts);
       return { ok: true, status: result.status || 200, body: result.body };
     } catch (err) {
       const status = err?.status ?? err?.statusCode;
@@ -194,7 +191,7 @@ export default async function handler(req, res) {
           if (doc.accounts[key]) {
             return { ok: false, write: false, status: 409, body: { error: "That name is already taken — try logging in" } };
           }
-          doc.accounts[key] = { name, salt, pinHash, best: 0, hands: 0, blackjacks: 0, created, last: created };
+          doc.accounts[key] = { name, salt, pinHash, best: 0, blackjacks: 0, created, last: created };
           doc.updated = created;
           return { write: true, status: 200, body: { ok: true, name, board: publicBoard(doc) } };
         });
@@ -217,7 +214,6 @@ export default async function handler(req, res) {
             ok: true,
             name: a.name,
             best: a.best,
-            hands: a.hands,
             blackjacks: a.blackjacks,
             board: publicBoard(doc),
           });
