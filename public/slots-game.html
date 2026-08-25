@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Slot Machine · Casino</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -232,10 +232,44 @@
   .lb-empty { color: var(--muted); text-align: center; padding: 26px 0; }
   .lb-foot { color: var(--muted); font-size: 12px; margin-top: 10px; }
 
+  /* ── Mobile / touch ─────────────────────────── */
+  html { -webkit-text-size-adjust: 100%; }
+  body { -webkit-tap-highlight-color: transparent; }
+  .chip, .btn, .reel, .reel-cell, .hud .icon-btn, .acc-chip, .tab {
+    -webkit-user-select: none; user-select: none;
+    touch-action: manipulation;   /* kill double-tap-zoom + tap delay on touch */
+  }
+  /* Notched phones (viewport-fit=cover): keep content clear of notch + home bar */
+  body {
+    padding-top: calc(18px + env(safe-area-inset-top, 0px));
+    padding-left: calc(14px + env(safe-area-inset-left, 0px));
+    padding-right: calc(14px + env(safe-area-inset-right, 0px));
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+  .overlay, .modal {
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Respect the user's reduced-motion preference (skip reel blur + cell pulse) */
+  @media (prefers-reduced-motion: reduce) {
+    .reel.spinning .reel-cell { animation: none; }
+    .reel-cell.lit { animation: none; }
+  }
+
   @media (max-width: 520px) {
     .reel-cell { font-size: 34px; height: 58px; }
     .reel { min-height: 190px; }
     .chip { width: 54px; height: 54px; font-size: 12px; }
+    .hud .stat { min-width: 64px; }
+    .hud .title { font-size: 16px; }
+    .btn-spin { padding: 14px 34px; font-size: 17px; }
+  }
+  @media (max-width: 380px) {
+    .reels { gap: 8px; padding: 10px; }
+    .reel { min-height: 160px; padding: 8px 6px; }
+    .reel-cell { font-size: 30px; height: 50px; }
+    .chip { width: 50px; height: 50px; font-size: 12px; }
+    .btn { padding: 12px 20px; }
   }
 </style>
 </head>
