@@ -151,10 +151,17 @@
     background: var(--card); border: 1px solid var(--border); border-radius: 16px;
     padding: 14px 16px;
   }
-  .paytable h2 {
+  .paytable-toggle {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: transparent; border: none; cursor: pointer; font-family: inherit;
     font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em;
-    color: var(--gold); margin-bottom: 10px;
+    color: var(--gold); padding: 2px 0; text-align: left;
   }
+  .paytable-toggle:hover { color: var(--gold-2); }
+  .paytable-toggle .chev { transition: transform 0.2s ease; font-size: 14px; line-height: 1; }
+  .paytable.collapsed .paytable-toggle .chev { transform: rotate(-90deg); }
+  .paytable-body { margin-top: 10px; }
+  .paytable.collapsed .paytable-body { display: none; }
   .paytable table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .paytable td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .paytable tr:last-child td { border-bottom: none; }
@@ -320,11 +327,16 @@
     </div>
   </main>
 
-  <!-- Paytable -->
-  <section class="paytable">
-    <h2>Payouts · three on the middle line (multiplier × bet)</h2>
-    <table id="paytableBody"></table>
-    <div class="note">🎰 is WILD — it substitutes for any symbol. Two 🍒 anywhere on the line pays 2×. Minimum bet $10.</div>
+  <!-- Paytable (collapsible) -->
+  <section class="paytable" id="paytable">
+    <button class="paytable-toggle" id="paytableToggle" type="button" aria-expanded="true" aria-controls="paytableBodyWrap">
+      <span>Payouts · three on the middle line (multiplier × bet)</span>
+      <span class="chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="paytable-body" id="paytableBodyWrap">
+      <table id="paytableBody"></table>
+      <div class="note">🎰 is WILD — it substitutes for any symbol. Two 🍒 anywhere on the line pays 2×. Minimum bet $10.</div>
+    </div>
   </section>
 
   <!-- Result / broke overlay -->
@@ -435,6 +447,9 @@
   var brokeBorrowBtn = $('brokeBorrowBtn');
   var rebuyBtn = $('rebuyBtn');
   var newSpinBtn = $('newSpinBtn');
+  var paytable = $('paytable');
+  var paytableToggle = $('paytableToggle');
+  var paytableBodyWrap = $('paytableBodyWrap');
   var paytableBody = $('paytableBody');
 
   // ═══════════════════════════════════════════════════════════════
@@ -586,6 +601,24 @@
     });
     html += '<tr><td class="sym">🍒🍒·</td><td>two cherries</td><td class="mult">2×</td></tr>';
     paytableBody.innerHTML = html;
+  })();
+
+  // ── Collapsible paytable (choice persisted) ────────────────────
+  var PAYTABLE_KEY = 'slots-paytable-collapsed';
+  function setPaytableCollapsed(collapsed) {
+    if (!paytable || !paytableToggle) return;
+    paytable.classList.toggle('collapsed', !!collapsed);
+    paytableToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+  function togglePaytable(force) {
+    var next = (force === undefined) ? !paytable.classList.contains('collapsed') : !!force;
+    setPaytableCollapsed(next);
+    try { localStorage.setItem(PAYTABLE_KEY, next ? '1' : '0'); } catch (e) {}
+  }
+  (function initPaytable() {
+    if (!paytable || !paytableToggle) return;
+    try { if (localStorage.getItem(PAYTABLE_KEY) === '1') setPaytableCollapsed(true); } catch (e) {}
+    paytableToggle.addEventListener('click', function () { togglePaytable(); });
   })();
 
   // ═══════════════════════════════════════════════════════════════
@@ -1019,6 +1052,8 @@
       _setSeed: function (s) { rng = makeRng(s); },
       _pick: pickSymbol,
       _payout: payout,
+      _paytableCollapsed: function () { return !!(paytable && paytable.classList.contains('collapsed')); },
+      _paytableToggle: function (force) { togglePaytable(force); },
       _symbols: SYMBOLS.map(function (s) { return s.id; }),
       _weights: WEIGHTS,
       _strip: STRIP,

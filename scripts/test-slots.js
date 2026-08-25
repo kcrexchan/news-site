@@ -50,6 +50,7 @@ function makeReel() {
 
 var ids = ['balanceVal','betVal','msg','clearBtn','spinBtn','muteBtn','overlay','resultText','amountText','resultSub',
   'brokeBlock','brokeMsg','brokeBorrowBtn','rebuyBtn','newSpinBtn','paytableBody',
+  'paytable','paytableToggle','paytableBodyWrap',
   'lbBtn','accName','accNameTxt','accLogout','accountModal','boardModal','tabCreate','tabLogin',
   'accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot',
   'boardBorrowBtn','boardRepayBtn','boardCloseBtn'];
@@ -277,6 +278,30 @@ async function main() {
   var borrowBlocked = false;
   try { await S._lbBorrow(); } catch (e) { borrowBlocked = true; }
   assert(borrowBlocked === true, 'borrow refused when wallet (980) >= 10');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  4. UI — collapsible paytable (default open, toggle, aria)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('— ui: collapsible paytable —');
+  assert(S._paytableCollapsed() === false, 'paytable starts expanded (default)');
+  assert(elements.paytable.classList.contains('collapsed') === false, 'no .collapsed class initially');
+
+  S._paytableToggle(true);
+  assert(S._paytableCollapsed() === true, 'collapse() → collapsed');
+  assert(elements.paytable.classList.contains('collapsed') === true, '.collapsed class set');
+  assert(elements.paytableToggle.getAttribute('aria-expanded') === 'false', 'aria-expanded=false when collapsed');
+
+  S._paytableToggle(false);
+  assert(S._paytableCollapsed() === false, 'expand() → expanded');
+  assert(elements.paytable.classList.contains('collapsed') === false, '.collapsed class cleared');
+  assert(elements.paytableToggle.getAttribute('aria-expanded') === 'true', 'aria-expanded=true when expanded');
+
+  // Flip (no force) toggles the current state.
+  S._paytableToggle(false);   // ensure expanded
+  S._paytableToggle();        // flip → collapsed
+  assert(S._paytableCollapsed() === true, 'flip from expanded → collapsed');
+  S._paytableToggle();        // flip → expanded
+  assert(S._paytableCollapsed() === false, 'flip from collapsed → expanded');
 
   console.log('\n✅ ALL SLOTS TESTS PASSED');
 }
