@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slot Machine · Casino</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-deep: #0a0714;
+    --bg-mid: #14102a;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(212,175,55,0.25);
+    --text: #f3ecd8;
+    --muted: #9d93b8;
+    --gold: #d4af37;
+    --gold-2: #f0d060;
+    --red: #e05555;
+    --green: #59c98a;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 50% -10%, #241a4d 0%, var(--bg-mid) 45%, var(--bg-deep) 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 18px 14px 40px;
+  }
+
+  /* ── HUD ─────────────────────────────── */
+  .hud {
+    width: 100%; max-width: 760px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 10px 16px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .hud .title { font-size: 18px; font-weight: 700; letter-spacing: 0.06em; color: var(--gold-2); }
+  .hud .stat { text-align: center; min-width: 84px; }
+  .hud .stat .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+  .hud .stat .val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hud .stat .val.neg { color: var(--red); }
+  .hud .actions { display: flex; gap: 8px; align-items: center; }
+  .hud .icon-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 11px; cursor: pointer; font-size: 14px;
+  }
+  .hud .icon-btn:hover { border-color: var(--gold); }
+  .acc-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; font-size: 13px;
+  }
+  .acc-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .acc-chip .logout { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .acc-chip .logout:hover { color: var(--text); }
+  .hidden { display: none !important; }
+
+  /* ── Machine ─────────────────────────── */
+  .machine {
+    width: 100%; max-width: 760px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    border: 1px solid var(--border); border-radius: 22px;
+    padding: 22px 20px 26px; position: relative; overflow: hidden;
+  }
+  .machine::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(500px 160px at 50% 0%, rgba(212,175,55,0.12), transparent 70%);
+  }
+  .reels {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+    background: #0b0916; border: 1px solid rgba(212,175,55,0.35); border-radius: 16px;
+    padding: 14px; box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+  }
+  .reel {
+    display: flex; flex-direction: column; gap: 8px;
+    background: linear-gradient(180deg, #171233, #100c22);
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 10px 8px;
+    min-height: 236px; justify-content: center;
+    overflow: hidden;
+  }
+  .reel-cell {
+    height: 72px; display: flex; align-items: center; justify-content: center;
+    font-size: 46px; line-height: 1; user-select: none;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+  }
+  .reel-cell.mid {
+    background: rgba(212,175,55,0.08); border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(212,175,55,0.25);
+  }
+  .reel-cell.lit {
+    background: rgba(212,175,55,0.22);
+    box-shadow: inset 0 0 0 2px var(--gold), 0 0 24px rgba(212,175,55,0.5);
+    animation: cellPulse 0.9s ease-in-out infinite alternate;
+  }
+  @keyframes cellPulse { from { transform: scale(1); } to { transform: scale(1.06); } }
+  .reel.spinning .reel-cell { animation: blurSpin 0.12s linear infinite; }
+  @keyframes blurSpin { 0% { transform: translateY(-6px); opacity: 0.9; } 100% { transform: translateY(6px); opacity: 0.9; } }
+
+  .payline {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin: 14px 2px 4px; color: var(--muted); font-size: 13px;
+  }
+  .payline .line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent); }
+
+  .msg {
+    min-height: 24px; text-align: center; font-size: 15px; color: var(--muted);
+    margin: 6px 0 14px; transition: color 0.2s;
+  }
+  .msg.win { color: var(--gold-2); font-weight: 700; }
+  .msg.lose { color: #c9a0a0; }
+
+  /* ── Controls ────────────────────────── */
+  .controls { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .chip {
+    width: 62px; height: 62px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;
+    color: #fff; border: 3px dashed rgba(255,255,255,0.55);
+    background: radial-gradient(circle at 35% 30%, var(--c2), var(--c1));
+    box-shadow: 0 5px 14px rgba(0,0,0,0.45), inset 0 0 0 4px rgba(255,255,255,0.12);
+    transition: transform 0.12s ease;
+    font-family: inherit;
+  }
+  .chip:hover { transform: translateY(-3px) scale(1.04); }
+  .chip:active { transform: translateY(0) scale(0.98); }
+  .chip:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: 0.04em;
+    border-radius: 14px; padding: 14px 30px; cursor: pointer; border: 1px solid var(--border);
+    transition: transform 0.12s ease, box-shadow 0.2s ease;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+  .btn-spin {
+    background: linear-gradient(135deg, #e8c252, #b8862e); color: #241a05;
+    font-size: 19px; padding: 16px 44px;
+    box-shadow: 0 6px 22px rgba(212,175,55,0.35);
+  }
+  .btn-spin:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(212,175,55,0.5); }
+  .btn-ghost { background: transparent; color: var(--text); }
+  .btn-ghost:hover:not(:disabled) { border-color: var(--gold); }
+  .btn-bank { background: linear-gradient(135deg, #2e7d5b, #1d5240); color: #eafff3; }
+  .btn-bank:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(89,201,138,0.3); }
+
+  /* ── Paytable ────────────────────────── */
+  .paytable {
+    width: 100%; max-width: 760px; margin-top: 16px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px 16px;
+  }
+  .paytable h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--gold); margin-bottom: 10px;
+  }
+  .paytable table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .paytable td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .paytable tr:last-child td { border-bottom: none; }
+  .paytable .sym { font-size: 19px; width: 60px; }
+  .paytable .mult { text-align: right; color: var(--gold-2); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .paytable .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+  /* ── Overlay (broke / result banner) ─── */
+  .overlay {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(5,3,12,0.72); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .overlay-card {
+    background: linear-gradient(180deg, #1c1538, #120d26);
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 30px 34px; max-width: 420px; width: 100%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .overlay-card .big { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+  .overlay-card .big.win { color: var(--gold-2); }
+  .overlay-card .big.lose { color: #c9a0a0; }
+  .overlay-card .amt { font-size: 20px; font-weight: 700; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .overlay-card .amt.neg { color: var(--red); }
+  .overlay-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .overlay-card .btn { width: 100%; margin-top: 10px; }
+
+  /* ── Modals (account + board) ────────── */
+  .modal {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(5,3,12,0.7); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal.show { display: flex; }
+  .modal-card {
+    background: linear-gradient(180deg, #1c1538, #120d26);
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 24px 26px; width: 100%; max-width: 440px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    max-height: 86vh; overflow-y: auto;
+  }
+  .modal-card h2 { font-size: 18px; margin-bottom: 4px; color: var(--gold-2); }
+  .modal-card .hint { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; text-align: center; padding: 9px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--border); color: var(--muted); font-size: 14px; font-weight: 600;
+  }
+  .tab.active { color: var(--text); border-color: var(--gold); background: rgba(212,175,55,0.1); }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 5px; }
+  .field input {
+    width: 100%; padding: 11px 13px; border-radius: 10px; font-size: 15px;
+    background: rgba(0,0,0,0.35); border: 1px solid var(--border); color: var(--text);
+    font-family: inherit; outline: none;
+  }
+  .field input:focus { border-color: var(--gold); }
+  .field input.pin { letter-spacing: 0.5em; text-align: center; font-size: 19px; }
+  .form-msg { font-size: 13px; min-height: 18px; margin: 4px 0 10px; }
+  .form-msg.err { color: var(--red); }
+  .form-msg.ok { color: var(--green); }
+  .modal-card .btn { width: 100%; }
+
+  .lb-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+  .lb-table th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border);
+  }
+  .lb-table th.num, .lb-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lb-table td { padding: 7px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .lb-table tr.top1 .lb-name { color: var(--gold-2); font-weight: 700; }
+  .lb-table tr.me { background: rgba(212,175,55,0.08); }
+  .lb-table .neg { color: var(--red); }
+  .lb-empty { color: var(--muted); text-align: center; padding: 26px 0; }
+  .lb-foot { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+  @media (max-width: 520px) {
+    .reel-cell { font-size: 34px; height: 58px; }
+    .reel { min-height: 190px; }
+    .chip { width: 54px; height: 54px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- HUD -->
+  <header class="hud">
+    <div class="title">🎰 SLOTS</div>
+    <div class="stat">
+      <div class="lbl">Balance</div>
+      <div class="val" id="balanceVal">0</div>
+    </div>
+    <div class="stat">
+      <div class="lbl">Bet</div>
+      <div class="val" id="betVal">0</div>
+    </div>
+    <div class="actions">
+      <span class="acc-chip hidden" id="accName">
+        <span class="dot"></span><span id="accNameTxt"></span>
+        <span class="logout" id="accLogout" title="Log out">✕</span>
+      </span>
+      <button class="icon-btn" id="lbBtn" title="Account &amp; leaderboard">👤</button>
+      <button class="icon-btn" id="muteBtn" title="Sound">🔊</button>
+    </div>
+  </header>
+
+  <!-- Machine -->
+  <main class="machine">
+    <div class="reels" id="reels">
+      <div class="reel" id="reel1"><div class="reel-cell"></div><div class="reel-cell mid"></div><div class="reel-cell"></div></div>
+      <div class="reel" id="reel2"><div class="reel-cell"></div><div class="reel-cell mid"></div><div class="reel-cell"></div></div>
+      <div class="reel" id="reel3"><div class="reel-cell"></div><div class="reel-cell mid"></div><div class="reel-cell"></div></div>
+    </div>
+    <div class="payline"><span class="line"></span><span>middle line pays</span><span class="line"></span></div>
+    <div class="msg" id="msg">Place your bet and pull the lever</div>
+
+    <div class="controls">
+      <div class="chips" id="chipRow">
+        <button class="chip" style="--c1:#b33; --c2:#e66" data-chip="10">10</button>
+        <button class="chip" style="--c1:#27a; --c2:#59d" data-chip="25">25</button>
+        <button class="chip" style="--c1:#28a; --c2:#5bd" data-chip="50">50</button>
+        <button class="chip" style="--c1:#777; --c2:#bbb" data-chip="100">100</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="clearBtn">Clear bet</button>
+        <button class="btn btn-spin" id="spinBtn">SPIN</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Paytable -->
+  <section class="paytable">
+    <h2>Payouts · three on the middle line (multiplier × bet)</h2>
+    <table id="paytableBody"></table>
+    <div class="note">🎰 is WILD — it substitutes for any symbol. Two 🍒 anywhere on the line pays 2×. Minimum bet $10.</div>
+  </section>
+
+  <!-- Result / broke overlay -->
+  <div class="overlay" id="overlay">
+    <div class="overlay-card">
+      <div class="big" id="resultText">—</div>
+      <div class="amt" id="amountText"></div>
+      <div class="sub" id="resultSub"></div>
+      <div id="brokeBlock" class="hidden">
+        <div class="sub" id="brokeMsg" style="margin-bottom:12px">You're out of chips — can't cover the minimum bet.</div>
+        <button class="btn btn-bank" id="brokeBorrowBtn">🏦 Borrow $2,000 from the casino</button>
+        <button class="btn btn-ghost" id="rebuyBtn">↺ Rebuy $1,000 (free play)</button>
+      </div>
+      <button class="btn btn-spin" id="newSpinBtn">SPIN AGAIN</button>
+    </div>
+  </div>
+
+  <!-- Account modal -->
+  <div class="modal" id="accountModal">
+    <div class="modal-card">
+      <h2>Player account</h2>
+      <div class="hint">Same account as Blackjack — one PIN, one shared wallet across the casino.</div>
+      <div class="tabs">
+        <div class="tab active" id="tabCreate">New account</div>
+        <div class="tab" id="tabLogin">Log in</div>
+      </div>
+      <div class="field">
+        <label for="accNameInput">Name</label>
+        <input id="accNameInput" maxlength="12" autocomplete="off" placeholder="e.g. Lucky">
+      </div>
+      <div class="field">
+        <label for="accPinInput">PIN (4 digits)</label>
+        <input id="accPinInput" class="pin" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="••••">
+      </div>
+      <div class="form-msg" id="accErr"></div>
+      <div class="form-msg ok" id="accOk"></div>
+      <button class="btn btn-spin" id="accGoBtn" style="width:100%">Create account</button>
+      <button class="btn btn-ghost" id="accCloseBtn" style="width:100%">Close</button>
+    </div>
+  </div>
+
+  <!-- Board modal -->
+  <div class="modal" id="boardModal">
+    <div class="modal-card">
+      <h2>Casino leaderboard</h2>
+      <div class="hint">Ranked by wallet. Borrow only when you can't cover the $10 minimum bet.</div>
+      <div id="boardBody"></div>
+      <div class="lb-foot" id="boardFoot"></div>
+      <button class="btn btn-bank" id="boardBorrowBtn" style="width:100%; margin-top:12px">🏦 Borrow $2,000 from the casino</button>
+      <button class="btn btn-ghost" id="boardRepayBtn" style="width:100%; margin-top:10px">💰 Repay debt</button>
+      <button class="btn btn-ghost" id="boardCloseBtn" style="width:100%; margin-top:10px">Close</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Config — MUST stay in sync with the server
+  //  (MIN_BET=10 in pages/api/blackjack/leaderboard.js)
+  // ═══════════════════════════════════════════════════════════════
+  var MIN_BET = 10;
+  var START_BALANCE = 1000;
+  var SPIN_MS = 420;      // per-reel stagger (browser only; tests run sync)
+  var REEL_SPIN_MS = 600; // how long a reel blurs before it lands
+
+  // Symbols (id, glyph, 3-of-a-kind multiplier). Wild substitutes for all.
+  var SYMBOLS = [
+    { id: 'cherry', ch: '🍒', pay: 5 },
+    { id: 'lemon',  ch: '🍋', pay: 8 },
+    { id: 'orange', ch: '🍊', pay: 10 },
+    { id: 'grape',  ch: '🍇', pay: 15 },
+    { id: 'bell',   ch: '🔔', pay: 25 },
+    { id: 'star',   ch: '⭐', pay: 50 },
+    { id: 'diam',   ch: '💎', pay: 100 },
+    { id: 'seven',  ch: '7️⃣', pay: 250 },
+    { id: 'wild',   ch: '🎰', pay: 500 }
+  ];
+  var SYM_BY_ID = {};
+  SYMBOLS.forEach(function (s) { SYM_BY_ID[s.id] = s; });
+
+  // Weighted reel strip (per reel, 100 = 100%). House edge ≈ 4.5%.
+  var WEIGHTS = { cherry: 20, lemon: 18, orange: 16, grape: 14, bell: 12, star: 9, diam: 6, seven: 3, wild: 2 };
+  var STRIP = [];
+  Object.keys(WEIGHTS).forEach(function (id) {
+    for (var i = 0; i < WEIGHTS[id]; i++) STRIP.push(id);
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  //  DOM
+  // ═══════════════════════════════════════════════════════════════
+  function $(id) { return document.getElementById(id); }
+  var balanceVal = $('balanceVal');
+  var betVal = $('betVal');
+  var msgEl = $('msg');
+  var reels = [ $('reel1'), $('reel2'), $('reel3') ];
+  var chipBtns = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  var clearBtn = $('clearBtn');
+  var spinBtn = $('spinBtn');
+  var muteBtn = $('muteBtn');
+  var overlay = $('overlay');
+  var resultText = $('resultText');
+  var amountText = $('amountText');
+  var resultSub = $('resultSub');
+  var brokeBlock = $('brokeBlock');
+  var brokeMsg = $('brokeMsg');
+  var brokeBorrowBtn = $('brokeBorrowBtn');
+  var rebuyBtn = $('rebuyBtn');
+  var newSpinBtn = $('newSpinBtn');
+  var paytableBody = $('paytableBody');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  RNG (seedable so tests are deterministic)
+  // ═══════════════════════════════════════════════════════════════
+  function makeRng(seed) {
+    var a = (seed >>> 0) || 0x9e3779b9;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  var rng = makeRng((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0);
+  function pickSymbol() { return STRIP[Math.floor(rng() * STRIP.length) % STRIP.length]; }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Payout logic (pure — unit-testable)
+  //  reels: [id, id, id] middle row. Returns multiplier (0 = no win).
+  // ═══════════════════════════════════════════════════════════════
+  function payout(reels) {
+    var wilds = 0;
+    for (var i = 0; i < reels.length; i++) if (reels[i] === 'wild') wilds++;
+    if (wilds === 3) return SYM_BY_ID.wild.pay;
+
+    // 3-of-a-kind where wilds fill in
+    var counts = {};
+    for (var j = 0; j < reels.length; j++) {
+      if (reels[j] === 'wild') continue;
+      counts[reels[j]] = (counts[reels[j]] || 0) + 1;
+    }
+    for (var id in counts) {
+      if (counts[id] + wilds >= 3) return SYM_BY_ID[id].pay;
+    }
+
+    // Two cherries anywhere on the line (wilds don't count as cherries here)
+    var cherries = 0;
+    for (var k = 0; k < reels.length; k++) if (reels[k] === 'cherry') cherries++;
+    if (cherries === 2) return 2;
+
+    return 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  State
+  // ═══════════════════════════════════════════════════════════════
+  var state = {
+    phase: 'bet',      // bet | spinning | settle
+    balance: START_BALANCE,
+    bet: 0,
+    lastBet: 0,
+    reels: [null, null, null],
+    lastWin: 0
+  };
+  var muted = false;
+
+  var STORE_KEY = 'slots-v1';
+  function saveState() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        balance: state.balance, lastBet: state.lastBet
+      }));
+    } catch (e) { /* private mode — fine */ }
+  }
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (s && Number.isFinite(Number(s.balance)) && Number(s.balance) >= 0) state.balance = Math.floor(Number(s.balance));
+      if (s && Number.isFinite(Number(s.lastBet)) && Number(s.lastBet) >= 0) state.lastBet = Math.floor(Number(s.lastBet));
+    } catch (e) { /* ignore */ }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  SFX (WebAudio, no assets)
+  // ═══════════════════════════════════════════════════════════════
+  var actx = null;
+  function audio() {
+    if (muted) return null;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      return actx;
+    } catch (e) { return null; }
+  }
+  function tone(freq, dur, delay, type, vol) {
+    var a = audio(); if (!a) return;
+    try {
+      var o = a.createOscillator(), g = a.createGain();
+      o.type = type || 'square'; o.frequency.value = freq;
+      var t0 = a.currentTime + (delay || 0);
+      g.gain.setValueAtTime(vol || 0.06, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) { /* ignore */ }
+  }
+  var sfx = {
+    chip: function () { tone(880, 0.06, 0, 'square', 0.05); },
+    spin: function () { tone(220, 0.12, 0, 'sawtooth', 0.04); tone(330, 0.12, 0.1, 'sawtooth', 0.04); },
+    tick: function () { tone(520, 0.05, 0, 'square', 0.05); },
+    win: function () { tone(660, 0.12, 0, 'triangle', 0.09); tone(880, 0.12, 0.12, 'triangle', 0.09); tone(1320, 0.2, 0.24, 'triangle', 0.09); },
+    bigWin: function () {
+      var n = [523, 659, 784, 1047, 1319];
+      for (var i = 0; i < n.length; i++) tone(n[i], 0.16, i * 0.1, 'triangle', 0.1);
+    },
+    lose: function () { tone(180, 0.2, 0, 'sine', 0.05); }
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Rendering
+  // ═══════════════════════════════════════════════════════════════
+  function fmt(n) { return Math.floor(Number(n) || 0).toLocaleString(); }
+
+  function showMsg(text, cls) {
+    msgEl.textContent = text || '';
+    msgEl.className = 'msg' + (cls ? ' ' + cls : '');
+  }
+
+  function renderReels(reelsArr) {
+    for (var r = 0; r < 3; r++) {
+      var cells = reels[r].querySelectorAll ? reels[r].querySelectorAll('.reel-cell') : [];
+      // middle cell shows the real symbol; top/bottom are decorative neighbours
+      var mid = reelsArr ? reelsArr[r] : null;
+      cells.forEach(function (c, idx) {
+        c.classList.remove('lit');
+        if (idx === 1) c.textContent = mid ? SYM_BY_ID[mid].ch : '·';
+        else c.textContent = '';
+      });
+    }
+  }
+
+  function render() {
+    balanceVal.textContent = fmt(state.balance);
+    balanceVal.classList.toggle('neg', state.balance < 0);
+    betVal.textContent = fmt(state.bet);
+    var busy = state.phase === 'spinning';
+    spinBtn.disabled = busy || state.phase === 'settle';
+    clearBtn.disabled = busy;
+    chipBtns.forEach(function (b) { b.disabled = busy; });
+  }
+
+  // Build the paytable once
+  (function buildPaytable() {
+    var html = '';
+    SYMBOLS.forEach(function (s) {
+      html += '<tr><td class="sym">' + s.ch + s.ch + s.ch + '</td><td>' + s.id + (s.id === 'wild' ? ' (wild)' : '') + '</td><td class="mult">' + s.pay + '×</td></tr>';
+    });
+    html += '<tr><td class="sym">🍒🍒·</td><td>two cherries</td><td class="mult">2×</td></tr>';
+    paytableBody.innerHTML = html;
+  })();
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Betting
+  // ═══════════════════════════════════════════════════════════════
+  function addChip(v) {
+    if (state.phase !== 'bet') return;
+    if (state.bet + v > state.balance) { showMsg("Can't bet more than your balance", 'lose'); return; }
+    state.bet += v;
+    sfx.chip();
+    render();
+    showMsg('Bet ' + state.bet + ' — spin when ready');
+  }
+  function clearBet() {
+    if (state.phase !== 'bet') return;
+    state.bet = 0;
+    render();
+    showMsg('Place your bet');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Spin
+  // ═══════════════════════════════════════════════════════════════
+  function spin() {
+    if (state.phase !== 'bet') return;
+    if (state.bet < MIN_BET) { showMsg('Minimum bet is $' + MIN_BET, 'lose'); return; }
+    if (state.bet > state.balance) { showMsg("Not enough balance for that bet", 'lose'); return; }
+
+    state.phase = 'spinning';
+    state.bet = Math.floor(state.bet);
+    state.lastBet = state.bet;
+    state.balance -= state.bet;          // stake is deducted up front
+    state.lastWin = 0;
+
+    // Pre-draw the final middle row (deterministic given the seeded rng)
+    var final = [pickSymbol(), pickSymbol(), pickSymbol()];
+    state.reels = final;
+
+    render();
+    showMsg('Spinning…');
+    sfx.spin();
+
+    animateReels(final);
+  }
+
+  var animTimers = [];
+  function animateReels(final) {
+    // In the browser: blur each reel, land them one by one.
+    // In the test harness setTimeout is synchronous, so this resolves instantly.
+    var isBrowser = typeof window !== 'undefined' && !window.__SLOTS_TEST__;
+    if (!isBrowser) { finishSpin(final); return; }
+
+    reels.forEach(function (r) { r.classList.add('spinning'); });
+    renderReels(null);
+
+    for (var i = 0; i < 3; i++) {
+      (function (idx) {
+        var t = setTimeout(function () {
+          reels[idx].classList.remove('spinning');
+          renderReels(final);
+          sfx.tick();
+          if (idx === 2) finishSpin(final);
+        }, REEL_SPIN_MS + idx * SPIN_MS);
+        animTimers.push(t);
+      })(i);
+    }
+  }
+
+  function finishSpin(final) {
+    state.phase = 'settle';
+    var mult = payout(final);
+    var win = state.bet * mult;
+    if (win > 0) state.balance += win;
+    state.lastWin = win;
+    saveState();
+    renderReels(final);
+    lightWinCells(mult);
+    render();
+    if (typeof lbSyncWallet === 'function') lbSyncWallet();
+
+    if (mult >= 10) sfx.bigWin(); else if (mult > 0) sfx.win(); else sfx.lose();
+
+    showResult(mult, win);
+  }
+
+  function lightWinCells(mult) {
+    if (mult <= 0) return;
+    for (var r = 0; r < 3; r++) {
+      var cells = reels[r].querySelectorAll ? reels[r].querySelectorAll('.reel-cell') : [];
+      cells.forEach(function (c, idx) { if (idx === 1) c.classList.add('lit'); });
+    }
+  }
+
+  function showResult(mult, win) {
+    var broke = state.balance < MIN_BET;
+    if (mult > 0) {
+      resultText.textContent = (mult >= 50) ? 'JACKPOT!' : 'WIN!';
+      resultText.className = 'big win';
+    } else {
+      resultText.textContent = 'NO LUCK';
+      resultText.className = 'big lose';
+    }
+    amountText.textContent = (win > 0 ? '+' : '−') + '$' + fmt(win);
+    amountText.className = 'amt' + (win > 0 ? '' : ' neg');
+    var row = state.reels.map(function (s) { return SYM_BY_ID[s].ch; }).join(' ');
+    resultSub.textContent = row + ' · bet $' + fmt(state.bet) + (mult > 0 ? (' · ' + mult + '× payout') : '');
+
+    // Broke? Offer casino loan (account players) or free rebuy (anonymous).
+    brokeBlock.classList.toggle('hidden', !broke);
+    newSpinBtn.style.display = broke ? 'none' : '';
+    var accountPlayer = !!lbSession;
+    rebuyBtn.style.display = (broke && !accountPlayer) ? '' : 'none';
+    brokeBorrowBtn.style.display = (broke && accountPlayer) ? '' : 'none';
+    if (broke) {
+      brokeMsg.textContent = "You're out of chips — can't cover the $" + MIN_BET + ' minimum bet.';
+      brokeBorrowBtn.textContent = '🏦 Borrow $2,000 from the casino';
+    }
+
+    overlay.className = 'show';
+  }
+
+  function newSpin() {
+    state.phase = 'bet';
+    state.reels = [null, null, null];
+    state.lastWin = 0;
+    // Reuse the last bet if affordable, otherwise start clean.
+    if (state.lastBet > 0 && state.lastBet <= state.balance && state.lastBet >= MIN_BET) {
+      state.bet = state.lastBet;
+    } else {
+      state.bet = 0;
+      if (state.lastBet > state.balance) state.lastBet = 0;
+    }
+    saveState();
+    renderReels(null);
+    overlay.className = '';
+    showMsg(state.bet > 0 ? ('Bet ' + state.bet + ' — spin when ready') : 'Place your bet');
+    render();
+  }
+
+  function rebuy() {
+    state.balance = START_BALANCE;
+    state.lastBet = 0;
+    state.bet = 0;
+    saveState();
+    overlay.className = '';
+    showMsg('Fresh $1,000 — place your bet');
+    render();
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Wire up controls
+  // ═══════════════════════════════════════════════════════════════
+  chipBtns.forEach(function (b) {
+    b.addEventListener('click', function () { addChip(parseInt(b.getAttribute('data-chip'), 10)); });
+  });
+  clearBtn.addEventListener('click', clearBet);
+  spinBtn.addEventListener('click', spin);
+  newSpinBtn.addEventListener('click', newSpin);
+  rebuyBtn.addEventListener('click', rebuy);
+  muteBtn.addEventListener('click', function () {
+    muted = !muted;
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+  });
+
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('keydown', function (e) {
+      var k = (e.key || '').toLowerCase();
+      if (state.phase === 'bet') {
+        if (k === 'enter' || k === ' ') { e.preventDefault(); if (state.bet >= MIN_BET) spin(); }
+      } else if (state.phase === 'settle') {
+        if (k === 'enter' || k === ' ') { e.preventDefault(); newSpin(); }
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Leaderboard + PIN-protected accounts (R2-backed)
+  //  SAME account system as Blackjack: one PIN, one shared wallet.
+  //  Wallet is the player's money — wins raise it, losses lower it,
+  //  it can go negative; borrow $2000 (1% interest) only when broke.
+  // ═══════════════════════════════════════════════════════════════
+  var lbBtn = $('lbBtn');
+  var accNameEl = $('accName');
+  var accNameTxt = $('accNameTxt');
+  var accLogoutEl = $('accLogout');
+  var accountModal = $('accountModal');
+  var boardModal = $('boardModal');
+  var tabCreate = $('tabCreate');
+  var tabLogin = $('tabLogin');
+  var accNameInput = $('accNameInput');
+  var accPinInput = $('accPinInput');
+  var accGoBtn = $('accGoBtn');
+  var accCloseBtn = $('accCloseBtn');
+  var accErr = $('accErr');
+  var accOk = $('accOk');
+  var boardBody = $('boardBody');
+  var boardFoot = $('boardFoot');
+  var boardBorrowBtn = $('boardBorrowBtn');
+  var boardRepayBtn = $('boardRepayBtn');
+  var boardCloseBtn = $('boardCloseBtn');
+
+  var LB_URL = '/api/blackjack/leaderboard';
+  var lbMode = 'create';
+  var lbSession = null;   // { name, pin, wallet, debt, borrows }
+  var lbBoard = null;
+  var lbBusy = false;
+
+  function lbSetErr(msg) {
+    if (accErr) { accErr.textContent = msg || ''; accErr.className = 'form-msg' + (msg ? ' err' : ''); }
+    if (accOk) accOk.className = 'form-msg ok';
+  }
+  function lbSetOk(msg) {
+    if (accOk) { accOk.textContent = msg || ''; accOk.className = 'form-msg ok' + (msg ? '' : ''); accOk.style.display = msg ? '' : 'none'; }
+    if (accErr) accErr.textContent = '';
+  }
+
+  function lbFetch(method, body) {
+    if (typeof fetch !== 'function') return Promise.reject(new Error('offline'));
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(LB_URL, opts).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) { var e = new Error((data && data.error) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+        return data;
+      });
+    });
+  }
+
+  function lbEsc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  function lbRenderBoard(board) {
+    if (!boardBody) return;
+    board = board || lbBoard || { scores: [] };
+    lbBoard = board;
+    var rows = board.scores || [];
+    if (!rows.length) {
+      boardBody.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>';
+    } else {
+      var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th class="num">Wallet</th><th class="num">Debt</th><th class="num">Loans</th></tr></thead><tbody>';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var me = lbSession && String(r.name).toLowerCase() === String(lbSession.name).toLowerCase();
+        var cls = (i === 0 ? 'top1' : '') + (me ? ' me' : '');
+        var debtCell = (r.debt > 0) ? ('$' + r.debt.toLocaleString()) : '—';
+        html += '<tr class="' + cls + '"><td>' + (i + 1) + '</td><td class="lb-name">' + lbEsc(r.name) + '</td><td class="num' + (r.wallet < 0 ? ' neg' : '') + '">' + (r.wallet < 0 ? '-' : '') + '$' + Math.abs(r.wallet).toLocaleString() + '</td><td class="num">' + debtCell + '</td><td class="num">' + (r.borrows || 0) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      boardBody.innerHTML = html;
+    }
+    if (boardFoot) boardFoot.textContent = board.updated ? ('Updated ' + new Date(board.updated).toLocaleString()) : '';
+    if (boardBorrowBtn) {
+      // Mirror the server's borrow guard: loan only while wallet < MIN_BET.
+      boardBorrowBtn.style.display = (lbSession && lbSession.wallet < MIN_BET) ? '' : 'none';
+    }
+    if (boardRepayBtn) {
+      // Repay only when there IS a debt AND the wallet covers it in full.
+      var showRepay = lbSession && lbSession.debt > 0 && lbSession.wallet >= lbSession.debt;
+      boardRepayBtn.style.display = showRepay ? '' : 'none';
+      if (showRepay) boardRepayBtn.textContent = '💰 Repay $' + lbSession.debt.toLocaleString() + ' debt';
+    }
+  }
+
+  function lbUpdateBadge() {
+    if (!accNameEl) return;
+    if (lbSession) {
+      accNameTxt.textContent = lbSession.name;
+      accNameEl.classList.remove('hidden');
+      if (accLogoutEl) accLogoutEl.classList.remove('hidden');
+    } else {
+      accNameTxt.textContent = '';
+      accNameEl.classList.add('hidden');
+    }
+  }
+
+  function lbSwitchMode(mode) {
+    lbMode = mode;
+    if (tabCreate) tabCreate.classList.toggle('active', mode === 'create');
+    if (tabLogin) tabLogin.classList.toggle('active', mode === 'login');
+    if (accGoBtn) accGoBtn.textContent = (mode === 'create') ? 'Create account' : 'Log in';
+    if (accNameInput) accNameInput.placeholder = (mode === 'create') ? 'e.g. Lucky' : 'Your name';
+    lbSetErr(''); lbSetOk('');
+  }
+
+  function lbOpenAccount() {
+    lbSwitchMode(lbSession ? 'login' : 'create');
+    if (accNameInput) accNameInput.value = lbSession ? lbSession.name : '';
+    if (accPinInput) accPinInput.value = '';
+    if (accountModal) accountModal.classList.add('show');
+    setTimeout(function () { if (accNameInput && accNameInput.focus) accNameInput.focus(); }, 30);
+  }
+  function lbCloseAccount() { if (accountModal) accountModal.classList.remove('show'); }
+
+  function lbDoGo() {
+    if (lbBusy) return;
+    var name = (accNameInput && accNameInput.value || '').trim();
+    var pin = (accPinInput && accPinInput.value || '').trim();
+    if (!name) { lbSetErr('Enter a name'); return; }
+    if (!/^\d{4}$/.test(pin)) { lbSetErr('PIN must be exactly 4 digits'); return; }
+    lbBusy = true;
+    if (accGoBtn) accGoBtn.disabled = true;
+    var fn = (lbMode === 'create') ? lbCreate : lbLogin;
+    fn(name, pin).then(function (res) {
+      lbSetOk((lbMode === 'create') ? ('Account created — welcome, ' + res.name + '!') : ('Logged in as ' + res.name));
+      lbCloseAccount();
+      setTimeout(function () { lbOpenBoard(); }, 120);
+    }).catch(function (e) {
+      lbSetErr(e.message || 'Something went wrong');
+    }).then(function () {
+      lbBusy = false;
+      if (accGoBtn) accGoBtn.disabled = false;
+    });
+  }
+
+  function lbCreate(name, pin) {
+    return lbFetch('POST', { action: 'create', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, wallet: res.wallet != null ? res.wallet : 1000, debt: res.debt || 0, borrows: res.borrows || 0 };
+      if (res.board) lbBoard = res.board;
+      state.balance = lbSession.wallet;   // account wallet is the source of truth
+      saveState(); render();
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogin(name, pin) {
+    return lbFetch('POST', { action: 'login', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, wallet: res.wallet != null ? res.wallet : 0, debt: res.debt || 0, borrows: res.borrows || 0 };
+      if (res.board) lbBoard = res.board;
+      state.balance = lbSession.wallet;   // account wallet is the source of truth
+      saveState(); render();
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogout() { lbSession = null; lbUpdateBadge(); if (boardModal) boardModal.classList.remove('show'); }
+
+  function lbOpenBoard() {
+    if (!lbSession) { lbOpenAccount(); return; }
+    if (boardModal) boardModal.classList.add('show');
+    if (boardBorrowBtn) boardBorrowBtn.textContent = '🏦 Borrow $2,000 from the casino';
+    if (typeof fetch === 'function') {
+      lbFetch('POST', { action: 'board' }).then(function (b) { lbRenderBoard(b); }).catch(function () { lbRenderBoard(null); });
+    } else { lbRenderBoard(null); }
+  }
+  function lbCloseBoard() { if (boardModal) boardModal.classList.remove('show'); }
+
+  // Sync the account's wallet with the current game balance after each spin.
+  function lbSyncWallet(wallet) {
+    if (!lbSession) return Promise.resolve();
+    var w = (wallet == null) ? state.balance : wallet;
+    return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, wallet: w }).then(function (res) {
+      lbSession.wallet = res.wallet;
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+    }).catch(function () { /* user can retry from the board */ });
+  }
+
+  function lbBorrow() {
+    if (!lbSession) return Promise.resolve();
+    return lbFetch('POST', { action: 'borrow', name: lbSession.name, pin: lbSession.pin }).then(function (res) {
+      lbSession.wallet = res.wallet;
+      lbSession.debt = res.debt;
+      lbSession.borrows = res.borrows;
+      state.balance = res.wallet;
+      render();
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+      if (boardBorrowBtn) boardBorrowBtn.textContent = 'Borrowed $2,000 ✓';
+      if (brokeBorrowBtn) brokeBorrowBtn.textContent = 'Borrowed $2,000 ✓';
+      return res;
+    }).catch(function (err) {
+      if (boardBorrowBtn) boardBorrowBtn.textContent = (err && err.message) ? err.message : 'Borrow failed — try again';
+      if (brokeBorrowBtn) brokeBorrowBtn.textContent = (err && err.message) ? err.message : 'Borrow failed — try again';
+      throw err;
+    });
+  }
+
+  function lbRepay() {
+    if (!lbSession) return Promise.resolve();
+    return lbFetch('POST', { action: 'repay', name: lbSession.name, pin: lbSession.pin }).then(function (res) {
+      lbSession.wallet = res.wallet;
+      lbSession.debt = res.debt;
+      state.balance = res.wallet;
+      render();
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+      if (boardRepayBtn) boardRepayBtn.textContent = 'Repaid $' + res.repaid.toLocaleString() + ' ✓';
+      return res;
+    }).catch(function (err) {
+      if (boardRepayBtn) boardRepayBtn.textContent = 'Repay failed — try again';
+      throw err;
+    });
+  }
+
+  // ── wire up leaderboard UI ──
+  if (lbBtn && lbBtn.addEventListener) lbBtn.addEventListener('click', function () { lbOpenBoard(); });
+  if (accLogoutEl && accLogoutEl.addEventListener) accLogoutEl.addEventListener('click', function (e) { if (e.stopPropagation) e.stopPropagation(); lbLogout(); });
+  if (tabCreate && tabCreate.addEventListener) tabCreate.addEventListener('click', function () { lbSwitchMode('create'); });
+  if (tabLogin && tabLogin.addEventListener) tabLogin.addEventListener('click', function () { lbSwitchMode('login'); });
+  if (accGoBtn && accGoBtn.addEventListener) accGoBtn.addEventListener('click', lbDoGo);
+  if (accCloseBtn && accCloseBtn.addEventListener) accCloseBtn.addEventListener('click', lbCloseAccount);
+  if (boardBorrowBtn && boardBorrowBtn.addEventListener) boardBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
+  if (boardRepayBtn && boardRepayBtn.addEventListener) boardRepayBtn.addEventListener('click', function () { lbRepay().catch(function () {}); });
+  if (brokeBorrowBtn && brokeBorrowBtn.addEventListener) brokeBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
+  if (boardCloseBtn && boardCloseBtn.addEventListener) boardCloseBtn.addEventListener('click', lbCloseBoard);
+  if (accPinInput && accPinInput.addEventListener) {
+    accPinInput.addEventListener('input', function () { accPinInput.value = accPinInput.value.replace(/[^0-9]/g, '').slice(0, 4); });
+    accPinInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  }
+  if (accNameInput && accNameInput.addEventListener) accNameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  [accountModal, boardModal].forEach(function (m) {
+    if (m && m.addEventListener) m.addEventListener('click', function (e) { if (e.target === m) { lbCloseAccount(); lbCloseBoard(); } });
+  });
+  lbUpdateBadge();
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Test-only handle (no effect in the browser UI)
+  // ═══════════════════════════════════════════════════════════════
+  if (typeof window !== 'undefined') {
+    window.__SLOTS__ = {
+      state: function () {
+        return {
+          phase: state.phase,
+          balance: state.balance,
+          bet: state.bet,
+          lastBet: state.lastBet,
+          reels: state.reels,
+          lastWin: state.lastWin
+        };
+      },
+      addChip: addChip,
+      clearBet: clearBet,
+      spin: spin,
+      newSpin: newSpin,
+      rebuy: rebuy,
+      _setSeed: function (s) { rng = makeRng(s); },
+      _pick: pickSymbol,
+      _payout: payout,
+      _symbols: SYMBOLS.map(function (s) { return s.id; }),
+      _weights: WEIGHTS,
+      _strip: STRIP,
+      _minBet: MIN_BET,
+      _broke: function () { return state.balance < MIN_BET; },
+      // ── leaderboard (PIN-protected accounts + shared wallet + loans) ──
+      _lbCreate: lbCreate,
+      _lbLogin: lbLogin,
+      _lbBoard: function () { return lbFetch('POST', { action: 'board' }); },
+      _lbScore: function (wallet) {
+        if (!lbSession) return Promise.reject(new Error('no session'));
+        return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, wallet: wallet }).then(function (res) {
+          lbSession.wallet = res.wallet;
+          if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+          return res;
+        });
+      },
+      _lbBorrow: lbBorrow,
+      _lbRepay: lbRepay,
+      _lbSync: lbSyncWallet,
+      _lbLogout: lbLogout,
+      _lbSession: function () { return lbSession; },
+      _lbRender: lbRenderBoard
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Boot
+  // ═══════════════════════════════════════════════════════════════
+  loadState();
+  renderReels(null);
+  render();
+  showMsg('Place your bet and pull the lever');
+})();
+</script>
+</body>
+</html>
