@@ -30,9 +30,9 @@ function makeEl(attrs) {
 }
 
 var ids = ['balanceVal','bestVal','shoeCount','shoeVisual','dealerTotal','playerTotal','dealerCards','playerCards','playerArea',
-  'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn','splitBtn',
+  'msg','betVal','betRow','playRow','dealRow','clearBtn','hitBtn','standBtn','doubleBtn','splitBtn','repeatChip',
   'dealBtn','insBtn','declineBtn','insRow','insBadge','overlay','newHandBtn','rebuyBtn','muteBtn','resultText','amountText','resultSub','newHigh','brokeMsg','deckGroup','ccToggle','ccPanel','ccRunning','ccTrue','ccDecks','ccMoves','ccNote',
-  'lbBtn','accName','accLogout','accountModal','boardModal','tabCreate','tabLogin','accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot','boardBorrowBtn','brokeBorrowBtn','boardCloseBtn'];
+  'lbBtn','accName','accLogout','accountModal','boardModal','tabCreate','tabLogin','accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot','boardBorrowBtn','boardRepayBtn','brokeBorrowBtn','boardCloseBtn'];
 var elements = {};
 ids.forEach(function (id) { elements[id] = makeEl(); });
 // Match the real game: the count-assist panel starts hidden (user toggles it on).
@@ -86,6 +86,9 @@ function lbApi(body) {
     if (!lbStore[rn]) return { ok: false, error: 'No such account' };
     if (lbStore[rn].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
     if (lbStore[rn].debt <= 0) return { ok: false, error: 'No debt to repay' };
+    // Mirror the real server: a player can only repay when their wallet covers the FULL
+    // debt — never let a short wallet drive itself negative by repaying.
+    if (lbStore[rn].wallet < lbStore[rn].debt) return { ok: false, error: "Wallet can't cover the full debt" };
     var paid = lbStore[rn].debt;
     lbStore[rn].wallet -= paid;
     lbStore[rn].debt = 0;
@@ -139,6 +142,12 @@ try {
   process.exit(1);
 }
 if (!BJ) { console.error('✗ __BJ__ handle missing'); process.exit(1); }
+
+// ── newHand now auto-prefills the last bet. The invariant tests below place a
+//    known clean stake, so wrap newHand to drop the remembered bet first. The
+//    dedicated feature test (section 9) restores the real newHand. ──
+var _realNewHand = BJ.newHand;
+BJ.newHand = function () { _realNewHand(); BJ.clearBet(); };
 
 // ═══════════════════════════════════════════════════════════════
 //  1. UNIT TESTS — pure helpers
@@ -571,13 +580,27 @@ function runLB() {
       var html = elements['boardBody'].innerHTML;
       assert(html.indexOf('Rex') !== -1, 'board render writes the name into the DOM');
       assert(html.indexOf('Wallet') !== -1 && html.indexOf('Debt') !== -1 && html.indexOf('Loans') !== -1, 'board render shows Wallet / Debt / Loans columns');
-      // ── REPAY: pay back the full outstanding debt (4040). Wallet drops by the same amount, debt -> 0.
+      // ── REPAY GUARD: wallet must cover FULL debt (no negative wallets) ──
+      // After borrow: wallet 3750 < debt 4040 → CANNOT repay yet.
+      return BJ._lbRepay().then(function (r) { assert(r.ok === false, 'repay rejected when wallet < debt'); return r; },
+        function (e) { assert(/cover|debt/i.test(e.message), 'blocked-repay error mentions debt/cover: ' + e.message); return { ok: false }; });
+    })
+    .then(function () {
+      // Wallet unchanged after blocked repay.
+      assert(lbStore['Rex'].wallet === 3750, 'wallet unchanged after blocked repay');
+      assert(lbStore['Rex'].debt === 4040, 'debt unchanged after blocked repay');
+      // Raise wallet above debt via score (simulates winning hands — sets absolute).
+      return BJ._lbScore(5040);
+    })
+    .then(function (r) {
+      assert(r.ok === true && r.wallet === 5040, 'score raised wallet to 5040');
+      // Now wallet 5040 >= debt 4040 → CAN repay in full.
       return BJ._lbRepay();
     })
     .then(function (r) {
       assert(r.ok === true && r.repaid === 4040, 'repay: repaid 4040 (full debt)');
-      assert(r.wallet === 3750 - 4040 && r.debt === 0, 'repay: wallet 3750-4040 = -290, debt cleared to 0');
-      assert(BJ._lbSession().debt === 0 && BJ._lbSession().wallet === -290, 'session updated after repay');
+      assert(r.wallet === 5040 - 4040 && r.debt === 0, 'repay: wallet 5040-4040 = 1000, debt cleared to 0');
+      assert(BJ._lbSession().debt === 0 && BJ._lbSession().wallet === 1000, 'session updated after repay');
       // Repay with no debt must be rejected.
       return BJ._lbRepay().then(function (r) { assert(r.ok === false, 'repay with no debt is rejected'); return { ok: true }; },
         function (e) { assert(/debt|repay/i.test(e.message), 'repay-no-debt error message mentions debt'); return { ok: true }; });

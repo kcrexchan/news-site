@@ -22,7 +22,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 //     action "score"  : { name, pin, wallet } -> verify PIN, set wallet (can be
 //                        negative), recompute board
 //     action "borrow" : { name, pin } -> verify PIN, wallet += 2000, debt += 2020
-//     action "repay"  : { name, pin } -> verify PIN, pay back full debt (wallet -= debt, debt -> 0)
+//     action "repay"  : { name, pin } -> verify PIN, pay back the FULL debt only if
+//                        wallet >= debt (debt cleared to 0); rejected otherwise so a
+//                        player can never drive their own wallet negative by repaying
 //     action "delete" : { name, pin } -> verify PIN, remove the account entirely
 //     action "board"  : same as GET
 //
@@ -307,6 +309,10 @@ export default async function handler(req, res) {
           const expect = await hashPin(pin, a.salt);
           if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
           if (a.debt <= 0) return { ok: false, write: false, status: 400, body: { error: "No debt to repay" } };
+          // A player can only repay the FULL debt when their wallet covers it — never
+          // let a short wallet drive itself negative by repaying (that would be paying
+          // the casino with money they don't have). Partial repayment is not offered.
+          if (a.wallet < a.debt) return { ok: false, write: false, status: 400, body: { error: "Wallet can't cover the full debt — win more before repaying" } };
           const paid = a.debt;
           const newWallet = a.wallet - paid;
           doc.accounts[key] = { ...a, wallet: newWallet, debt: 0, last: now };

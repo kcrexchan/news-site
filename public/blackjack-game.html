@@ -219,6 +219,15 @@
   #betLine { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 2px; }
   #betLabel { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #6f9c86; }
   #betVal { font-size: 22px; font-weight: 900; color: #f5e6a8; font-variant-numeric: tabular-nums; }
+  #repeatChip {
+    margin-left: 10px; padding: 3px 11px; font-size: 12px; font-weight: 700;
+    color: #f5e6a8; background: rgba(245, 230, 168, 0.10);
+    border: 1px solid rgba(245, 230, 168, 0.35); border-radius: 999px;
+    cursor: pointer; letter-spacing: 0.02em;
+  }
+  #repeatChip:hover { background: rgba(245, 230, 168, 0.22); }
+  #repeatChip:active { transform: scale(0.95); }
+  #repeatChip.hidden { display: none; }
 
   /* ── Result overlay ── */
   #overlay {
@@ -463,6 +472,7 @@
     <div id="betLine">
       <span id="betLabel">Bet</span>
       <span id="betVal">0</span>
+      <button id="repeatChip" class="hidden" title="Repeat your last bet">↻</button>
     </div>
     <div class="row" id="betRow">
       <button class="chip c10"  data-chip="10">10</button>
@@ -621,6 +631,7 @@
   var playerArea = $('playerArea');
   var msgEl = $('msg');
   var betValEl = $('betVal');
+  var repeatChipEl = $('repeatChip');
   var betRow = $('betRow');
   var playRow = $('playRow');
   var dealRow = $('dealRow');
@@ -726,6 +737,7 @@
     balance: START_BALANCE,
     decks: NUM_DECKS,        // current deck count (1/2/4/6/8)
     bet: 0,                  // main bet (base) — per-hand bet lives in hands[i].bet
+    lastBet: 0,              // last bet placed — auto-reused next hand until cleared
     hands: [],               // array of { cards:[], bet, doubled, split, done }
     activeHand: 0,           // index into hands[] being played
     dealer: [],
@@ -746,6 +758,7 @@
         if (typeof p.balance === 'number') state.balance = Math.max(0, p.balance);
         if (typeof p.best === 'number') state.best = Math.max(0, p.best);
         if (typeof p.blackjacks === 'number') state.blackjacks = Math.max(0, p.blackjacks);
+        if (typeof p.lastBet === 'number') state.lastBet = Math.max(0, p.lastBet);
         if (typeof p.decks === 'number' && [1,2,4,6,8].indexOf(p.decks) >= 0) {
           NUM_DECKS = p.decks;
           state.decks = p.decks;
@@ -754,7 +767,7 @@
     } catch (e) { /* ignore */ }
   }
   function saveState() {
-    try { localStorage.setItem('blackjack-state', JSON.stringify({ balance: state.balance, best: state.best, blackjacks: state.blackjacks || 0, decks: NUM_DECKS })); }
+    try { localStorage.setItem('blackjack-state', JSON.stringify({ balance: state.balance, best: state.best, blackjacks: state.blackjacks || 0, lastBet: state.lastBet || 0, decks: NUM_DECKS })); }
     catch (e) { /* ignore */ }
   }
 
@@ -1053,6 +1066,12 @@
     balanceEl.textContent = String(state.balance);
     bestEl.textContent = String(state.best);
     betValEl.textContent = String(state.bet);
+    // repeat-last-bet button: visible whenever there's a remembered bet we could replay
+    if (repeatChipEl) {
+      var canRepeat = state.phase === 'bet' && state.lastBet > 0 && state.lastBet <= state.balance;
+      repeatChipEl.classList.toggle('hidden', !canRepeat);
+      repeatChipEl.textContent = '\u21bb ' + state.lastBet;
+    }
     renderShoe();
     updateDeckSel();
     renderCountAssist();
@@ -1085,6 +1104,7 @@
     if (state.phase !== 'bet') return;
     if (state.bet + v > state.balance) return;
     state.bet += v;
+    state.lastBet = state.bet;   // remember the bet as it stands, for the next hand
     sfx.chip();
     showMsg('Bet: ' + state.bet);
     render();
@@ -1092,12 +1112,24 @@
   function clearBet() {
     if (state.phase !== 'bet') return;
     state.bet = 0;
+    state.lastBet = 0;          // clearing the bet also clears the remembered one
+    saveState();
+    render();
+  }
+  function repeatBet() {
+    if (state.phase !== 'bet') return;
+    if (state.lastBet <= 0 || state.lastBet > state.balance) return;
+    state.bet = state.lastBet;
+    sfx.chip();
+    showMsg('Bet: ' + state.bet);
     render();
   }
 
   function startDeal() {
     if (state.phase !== 'bet') return;
     if (state.bet <= 0 || state.bet > state.balance) return;
+    state.lastBet = state.bet;   // the bet that's actually dealt becomes the remembered one
+    saveState();
     state.dealer = [];
     state.holeHidden = true;
     state.insurance = 0;
@@ -1409,6 +1441,13 @@
     state.dealer = [];
     state.holeHidden = true;
     state.bet = 0;
+    // Reuse the last bet automatically — unless the balance can't cover it.
+    if (state.lastBet > 0 && state.lastBet <= state.balance) {
+      state.bet = state.lastBet;
+    } else if (state.lastBet > 0) {
+      state.lastBet = 0;   // stale (unaffordable) — drop it
+      saveState();
+    }
     state.insurance = 0;
     state.insurancePaid = false;
     clearCards(dealerCardsEl);
@@ -1416,7 +1455,7 @@
     handEls.forEach(function (he) { if (he.el.parentNode) he.el.parentNode.removeChild(he.el); });
     handEls = [];
     overlay.className = '';
-    showMsg('Place your bet');
+    showMsg(state.bet > 0 ? ('Bet ' + state.bet + ' — deal, or add more') : 'Place your bet');
     render();
   }
   function rebuy() {
@@ -1471,6 +1510,7 @@
     b.addEventListener('click', function () { setDeckCount(parseInt(b.getAttribute('data-decks'), 10)); });
   });
   clearBtn.addEventListener('click', clearBet);
+  if (repeatChipEl) repeatChipEl.addEventListener('click', repeatBet);
   dealBtn.addEventListener('click', startDeal);
   hitBtn.addEventListener('click', doHit);
   standBtn.addEventListener('click', doStand);
@@ -1567,7 +1607,9 @@
     }
     if (boardFoot) boardFoot.textContent = board.updated ? ('Updated ' + new Date(board.updated).toLocaleString()) : '';
     if (boardRepayBtn) {
-      var showRepay = lbSession && lbSession.debt > 0;
+      // Only offer to repay when there IS a debt AND the wallet can cover it in full —
+      // otherwise the player would be paying the casino with money they don't have.
+      var showRepay = lbSession && lbSession.debt > 0 && lbSession.wallet >= lbSession.debt;
       boardRepayBtn.style.display = showRepay ? '' : 'none';
       if (showRepay) boardRepayBtn.textContent = '💰 Repay $' + lbSession.debt.toLocaleString() + ' debt';
     }
@@ -1694,6 +1736,9 @@
 
   function lbRepay() {
     if (!lbSession) return Promise.resolve();
+    // The affordability rule (wallet must cover the FULL debt to repay) is enforced by
+    // the server — see action "repay". When unaffordable, the Repay button is hidden in
+    // lbRenderBoard and any stray call is rejected there with a clear error.
     return lbFetch('POST', { action: 'repay', name: lbSession.name, pin: lbSession.pin }).then(function (res) {
       lbSession.wallet = res.wallet;
       lbSession.debt = res.debt;
@@ -1739,6 +1784,7 @@
           phase: state.phase,
           balance: state.balance,
           bet: state.bet,
+          lastBet: state.lastBet,
           decks: NUM_DECKS,
           player: state.hands[0] ? state.hands[0].cards.map(function (c) { return c.rank + c.suit; }) : [],
           hands: state.hands.map(function (h) {
@@ -1757,6 +1803,7 @@
       },
       addChip: addChip,
       clearBet: clearBet,
+      repeatBet: repeatBet,
       deal: startDeal,
       hit: doHit,
       stand: doStand,
