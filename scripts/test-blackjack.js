@@ -76,6 +76,9 @@ function lbApi(body) {
     var bn = (body.name || '').trim();
     if (!lbStore[bn]) return { ok: false, error: 'No such account' };
     if (lbStore[bn].pin !== body.pin) return { ok: false, error: 'Wrong PIN' };
+    // Mirror the real server: a loan is only for a broke player — one whose
+    // wallet can't cover the minimum bet (10).
+    if (lbStore[bn].wallet >= 10) return { ok: false, error: "You can still cover a minimum bet — borrow only when you can't start a hand" };
     lbStore[bn].wallet += LOAN;
     lbStore[bn].debt += LOAN_TOTAL;
     lbStore[bn].borrows += 1;
@@ -565,29 +568,44 @@ function runLB() {
       assert(r.ok === true && r.wallet === 1750, 'borrow: wallet -250 + 2000 = 1750');
       assert(r.debt === 2020 && r.borrows === 1, 'borrow: debt 2020 (1% interest), 1 loan recorded');
       assert(BJ._lbSession().wallet === 1750 && BJ._lbSession().borrows === 1, 'session updated after borrow');
-      // Unlimited borrowing: a second loan is allowed.
+      // ── BORROW GUARD: wallet 1750 >= MIN_BET (10) → CANNOT borrow again ──
+      return BJ._lbBorrow().then(function (r) { assert(r.ok === false, 'borrow rejected when wallet still covers the minimum bet'); return r; },
+        function (e) { assert(/minimum bet|start a hand/i.test(e.message), 'blocked-borrow error mentions the minimum bet: ' + e.message); return { ok: false }; });
+    })
+    .then(function () {
+      // Wallet unchanged after the blocked second borrow.
+      assert(lbStore['Rex'].wallet === 1750, 'wallet unchanged after blocked borrow');
+      assert(lbStore['Rex'].debt === 2020, 'debt unchanged after blocked borrow');
+      assert(lbStore['Rex'].borrows === 1, 'borrow count unchanged after blocked borrow');
+      // Unlimited borrowing (by count): lose down below the minimum bet again,
+      // and a second loan is granted.
+      return BJ._lbScore(5);
+    })
+    .then(function (r) {
+      assert(r.ok === true && r.wallet === 5, 'score dropped wallet to 5 (broke again)');
       return BJ._lbBorrow();
     })
     .then(function (r) {
-      assert(r.wallet === 3750 && r.borrows === 2 && r.debt === 4040, 'second borrow allowed (unlimited): wallet 3750, 2 loans, debt 4040');
+      assert(r.ok === true && r.wallet === 2005, 'second borrow after going broke: wallet 5 + 2000 = 2005');
+      assert(r.debt === 4040 && r.borrows === 2, 'second borrow: 2 loans, debt 4040');
       return BJ._lbBoard();
     })
     .then(function (r) {
       assert(Array.isArray(r.scores) && r.scores.length >= 1, 'board returns at least the created account');
       var top = r.scores[0];
-      assert(top.name === 'Rex' && top.wallet === 3750 && top.debt === 4040 && top.borrows === 2, 'board top row is Rex @ wallet 3750 / debt 4040 / 2 loans');
+      assert(top.name === 'Rex' && top.wallet === 2005 && top.debt === 4040 && top.borrows === 2, 'board top row is Rex @ wallet 2005 / debt 4040 / 2 loans');
       BJ._lbRender(r);
       var html = elements['boardBody'].innerHTML;
       assert(html.indexOf('Rex') !== -1, 'board render writes the name into the DOM');
       assert(html.indexOf('Wallet') !== -1 && html.indexOf('Debt') !== -1 && html.indexOf('Loans') !== -1, 'board render shows Wallet / Debt / Loans columns');
       // ── REPAY GUARD: wallet must cover FULL debt (no negative wallets) ──
-      // After borrow: wallet 3750 < debt 4040 → CANNOT repay yet.
+      // After borrow: wallet 2005 < debt 4040 → CANNOT repay yet.
       return BJ._lbRepay().then(function (r) { assert(r.ok === false, 'repay rejected when wallet < debt'); return r; },
         function (e) { assert(/cover|debt/i.test(e.message), 'blocked-repay error mentions debt/cover: ' + e.message); return { ok: false }; });
     })
     .then(function () {
       // Wallet unchanged after blocked repay.
-      assert(lbStore['Rex'].wallet === 3750, 'wallet unchanged after blocked repay');
+      assert(lbStore['Rex'].wallet === 2005, 'wallet unchanged after blocked repay');
       assert(lbStore['Rex'].debt === 4040, 'debt unchanged after blocked repay');
       // Raise wallet above debt via score (simulates winning hands — sets absolute).
       return BJ._lbScore(5040);

@@ -13,7 +13,10 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 //   `borrow`  : wallet += 2000, debt += 2020 (1% interest on the $2000), borrows += 1
 //   `debt`    : total owed to the casino (principal + interest), starts at 0.
 //   `borrows` : how many times the player has borrowed from the casino.
-//   Borrowing is unlimited — no cap on how many $2000 loans a player can take.
+//   Borrowing is unlimited in COUNT — but only while the player is BROKE:
+//   the server rejects the loan whenever wallet >= MIN_BET (the player can
+//   still start a hand). Once they lose down below the minimum bet again,
+//   they can borrow again.
 //
 //   GET  -> { updated, scores: [ {name, wallet, debt, borrows, at} x10 ] }
 //   POST -> { action, ... }
@@ -21,7 +24,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 //     action "login"  : { name, pin } -> verify PIN, return wallet/debt/borrows
 //     action "score"  : { name, pin, wallet } -> verify PIN, set wallet (can be
 //                        negative), recompute board
-//     action "borrow" : { name, pin } -> verify PIN, wallet += 2000, debt += 2020
+//     action "borrow" : { name, pin } -> verify PIN, wallet += 2000, debt += 2020 —
+//                        only when wallet < MIN_BET; rejected otherwise (player can
+//                        still start a hand)
 //     action "repay"  : { name, pin } -> verify PIN, pay back the FULL debt only if
 //                        wallet >= debt (debt cleared to 0); rejected otherwise so a
 //                        player can never drive their own wallet negative by repaying
@@ -35,7 +40,10 @@ const OBJECT_KEY = "leaderboard/blackjack.json";
 const MAX_ENTRIES = 10;
 const MAX_RETRIES = 5;
 
-// Casino loan terms: $2000 at a time, 1% interest, unlimited count.
+// Casino loan terms: $2000 at a time, 1% interest. A loan is only offered while
+// the player is broke — i.e. their wallet can't cover the game's minimum bet.
+// Keep MIN_BET in sync with MIN_BET in public/blackjack-game.html.
+const MIN_BET = 10;
 const LOAN_AMOUNT = 2000;
 const LOAN_INTEREST = 0.01; // 1%
 const LOAN_TOTAL = LOAN_AMOUNT + Math.round(LOAN_AMOUNT * LOAN_INTEREST); // 2020
@@ -275,6 +283,9 @@ export default async function handler(req, res) {
           if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
           const expect = await hashPin(pin, a.salt);
           if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
+          // Borrowing is only for players who can't start a hand. If the wallet
+          // still covers the minimum bet, there is no loan — play a hand instead.
+          if (a.wallet >= MIN_BET) return { ok: false, write: false, status: 400, body: { error: "You can still cover a minimum bet — borrow only when you can't start a hand" } };
           const newWallet = a.wallet + LOAN_AMOUNT;
           const newDebt = a.debt + LOAN_TOTAL;
           doc.accounts[key] = { ...a, wallet: newWallet, debt: newDebt, borrows: a.borrows + 1, last: now };

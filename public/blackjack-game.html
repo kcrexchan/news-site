@@ -1606,6 +1606,12 @@
       boardBody.innerHTML = html;
     }
     if (boardFoot) boardFoot.textContent = board.updated ? ('Updated ' + new Date(board.updated).toLocaleString()) : '';
+    if (boardBorrowBtn) {
+      // Mirror the server's borrow guard: only offer a loan while the wallet
+      // can't cover the minimum bet. (The inline brokeBorrowBtn is gated the
+      // same way by the `broke` overlay; this is the board-modal button.)
+      boardBorrowBtn.style.display = (lbSession && lbSession.wallet < MIN_BET) ? '' : 'none';
+    }
     if (boardRepayBtn) {
       // Only offer to repay when there IS a debt AND the wallet can cover it in full —
       // otherwise the player would be paying the casino with money they don't have.
@@ -1728,8 +1734,10 @@
       if (brokeBorrowBtn) brokeBorrowBtn.textContent = 'Borrowed $2,000 ✓';
       return res;
     }).catch(function (err) {
-      if (boardBorrowBtn) boardBorrowBtn.textContent = 'Borrow failed — try again';
-      if (brokeBorrowBtn) brokeBorrowBtn.textContent = 'Borrow failed — try again';
+      // Surface the server's real reason (e.g. "you can still cover a minimum
+      // bet") instead of a generic failure.
+      if (boardBorrowBtn) boardBorrowBtn.textContent = (err && err.message) ? err.message : 'Borrow failed — try again';
+      if (brokeBorrowBtn) brokeBorrowBtn.textContent = (err && err.message) ? err.message : 'Borrow failed — try again';
       throw err;
     });
   }
