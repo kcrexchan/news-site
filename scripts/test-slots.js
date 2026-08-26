@@ -49,6 +49,7 @@ function makeReel() {
 }
 
 var ids = ['balanceVal','betVal','msg','clearBtn','spinBtn','muteBtn','resultBar',
+  'lever','leverArm',
   'paytableBody',
   'paytable','paytableToggle','paytableBodyWrap',
   'lbBtn','accName','accNameTxt','accLogout','accountModal','boardModal','tabCreate','tabLogin',
@@ -209,6 +210,11 @@ async function main() {
   assert(st.lastWin === exp, 'lastWin = bet × payout (' + exp + ')');
   assert(st.balance === 1000 - 100 + exp, 'balance = 1000 − 100 + win (' + st.balance + ')');
   assert(st.reels.length === 3, 'three reels drawn');
+
+  // Lever is wired and reflects the non-spinning (idle/settle) state.
+  assert(!!elements.lever, 'lever element present in DOM');
+  assert(!!elements.leverArm, 'lever arm element present in DOM');
+  assert(elements.lever.disabled === false, 'lever enabled when not spinning');
 
   // Minimum-bet guard
   S.newSpin();
