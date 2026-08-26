@@ -176,6 +176,7 @@ export default function Home() {
 
   const navItems = [
     { icon: '🎮', title: 'Games', desc: "Sky Fighter ✈️ · Tetris · Breakout · Heads Up · Tank Battle — arcade games with mobile touch controls.", href: '/games' },
+    { icon: '⚡', title: 'Reaction Time', desc: 'Wait for green, tap fast. Five rounds, false-start detection, and a leaderboard ranked by your fastest millisecond.', href: '/reaction' },
     { icon: '📰', title: 'Digest', desc: "Curated updates on local models, on-device AI, and the latest in edge computing.", href: '/digest' },
     { icon: '🔁', title: 'Round up', desc: 'Top stories from r/LocalLLaMA & r/localllm — curated & summarized daily.', href: '/reddit' },
   ]
