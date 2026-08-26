@@ -83,7 +83,10 @@
     -webkit-tap-highlight-color: transparent;
   }
   .lever:disabled { cursor: default; }
-  .lever-assembly { position: relative; width: 64px; height: 170px; display: block; }
+  .lever-assembly {
+    position: relative; width: 64px; height: 170px; display: block;
+    perspective: 420px; perspective-origin: 50% 100%;
+  }
   .lever-base {
     position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
     width: 30px; height: 34px; border-radius: 8px;
@@ -100,6 +103,7 @@
   .lever-arm {
     position: absolute; bottom: 16px; left: 50%; width: 10px; height: 122px;
     margin-left: -5px; transform-origin: 50% 100%;
+    transform-style: preserve-3d;
     background: linear-gradient(90deg, #6f6f86, #d9d9ea 45%, #8a8a9e);
     border-radius: 6px;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
@@ -107,6 +111,7 @@
   .lever-ball {
     position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
     width: 30px; height: 30px; border-radius: 50%;
+    transform-style: preserve-3d;
     background: radial-gradient(circle at 32% 28%, #ff9a9a, #e05555 55%, #7c1f1f 100%);
     box-shadow: 0 4px 10px rgba(0,0,0,0.55), inset 0 -3px 6px rgba(0,0,0,0.35);
   }
@@ -117,6 +122,7 @@
   .lever-hint {
     position: absolute; bottom: -18px; left: 0; right: 0; text-align: center;
     font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted);
+    white-space: nowrap;
   }
   .lever:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 3px; border-radius: 8px; }
   @media (prefers-reduced-motion: reduce) {
@@ -401,7 +407,7 @@
       <span class="lever-arm" id="leverArm"><span class="lever-ball"></span></span>
       <span class="lever-base"></span>
     </span>
-    <span class="lever-hint" aria-hidden="true">pull</span>
+    <span class="lever-hint" aria-hidden="true">pull to you</span>
   </button>
   </div>
 
@@ -928,7 +934,8 @@
 
     function setAngle(deg) {
       currentAngle = deg;
-      leverArm.style.transform = 'rotate(' + deg + 'deg)';
+      // Negative rotateX tips the top (ball) towards the viewer = pull towards the player.
+      leverArm.style.transform = 'rotateX(-' + deg + 'deg)';
     }
     function springBack() {
       leverArm.style.transition = 'transform 0.28s cubic-bezier(0.34,1.56,0.64,1)';
