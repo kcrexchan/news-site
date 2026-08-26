@@ -500,8 +500,10 @@
   var SYM_BY_ID = {};
   SYMBOLS.forEach(function (s) { SYM_BY_ID[s.id] = s; });
 
-  // Weighted reel strip (per reel, 100 = 100%). House edge ≈ 4.5%.
-  var WEIGHTS = { cherry: 20, lemon: 18, orange: 16, grape: 14, bell: 12, star: 9, diam: 6, seven: 3, wild: 2 };
+  // Weighted reel strip (per reel, 100 = 100%). Heavily tilted toward common
+  // symbols so 3-of-a-kind and 2-of-a-kind land frequently — a generous rig
+  // that's much easier to win (≈53% of spins pay, vs ~13% before).
+  var WEIGHTS = { cherry: 30, lemon: 25, orange: 20, grape: 12, bell: 6, star: 3, diam: 2, seven: 1, wild: 1 };
   var STRIP = [];
   Object.keys(WEIGHTS).forEach(function (id) {
     for (var i = 0; i < WEIGHTS[id]; i++) STRIP.push(id);
@@ -552,20 +554,23 @@
     for (var i = 0; i < reels.length; i++) if (reels[i] === 'wild') wilds++;
     if (wilds === 3) return SYM_BY_ID.wild.pay;
 
-    // 3-of-a-kind where wilds fill in
     var counts = {};
     for (var j = 0; j < reels.length; j++) {
       if (reels[j] === 'wild') continue;
       counts[reels[j]] = (counts[reels[j]] || 0) + 1;
     }
+
+    // 3-of-a-kind (wilds substitute to complete the triple)
     for (var id in counts) {
       if (counts[id] + wilds >= 3) return SYM_BY_ID[id].pay;
     }
 
-    // Two cherries anywhere on the line (wilds don't count as cherries here)
-    var cherries = 0;
-    for (var k = 0; k < reels.length; k++) if (reels[k] === 'cherry') cherries++;
-    if (cherries === 2) return 2;
+    // Any pair of two identical symbols pays 2× — this is what makes the
+    // machine easy to win (previously only cherry pairs paid). Wilds only
+    // complete triples, so a lone wild + two different symbols is still a miss.
+    for (var id2 in counts) {
+      if (counts[id2] >= 2) return 2;
+    }
 
     return 0;
   }
@@ -821,7 +826,7 @@
     SYMBOLS.forEach(function (s) {
       html += '<tr><td class="sym">' + s.ch + s.ch + s.ch + '</td><td>' + s.id + (s.id === 'wild' ? ' (wild)' : '') + '</td><td class="mult">' + s.pay + '×</td></tr>';
     });
-    html += '<tr><td class="sym">🍒🍒·</td><td>two cherries</td><td class="mult">2×</td></tr>';
+    html += '<tr><td class="sym">🍒🍒·</td><td>any two-of-a-kind</td><td class="mult">2×</td></tr>';
     paytableBody.innerHTML = html;
   })();
 
