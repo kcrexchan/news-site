@@ -591,7 +591,10 @@
     var frag = '';
     for (var i = 0; i < STRIP_LEN; i++) {
       var id = (i === STRIP_MID) ? targetId : STRIP[Math.floor(rng() * STRIP.length) % STRIP.length];
-      frag += '<div class="reel-cell' + (i === STRIP_MID ? ' mid' : '') + '">' + SYM_BY_ID[id].ch + '</div>';
+      // No per-cell highlight on the spin strip: the winning symbol stays
+      // visually identical to the others until the last reel comes to rest
+      // (finishSpin applies the .mid/.lit emphasis).
+      frag += '<div class="reel-cell">' + SYM_BY_ID[id].ch + '</div>';
     }
     reel.innerHTML = '<div class="reel-strip">' + frag + '</div>';
     return reel.querySelector('.reel-strip');
