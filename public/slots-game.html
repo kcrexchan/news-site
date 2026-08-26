@@ -401,10 +401,10 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var SPIN_MS = 420;       // per-reel stagger (browser only; tests run sync)
-  var REEL_SPIN_MS = 1000; // base drum-scroll duration before the reel snaps
-  var STRIP_LEN = 21;      // cells in the drum strip; the middle cell is the target
-  var STRIP_MID = (STRIP_LEN - 1) / 2;
+  var REEL_DURATIONS = [3000, 4000, 5000]; // spin time per reel: 1st 3s, 2nd 4s, 3rd 5s
+  var REEL_SCROLL = [12, 16, 20];          // cells scrolled per reel (~250ms/cell, same speed)
+  var STRIP_LEN = 45;      // cells in the drum strip; the middle cell is the target
+  var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 22
 
   // Symbols (id, glyph, 3-of-a-kind multiplier). Wild substitutes for all.
   var SYMBOLS = [
@@ -621,15 +621,17 @@
         var cell = strip.children[0];
         var h = cell && cell.getBoundingClientRect ? cell.getBoundingClientRect().height : 72;
 
+        var dur = REEL_DURATIONS[idx];
         // Rest: middle cell (index STRIP_MID) centered in the reel window.
-        // Start: 4 cells above, so symbols scroll INTO view.
+        // Start: scroll distance scales with duration so all reels keep the
+        // same rotation speed (~250ms per cell) over their 3s/4s/5s spins.
         var restY = -(STRIP_MID - 1) * h;
-        var startY = restY - 4 * h;
+        var scrollCells = Math.min(REEL_SCROLL[idx], STRIP_MID - 1);
+        var startY = restY - scrollCells * h;
 
         strip.style.transition = 'none';
         strip.style.transform = 'translate3d(0,' + startY + 'px,0)';
         void strip.offsetHeight; // commit start position
-        var dur = REEL_SPIN_MS + idx * SPIN_MS;
         strip.style.transition = 'transform ' + dur + 'ms cubic-bezier(0.18, 0.74, 0.24, 1)';
         strip.style.transform = 'translate3d(0,' + restY + 'px,0)';
 
