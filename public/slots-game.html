@@ -480,10 +480,10 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var REEL_MIN = 3000, REEL_MAX = 5000; // random spin time per reel (ms): 3-5s
-  var REEL_SCROLL = [6, 8, 10];            // cells scrolled per reel (capped at STRIP_MID-1)
-  var STRIP_LEN = 15;      // cells in the drum strip; the middle cell is the target
-  var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 7
+  var REEL_MIN = 4000, REEL_MAX = 6500; // random spin time per reel (ms): 4-6.5s
+  var REEL_SCROLL = [10, 12, 14];         // cells scrolled per reel (capped at STRIP_MID-1)
+  var STRIP_LEN = 31;      // cells in the drum strip; the middle cell is the target
+  var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 15
 
   // Symbols (id, glyph, 3-of-a-kind multiplier). Wild substitutes for all.
   var SYMBOLS = [
