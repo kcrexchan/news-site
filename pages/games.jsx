@@ -81,6 +81,19 @@ const games = [
       'Win condition: ball in basin + domino toppled',
     ],
   },
+  {
+    name: 'Reaction Time',
+    emoji: '⚡',
+    description: 'How fast are your reflexes? Wait for the green light, then tap as hard as you can. Five rounds, best time wins — and you can save it to the leaderboard.',
+    route: '/reaction',
+    accent: '#f5b301',
+    features: [
+      'Tap the moment the pad turns green',
+      'False starts are caught & retried',
+      '5 rounds — best, average, and last shown',
+      'PIN-protected leaderboard ranked by fastest ms',
+    ],
+  },
 ];
 
 export default function Games() {

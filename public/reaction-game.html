@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Reaction Time ⚡</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-deep: #070a14;
+    --bg-mid: #0d1526;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(90,140,255,0.25);
+    --text: #eaf0ff;
+    --muted: #8b97b8;
+    --accent: #4d8dff;
+    --green: #35e08a;
+    --red: #ff5a5a;
+    --amber: #ffb020;
+    --blue: #4d8dff;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1100px 620px at 50% -12%, #16233f 0%, var(--bg-mid) 46%, var(--bg-deep) 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 14px 14px calc(28px + env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  /* ── HUD ─────────────────────────────── */
+  .hud {
+    width: 100%; max-width: 620px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 10px 14px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .hud .title { font-size: 17px; font-weight: 800; letter-spacing: 0.04em; color: #bcd0ff; display: flex; align-items: center; gap: 8px; }
+  .hud .stats { display: flex; gap: 6px; flex-wrap: wrap; }
+  .hud .stat { text-align: center; min-width: 74px; padding: 2px 8px; }
+  .hud .stat .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+  .hud .stat .val { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .hud .actions { display: flex; gap: 8px; align-items: center; }
+  .icon-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 11px; cursor: pointer; font-size: 14px; font-weight: 700;
+    transition: border-color .15s, background .15s;
+  }
+  .icon-btn:hover { border-color: var(--accent); background: rgba(77,141,255,0.12); }
+  .acc-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; font-size: 13px; font-weight: 700;
+  }
+  .acc-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .acc-chip .logout { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .acc-chip .logout:hover { color: var(--text); }
+  .hidden { display: none !important; }
+
+  /* ── Pad ─────────────────────────────── */
+  .stage { width: 100%; max-width: 620px; flex: 1; display: flex; flex-direction: column; }
+  .pad {
+    position: relative; width: 100%;
+    min-height: 46vh;
+    border-radius: 24px;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; user-select: none; -webkit-user-select: none;
+    touch-action: manipulation; overflow: hidden;
+    transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    padding: 24px 20px;
+  }
+  .pad .big { font-size: clamp(30px, 7vw, 52px); font-weight: 900; letter-spacing: -0.01em; line-height: 1.05; }
+  .pad .sub { margin-top: 12px; font-size: clamp(13px, 3.2vw, 16px); color: rgba(255,255,255,0.72); font-weight: 600; }
+  .pad .ms { font-size: clamp(46px, 13vw, 96px); font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+  .pad .rank { margin-top: 10px; font-size: clamp(15px, 4vw, 20px); font-weight: 800; letter-spacing: 0.02em; }
+
+  .pad.ready    { background: linear-gradient(180deg, #232c3d, #161d2b); border-color: rgba(150,170,210,0.35); }
+  .pad.armed    { background: linear-gradient(180deg, #3a1416, #240b0d); border-color: rgba(255,90,90,0.5); box-shadow: 0 0 40px rgba(255,90,90,0.15) inset; }
+  .pad.go       { background: linear-gradient(180deg, #0f3a24, #0a2718); border-color: rgba(53,224,138,0.6); box-shadow: 0 0 50px rgba(53,224,138,0.35) inset; }
+  .pad.result   { background: linear-gradient(180deg, #12213f, #0c1730); border-color: rgba(77,141,255,0.5); box-shadow: 0 0 40px rgba(77,141,255,0.25) inset; }
+  .pad.false    { background: linear-gradient(180deg, #3a2a0d, #241a06); border-color: rgba(255,176,32,0.55); box-shadow: 0 0 40px rgba(255,176,32,0.28) inset; }
+  .pad .go .big, .pad.go .big { color: #d6ffe9; }
+  .pad.result .ms { color: #cfe0ff; text-shadow: 0 0 30px rgba(77,141,255,0.5); }
+
+  /* ── Round dots ──────────────────────── */
+  .rounds { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; }
+  .rounds .rd { width: 12px; height: 12px; border-radius: 50%; background: rgba(150,170,210,0.25); transition: background .15s, box-shadow .15s; }
+  .rounds .rd.done { background: var(--accent); }
+  .rounds .rd.best { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .rounds .rd.cur { background: rgba(150,170,210,0.55); transform: scale(1.15); }
+  .round-label { margin-top: 8px; text-align: center; font-size: 12.5px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+
+  /* ── Summary strip ───────────────────── */
+  .summary {
+    width: 100%; max-width: 620px; margin-top: 14px;
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .summary .pill {
+    flex: 1 1 120px; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 12px; text-align: center;
+  }
+  .summary .pill .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+  .summary .pill .val { font-size: 19px; font-weight: 900; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .summary .pill.best .val { color: var(--green); }
+  .summary .pill.avg .val { color: #bcd0ff; }
+  .summary .pill.last .val { color: var(--text); }
+
+  .save-row { width: 100%; max-width: 620px; margin-top: 12px; display: flex; gap: 10px; }
+  .save-row .grow { flex: 1; }
+  .primary-btn {
+    width: 100%; padding: 13px 0; border: none; border-radius: 12px; cursor: pointer;
+    background: linear-gradient(180deg, #5c97ff, #3f78e0); color: #fff; font-size: 15px; font-weight: 800; letter-spacing: 0.03em;
+    box-shadow: 0 6px 18px rgba(63,120,224,0.35);
+  }
+  .primary-btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+  .ghost-btn {
+    padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer;
+    background: transparent; color: var(--text); font-size: 14px; font-weight: 700;
+  }
+  .ghost-btn:hover { border-color: var(--accent); }
+
+  .foot { margin-top: 16px; text-align: center; color: #4a567a; font-size: 12px; line-height: 1.6; max-width: 620px; }
+
+  /* ── Modal ───────────────────────────── */
+  .modal {
+    position: fixed; inset: 0; z-index: 50; display: none;
+    align-items: center; justify-content: center; padding: 18px;
+    background: rgba(4,7,14,0.72); backdrop-filter: blur(3px);
+  }
+  .modal.show { display: flex; }
+  .box {
+    width: 100%; max-width: 400px; background: #0f1830; border: 1px solid var(--border);
+    border-radius: 18px; padding: 22px 22px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    max-height: 88vh; overflow-y: auto;
+  }
+  .box h2 { font-size: 20px; font-weight: 900; margin-bottom: 6px; }
+  .box .hint { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; padding: 9px 0; border: 1px solid var(--border); background: transparent; color: var(--muted);
+    border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 700;
+  }
+  .tab.active { background: rgba(77,141,255,0.16); border-color: var(--accent); color: #d7e6ff; }
+  .err, .ok { font-size: 12.5px; min-height: 16px; margin-bottom: 8px; }
+  .err.show { color: #ff8a8a; }
+  .ok.show { color: var(--green); }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 5px; }
+  .field input {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: rgba(255,255,255,0.04); color: var(--text); font-size: 15px; font-weight: 600;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .field input.pin { letter-spacing: 0.4em; font-size: 18px; text-align: center; }
+  .go-btn {
+    width: 100%; margin-top: 4px; padding: 12px 0; border: none; border-radius: 10px; cursor: pointer;
+    background: linear-gradient(180deg, #5c97ff, #3f78e0); color: #fff; font-size: 15px; font-weight: 800;
+  }
+  .go-btn:disabled { opacity: .5; cursor: default; }
+  .close-btn {
+    width: 100%; margin-top: 8px; padding: 10px 0; border: 1px solid var(--border); border-radius: 10px;
+    background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .close-btn:hover { color: var(--text); }
+
+  /* leaderboard table */
+  .lb-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .lb-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 6px 6px; border-bottom: 1px solid rgba(120,150,220,0.18); }
+  .lb-table th.num, .lb-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lb-table td { padding: 9px 6px; border-bottom: 1px solid rgba(120,150,220,0.1); }
+  .lb-table tr:last-child td { border-bottom: none; }
+  .lb-table .rank { font-weight: 900; color: #7f93bd; width: 24px; }
+  .lb-table .lb-name { font-weight: 800; color: #eaf0ff; }
+  .lb-table .lb-ms { font-weight: 900; color: #cfe0ff; }
+  .lb-table tr.me .lb-name { color: #7fdbca; }
+  .lb-table tr.me .lb-name::after { content: '  (you)'; font-size: 10px; color: #7f93bd; font-weight: 700; }
+  .lb-table tr.top1 .lb-ms { color: #7dffbe; }
+  .lb-empty { font-size: 13px; color: #8ba0d0; padding: 18px 0; text-align: center; }
+  .lb-foot { font-size: 11px; color: #5a6a94; margin-top: 10px; text-align: center; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pad { transition: none !important; }
+  }
+  @media (max-width: 420px) {
+    .hud .stat { min-width: 62px; padding: 2px 5px; }
+    .pad { min-height: 40vh; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ── HUD ── -->
+  <div class="hud">
+    <div class="title">⚡ Reaction Time</div>
+    <div class="stats">
+      <div class="stat"><div class="lbl">Round</div><div class="val" id="roundVal">–</div></div>
+      <div class="stat"><div class="lbl">Best</div><div class="val" id="bestVal">–</div></div>
+      <div class="stat"><div class="lbl">Average</div><div class="val" id="avgVal">–</div></div>
+    </div>
+    <div class="actions">
+      <span class="acc-chip hidden" id="accChip">
+        <span class="dot"></span><span id="accNameEl"></span><span class="logout" id="accLogoutEl">✕</span>
+      </span>
+      <button class="icon-btn" id="lbBtn" title="Leaderboard">🏆</button>
+    </div>
+  </div>
+
+  <!-- ── Stage ── -->
+  <div class="stage">
+    <div class="pad ready" id="pad">
+      <div class="big" id="padBig">Tap to start</div>
+      <div class="sub" id="padSub">5 rounds · wait for green, then tap as fast as you can</div>
+    </div>
+
+    <div class="rounds" id="rounds"></div>
+    <div class="round-label" id="roundLabel">Ready when you are</div>
+
+    <!-- Summary (shown after the 5th round) -->
+    <div class="summary hidden" id="summary">
+      <div class="pill best"><div class="lbl">Best</div><div class="val" id="sumBest">–</div></div>
+      <div class="pill avg"><div class="lbl">Average</div><div class="val" id="sumAvg">–</div></div>
+      <div class="pill last"><div class="lbl">Last</div><div class="val" id="sumLast">–</div></div>
+    </div>
+    <div class="save-row hidden" id="saveRow">
+      <button class="ghost-btn" id="restartBtn">↺ Restart</button>
+      <button class="primary-btn grow" id="saveBtn">🏆 Save to leaderboard</button>
+    </div>
+  </div>
+
+  <div class="foot">
+    Human average is about <b>250&nbsp;ms</b>. Anything under 200&nbsp;ms is genuinely quick.<br>
+    Tap the pad (or press <b>Space</b>) the instant it turns green. Jumping the gun counts as a false start.
+  </div>
+
+  <!-- ── Account modal (create / login with PIN) ── -->
+  <div class="modal" id="accountModal">
+    <div class="box">
+      <h2>🏆 Leaderboard</h2>
+      <div class="hint">Create an account or log in to post your best time.</div>
+      <div class="tabs">
+        <button class="tab active" id="tabCreate">Create</button>
+        <button class="tab" id="tabLogin">Log in</button>
+      </div>
+      <div class="err" id="accErr"></div>
+      <div class="ok" id="accOk"></div>
+      <div class="field">
+        <label for="accNameInput">Player name</label>
+        <input id="accNameInput" type="text" maxlength="12" autocomplete="off" placeholder="e.g. Bolt" />
+      </div>
+      <div class="field">
+        <label for="accPinInput">4-digit PIN</label>
+        <input id="accPinInput" class="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <button class="go-btn" id="accGoBtn">Create account</button>
+      <button class="close-btn" id="accCloseBtn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── Leaderboard modal (top 10 board) ── -->
+  <div class="modal" id="boardModal">
+    <div class="box">
+      <h2>🏆 Fastest 10</h2>
+      <div class="hint">Lowest reaction time wins — ranked by best (ms).</div>
+      <div id="boardBody"></div>
+      <div class="lb-foot" id="boardFoot"></div>
+      <button class="close-btn" id="boardCloseBtn">Close</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Config
+  // ═══════════════════════════════════════════════════════════════
+  var ROUNDS = 5;
+  var MIN_DELAY = 1200;   // ms the red "wait" phase can last (shorter for tests)
+  var MAX_DELAY = 3500;   // ms
+  var MIN_REACTION = 30;  // sanity floor (ms) — below this is an input artifact
+  var MAX_REACTION = 2000; // anything slower than this is a misclick / not a real reaction
+
+  // Rank labels by reaction time (ms). Lower = better.
+  var RANKS = [
+    { max: 180, label: '⚡ Lightning', color: '#7dffbe' },
+    { max: 220, label: '🔥 Blazing',   color: '#35e08a' },
+    { max: 260, label: '🚀 Sharp',     color: '#4d8dff' },
+    { max: 320, label: '🙂 Quick',     color: '#8bc3ff' },
+    { max: 400, label: '😐 Average',   color: '#ffb020' },
+    { max: 500, label: '🐢 A bit slow', color: '#ff8a5a' },
+    { max: 100000, label: '🦥 Sleepy', color: '#ff5a5a' }
+  ];
+  function rankFor(ms) {
+    for (var i = 0; i < RANKS.length; i++) if (ms <= RANKS[i].max) return RANKS[i];
+    return RANKS[RANKS.length - 1];
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  DOM refs
+  // ═══════════════════════════════════════════════════════════════
+  function $(id) { return document.getElementById(id); }
+  var pad = $('pad'), padBig = $('padBig'), padSub = $('padSub');
+  var roundVal = $('roundVal'), bestVal = $('bestVal'), avgVal = $('avgVal');
+  var roundsEl = $('rounds'), roundLabel = $('roundLabel');
+  var summary = $('summary'), sumBest = $('sumBest'), sumAvg = $('sumAvg'), sumLast = $('sumLast');
+  var saveRow = $('saveRow'), restartBtn = $('restartBtn'), saveBtn = $('saveBtn');
+  var accChip = $('accChip'), accNameEl = $('accNameEl'), accLogoutEl = $('accLogoutEl');
+  var lbBtn = $('lbBtn');
+  var accountModal = $('accountModal'), boardModal = $('boardModal');
+  var tabCreate = $('tabCreate'), tabLogin = $('tabLogin');
+  var accErr = $('accErr'), accOk = $('accOk');
+  var accNameInput = $('accNameInput'), accPinInput = $('accPinInput');
+  var accGoBtn = $('accGoBtn'), accCloseBtn = $('accCloseBtn');
+  var boardBody = $('boardBody'), boardFoot = $('boardFoot'), boardCloseBtn = $('boardCloseBtn');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  State
+  // ═══════════════════════════════════════════════════════════════
+  // phase: 'idle' | 'armed' | 'go' | 'result' | 'false' | 'done'
+  var phase = 'idle';
+  var round = 0;             // 0-based index of the round about to run / just run
+  var results = [];          // reaction ms for each completed round
+  var best = null;           // lowest ms this session
+  var goTime = 0;            // performance.now() when the go phase started
+  var delayTimer = null;     // pending setTimeout for the random red delay
+  var sessionName = null;    // last name used (for save)
+  var sessionBest = null;    // best ms to submit
+
+  function now() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+  function avg() {
+    if (!results.length) return null;
+    var s = 0; for (var i = 0; i < results.length; i++) s += results[i];
+    return Math.round(s / results.length);
+  }
+  function bestOf(arr) {
+    if (!arr || !arr.length) return null;
+    var b = Infinity; for (var i = 0; i < arr.length; i++) if (arr[i] < b) b = arr[i];
+    return (b === Infinity) ? null : b;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Rendering
+  // ═══════════════════════════════════════════════════════════════
+  function setPad(cls, big, sub) {
+    pad.className = 'pad ' + cls;
+    padBig.textContent = big;
+    padSub.textContent = sub || '';
+  }
+  function renderHud() {
+    roundVal.textContent = (round > 0 && round <= ROUNDS) ? (round + '/' + ROUNDS) : (phase === 'done' ? ROUNDS + '/' + ROUNDS : '–');
+    bestVal.textContent = best != null ? (best + ' ms') : '–';
+    var a = avg();
+    avgVal.textContent = a != null ? (a + ' ms') : '–';
+  }
+  function renderRounds() {
+    var html = '';
+    for (var i = 0; i < ROUNDS; i++) {
+      var cls = 'rd';
+      if (i < results.length) {
+        cls += ' done';
+        if (best != null && results[i] === best) cls += ' best';
+      } else if (i === results.length && (phase === 'armed' || phase === 'go' || phase === 'false')) {
+        cls += ' cur';
+      }
+      html += '<div class="' + cls + '"></div>';
+    }
+    roundsEl.innerHTML = html;
+  }
+  function setRoundLabel(t) { roundLabel.textContent = t; }
+
+  function render() {
+    renderHud();
+    renderRounds();
+    if (phase === 'idle') {
+      setPad('ready', 'Tap to start', '5 rounds · wait for green, then tap as fast as you can');
+      setRoundLabel('Ready when you are');
+      summary.classList.add('hidden'); saveRow.classList.add('hidden');
+    } else if (phase === 'armed') {
+      setPad('armed', 'Wait for green…', 'Don\'t tap yet');
+      setRoundLabel('Round ' + (results.length + 1) + ' of ' + ROUNDS);
+      summary.classList.add('hidden'); saveRow.classList.add('hidden');
+    } else if (phase === 'go') {
+      setPad('go', 'TAP NOW!', '');
+      setRoundLabel('Round ' + (results.length + 1) + ' of ' + ROUNDS);
+    } else if (phase === 'result') {
+      var ms = results[results.length - 1];
+      var r = rankFor(ms);
+      var stale = pad.querySelectorAll('.rank'); for (var k = 0; k < stale.length; k++) stale[k].remove();
+      setPad('result', '', '');
+      padBig.innerHTML = '<span class="ms">' + ms + '</span>';
+      var rankEl = document.createElement('div');
+      rankEl.className = 'rank'; rankEl.style.color = r.color; rankEl.textContent = r.label;
+      pad.appendChild(rankEl);
+      setRoundLabel((results.length < ROUNDS) ? 'Nice — keep going…' : 'That\'s your best effort!');
+    } else if (phase === 'false') {
+      setPad('false', 'Too soon!', 'You jumped the gun — tap to retry this round');
+      setRoundLabel('Round ' + (results.length + 1) + ' of ' + ROUNDS + ' (retry)');
+    } else if (phase === 'done') {
+      summary.classList.remove('hidden'); saveRow.classList.remove('hidden');
+      sumBest.textContent = (best != null ? best + ' ms' : '–');
+      sumAvg.textContent = (avg() != null ? avg() + ' ms' : '–');
+      sumLast.textContent = (results.length ? results[results.length - 1] + ' ms' : '–');
+      setRoundLabel('Done! ' + (best != null ? 'Best ' + best + ' ms' : '') + ' — save it or run it back.');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Game flow
+  // ═══════════════════════════════════════════════════════════════
+  function clearDelay() { if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; } }
+
+  function startRound() {
+    // Called when we begin a new round (idle, or after a result).
+    if (phase === 'done') return;
+    phase = 'armed';
+    render();
+    var d = MIN_DELAY + Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY));
+    delayTimer = setTimeout(function () { fireGo(); }, d);
+  }
+
+  function fireGo() {
+    if (phase !== 'armed') return;
+    phase = 'go';
+    goTime = now();
+    render();
+  }
+
+  function handleTap() {
+    if (phase === 'idle') {
+      // begin the run
+      results = []; best = null; round = 0;
+      startRound();
+      return;
+    }
+    if (phase === 'false') {
+      // retry the same round
+      startRound();
+      return;
+    }
+    if (phase === 'armed') {
+      // false start — jumped the gun
+      clearDelay();
+      phase = 'false';
+      render();
+      return;
+    }
+    if (phase === 'go') {
+      var ms = Math.round(now() - goTime);
+      if (ms < MIN_REACTION) ms = MIN_REACTION;
+      if (ms > MAX_REACTION) ms = MAX_REACTION;
+      results.push(ms);
+      if (best == null || ms < best) best = ms;
+      if (results.length >= ROUNDS) {
+        phase = 'done';
+        sessionBest = best;
+      } else {
+        phase = 'result';
+      }
+      render();
+      if (phase === 'result') {
+        // brief pause, then next round
+        setTimeout(function () { startRound(); }, 900);
+      }
+      return;
+    }
+    if (phase === 'done') {
+      // tapping again restarts
+      resetRun();
+      startRound();
+      return;
+    }
+  }
+
+  function resetRun() {
+    clearDelay();
+    phase = 'idle'; results = []; best = null; round = 0;
+    // clear any rank nodes
+    var rs = pad.querySelectorAll('.rank'); for (var i = 0; i < rs.length; i++) rs[i].remove();
+    render();
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Leaderboard (PIN-protected accounts, R2-backed)
+  // ═══════════════════════════════════════════════════════════════
+  var LB_URL = '/api/reaction/leaderboard';
+  var lbMode = 'create';
+  var lbSession = null;   // { name, pin, best }
+  var lbBoard = null;
+  var lbBusy = false;
+
+  function lbSetErr(msg) { if (accErr) { accErr.textContent = msg || ''; accErr.classList.toggle('show', !!msg); } if (accOk) accOk.classList.remove('show'); }
+  function lbSetOk(msg) { if (accOk) { accOk.textContent = msg || ''; accOk.classList.toggle('show', !!msg); } if (accErr) accErr.classList.remove('show'); }
+
+  function lbFetch(method, body) {
+    if (typeof fetch !== 'function') return Promise.reject(new Error('offline'));
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(LB_URL, opts).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) { var e = new Error((data && data.error) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+        return data;
+      });
+    });
+  }
+
+  function lbEsc(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function lbRenderBoard(board) {
+    if (!boardBody) return;
+    board = board || lbBoard || { scores: [] };
+    lbBoard = board;
+    var rows = board.scores || [];
+    if (!rows.length) {
+      boardBody.innerHTML = '<div class="lb-empty">No times yet — be the first to set a record!</div>';
+    } else {
+      var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th class="num">Best (ms)</th></tr></thead><tbody>';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var me = lbSession && String(r.name).toLowerCase() === String(lbSession.name).toLowerCase();
+        var cls = (i === 0 ? 'top1 ' : '') + (me ? 'me' : '');
+        html += '<tr class="' + cls.trim() + '"><td class="rank">' + (i + 1) + '</td><td class="lb-name">' + lbEsc(r.name) + '</td><td class="num lb-ms">' + Math.round(r.best) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      boardBody.innerHTML = html;
+    }
+    if (boardFoot) boardFoot.textContent = board.updated ? ('Updated ' + new Date(board.updated).toLocaleString()) : '';
+  }
+
+  function lbUpdateBadge() {
+    if (!accChip) return;
+    if (lbSession) {
+      accNameEl.textContent = lbSession.name;
+      accChip.classList.remove('hidden');
+      if (accLogoutEl) accLogoutEl.classList.remove('hidden');
+    } else {
+      accNameEl.textContent = '';
+      accChip.classList.add('hidden');
+      if (accLogoutEl) accLogoutEl.classList.add('hidden');
+    }
+  }
+
+  function lbSwitchMode(mode) {
+    lbMode = mode;
+    if (tabCreate) tabCreate.classList.toggle('active', mode === 'create');
+    if (tabLogin) tabLogin.classList.toggle('active', mode === 'login');
+    if (accGoBtn) accGoBtn.textContent = (mode === 'create') ? 'Create account' : 'Log in';
+    if (accNameInput) accNameInput.placeholder = (mode === 'create') ? 'e.g. Bolt' : 'Your name';
+    lbSetErr(''); lbSetOk('');
+  }
+
+  function lbOpenAccount() {
+    lbSwitchMode(lbSession ? 'login' : 'create');
+    if (accNameInput) accNameInput.value = lbSession ? lbSession.name : (sessionName || '');
+    if (accPinInput) accPinInput.value = '';
+    if (accountModal) accountModal.classList.add('show');
+    setTimeout(function () { if (accNameInput && accNameInput.focus) accNameInput.focus(); }, 30);
+  }
+  function lbCloseAccount() { if (accountModal) accountModal.classList.remove('show'); }
+
+  function lbDoGo() {
+    if (lbBusy) return;
+    var name = (accNameInput && accNameInput.value || '').trim();
+    var pin = (accPinInput && accPinInput.value || '').trim();
+    if (!name) { lbSetErr('Enter a name'); return; }
+    if (!/^\d{4}$/.test(pin)) { lbSetErr('PIN must be exactly 4 digits'); return; }
+    lbBusy = true;
+    if (accGoBtn) accGoBtn.disabled = true;
+    var fn = (lbMode === 'create') ? lbCreate : lbLogin;
+    fn(name, pin).then(function (res) {
+      sessionName = res.name;
+      lbSetOk((lbMode === 'create') ? ('Account created — welcome, ' + res.name + '!') : ('Logged in as ' + res.name));
+      lbCloseAccount();
+      setTimeout(function () { lbOpenBoard(); }, 120);
+    }).catch(function (e) {
+      lbSetErr(e.message || 'Something went wrong');
+    }).then(function () {
+      lbBusy = false;
+      if (accGoBtn) accGoBtn.disabled = false;
+    });
+  }
+
+  function lbCreate(name, pin) {
+    return lbFetch('POST', { action: 'create', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, best: res.best != null ? res.best : null };
+      if (res.board) lbBoard = res.board;
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogin(name, pin) {
+    return lbFetch('POST', { action: 'login', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, best: res.best != null ? res.best : null };
+      if (res.board) lbBoard = res.board;
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogout() { lbSession = null; lbUpdateBadge(); if (boardModal) boardModal.classList.remove('show'); }
+
+  function lbOpenBoard() {
+    if (!lbSession) { lbOpenAccount(); return; }
+    if (boardModal) boardModal.classList.add('show');
+    if (typeof fetch === 'function') {
+      lbFetch('POST', { action: 'board' }).then(function (b) { lbRenderBoard(b); }).catch(function () { lbRenderBoard(null); });
+    } else { lbRenderBoard(null); }
+  }
+  function lbCloseBoard() { if (boardModal) boardModal.classList.remove('show'); }
+
+  // Submit the player's best ms. Keeps the LOWER (faster) of the stored best
+  // and the new one — the server is the source of truth.
+  function lbSubmitBest(ms) {
+    if (!lbSession) return Promise.resolve();
+    return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: ms }).then(function (res) {
+      lbSession.best = res.best;
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+      return res;
+    }).catch(function (err) {
+      throw err;
+    });
+  }
+
+  // ── wire up leaderboard UI ──
+  if (lbBtn && lbBtn.addEventListener) lbBtn.addEventListener('click', function () { lbOpenBoard(); });
+  if (accLogoutEl && accLogoutEl.addEventListener) accLogoutEl.addEventListener('click', function (e) { if (e.stopPropagation) e.stopPropagation(); lbLogout(); });
+  if (tabCreate && tabCreate.addEventListener) tabCreate.addEventListener('click', function () { lbSwitchMode('create'); });
+  if (tabLogin && tabLogin.addEventListener) tabLogin.addEventListener('click', function () { lbSwitchMode('login'); });
+  if (accGoBtn && accGoBtn.addEventListener) accGoBtn.addEventListener('click', lbDoGo);
+  if (accCloseBtn && accCloseBtn.addEventListener) accCloseBtn.addEventListener('click', lbCloseAccount);
+  if (boardCloseBtn && boardCloseBtn.addEventListener) boardCloseBtn.addEventListener('click', lbCloseBoard);
+  if (accPinInput && accPinInput.addEventListener) {
+    accPinInput.addEventListener('input', function () { accPinInput.value = accPinInput.value.replace(/[^0-9]/g, '').slice(0, 4); });
+    accPinInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  }
+  if (accNameInput && accNameInput.addEventListener) accNameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  [accountModal, boardModal].forEach(function (m) {
+    if (m && m.addEventListener) m.addEventListener('click', function (e) { if (e.target === m) { lbCloseAccount(); lbCloseBoard(); } });
+  });
+  lbUpdateBadge();
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Save / restart
+  // ═══════════════════════════════════════════════════════════════
+  function doSave() {
+    if (sessionBest == null) return;
+    if (!lbSession) { lbOpenAccount(); return; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    lbSubmitBest(sessionBest).then(function () {
+      if (saveBtn) { saveBtn.textContent = '✓ Saved — you\'re on the board'; }
+      lbOpenBoard();
+    }).catch(function (e) {
+      if (saveBtn) { saveBtn.textContent = 'Save failed — try again'; saveBtn.disabled = false; }
+    });
+  }
+
+  if (saveBtn && saveBtn.addEventListener) saveBtn.addEventListener('click', doSave);
+  if (restartBtn && restartBtn.addEventListener) restartBtn.addEventListener('click', function () { resetRun(); });
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Input (tap / click / space) — single handler, no double-fire
+  // ═══════════════════════════════════════════════════════════════
+  var inputLock = false;
+  function onInput() {
+    if (inputLock) return;
+    inputLock = true;
+    handleTap();
+    // release on the next frame to swallow any synthetic click after a touch
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () { inputLock = false; });
+    } else {
+      setTimeout(function () { inputLock = false; }, 0);
+    }
+  }
+  if (pad && pad.addEventListener) {
+    // 'pointerdown' fires before click and works for mouse + touch + pen.
+    pad.addEventListener('pointerdown', onInput, { passive: true });
+    // Fallback for browsers without pointer events.
+    if (!window.PointerEvent) {
+      pad.addEventListener('touchstart', function (e) { e.preventDefault(); onInput(); }, { passive: false });
+      pad.addEventListener('mousedown', onInput);
+    }
+  }
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('keydown', function (e) {
+      if (e && (e.key === ' ' || e.code === 'Space' || e.key === 'Enter')) {
+        // ignore when typing in an input
+        var t = document.activeElement;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+        if (e.key === 'Enter' && (document.activeElement && document.activeElement.id === 'accNameInput')) return;
+        e.preventDefault();
+        onInput();
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Test-only handle (no effect in the browser UI)
+  // ═══════════════════════════════════════════════════════════════
+  if (typeof window !== 'undefined') {
+    window.__RX__ = {
+      state: function () {
+        return {
+          phase: phase,
+          round: round,
+          results: results.slice(),
+          best: best,
+          avg: avg(),
+          sessionBest: sessionBest
+        };
+      },
+      handleTap: handleTap,
+      startRound: startRound,
+      fireGo: fireGo,
+      resetRun: resetRun,
+      rankFor: rankFor,
+      // deterministic delay override for tests
+      _setDelayRange: function (min, max) { MIN_DELAY = min; MAX_DELAY = max; },
+      // leaderboard
+      _lbCreate: lbCreate,
+      _lbLogin: lbLogin,
+      _lbBoard: function () { return lbFetch('POST', { action: 'board' }); },
+      _lbScore: function (best) {
+        if (!lbSession) return Promise.reject(new Error('no session'));
+        return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: best });
+      },
+      _lbLogout: lbLogout,
+      _lbSession: function () { return lbSession; },
+      _lbRender: lbRenderBoard
+    };
+  }
+
+  // ── boot ──
+  render();
+})();
+</script>
+</body>
+</html>
