@@ -74,14 +74,21 @@
     padding: 14px; box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
   }
   .reel {
-    display: flex; flex-direction: column; gap: 8px;
+    position: relative;
+    height: 236px;
     background: linear-gradient(180deg, #171233, #100c22);
-    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 10px 8px;
-    min-height: 236px; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
+    padding: 10px 8px;
     overflow: hidden;
   }
+  .reel-strip {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; flex-direction: column;
+    will-change: transform;
+  }
   .reel-cell {
-    height: 72px; display: flex; align-items: center; justify-content: center;
+    height: 72px; flex: 0 0 72px;
+    display: flex; align-items: center; justify-content: center;
     font-size: 46px; line-height: 1; user-select: none;
     filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
   }
@@ -95,8 +102,6 @@
     animation: cellPulse 0.9s ease-in-out infinite alternate;
   }
   @keyframes cellPulse { from { transform: scale(1); } to { transform: scale(1.06); } }
-  .reel.spinning .reel-cell { animation: blurSpin 0.12s linear infinite; }
-  @keyframes blurSpin { 0% { transform: translateY(-6px); opacity: 0.9; } 100% { transform: translateY(6px); opacity: 0.9; } }
 
   .payline {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -259,13 +264,12 @@
   }
   /* Respect the user's reduced-motion preference (skip reel blur + cell pulse) */
   @media (prefers-reduced-motion: reduce) {
-    .reel.spinning .reel-cell { animation: none; }
     .reel-cell.lit { animation: none; }
   }
 
   @media (max-width: 520px) {
     .reel-cell { font-size: 34px; height: 58px; }
-    .reel { min-height: 190px; }
+    .reel { height: 190px; }
     .chip { width: 54px; height: 54px; font-size: 12px; }
     .hud .stat { min-width: 64px; }
     .hud .title { font-size: 16px; }
@@ -273,7 +277,7 @@
   }
   @media (max-width: 380px) {
     .reels { gap: 8px; padding: 10px; }
-    .reel { min-height: 160px; padding: 8px 6px; }
+    .reel { height: 160px; padding: 8px 6px; }
     .reel-cell { font-size: 30px; height: 50px; }
     .chip { width: 50px; height: 50px; font-size: 12px; }
     .btn { padding: 12px 20px; }
@@ -401,8 +405,10 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var SPIN_MS = 420;      // per-reel stagger (browser only; tests run sync)
-  var REEL_SPIN_MS = 600; // how long a reel blurs before it lands
+  var SPIN_MS = 420;       // per-reel stagger (browser only; tests run sync)
+  var REEL_SPIN_MS = 1000; // base drum-scroll duration before the reel snaps
+  var STRIP_LEN = 21;      // cells in the drum strip; the middle cell is the target
+  var STRIP_MID = (STRIP_LEN - 1) / 2;
 
   // Symbols (id, glyph, 3-of-a-kind multiplier). Wild substitutes for all.
   var SYMBOLS = [
@@ -571,16 +577,101 @@
   }
 
   function renderReels(reelsArr) {
+    // Display helper: writes the middle cell's symbol.
+    // The drum strip (buildStrip / animateReels) drives the spin visuals;
+    // this is kept for boot-time and the test harness (3-cell stub).
     for (var r = 0; r < 3; r++) {
-      var cells = reels[r].querySelectorAll ? reels[r].querySelectorAll('.reel-cell') : [];
-      // middle cell shows the real symbol; top/bottom are decorative neighbours
-      var mid = reelsArr ? reelsArr[r] : null;
-      cells.forEach(function (c, idx) {
-        c.classList.remove('lit');
-        if (idx === 1) c.textContent = mid ? SYM_BY_ID[mid].ch : '·';
-        else c.textContent = '';
-      });
+      var cells = reels[r] && reels[r].querySelectorAll ? reels[r].querySelectorAll('.reel-cell') : [];
+      if (cells.length > 1 && reelsArr) cells[1].textContent = SYM_BY_ID[reelsArr[r]].ch;
     }
+  }
+
+  function buildIdleReel(reel) {
+    if (!reel || !reel.querySelector) return;
+    var a = STRIP[Math.floor(rng() * STRIP.length) % STRIP.length];
+    var b = STRIP[Math.floor(rng() * STRIP.length) % STRIP.length];
+    var c = STRIP[Math.floor(rng() * STRIP.length) % STRIP.length];
+    reel.innerHTML =
+      '<div class="reel-strip">' +
+      '<div class="reel-cell">' + SYM_BY_ID[a].ch + '</div>' +
+      '<div class="reel-cell mid">' + SYM_BY_ID[b].ch + '</div>' +
+      '<div class="reel-cell">' + SYM_BY_ID[c].ch + '</div>' +
+      '</div>';
+  }
+
+  function buildStrip(reel, targetId) {
+    var frag = '';
+    for (var i = 0; i < STRIP_LEN; i++) {
+      var id = (i === STRIP_MID) ? targetId : STRIP[Math.floor(rng() * STRIP.length) % STRIP.length];
+      frag += '<div class="reel-cell' + (i === STRIP_MID ? ' mid' : '') + '">' + SYM_BY_ID[id].ch + '</div>';
+    }
+    reel.innerHTML = '<div class="reel-strip">' + frag + '</div>';
+    return reel.querySelector('.reel-strip');
+  }
+
+  function animateReels(final) {
+    // Test harness: settle instantly, no DOM scrolling.
+    if (typeof window !== 'undefined' && window.__SLOTS_TEST__) { finishSpin(final); return; }
+
+    var reduced = false;
+    try { reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+    if (reduced) {
+      renderReels(final);
+      finishSpin(final);
+      return;
+    }
+
+    var landed = 0, settled = false;
+    function settle() { if (!settled) { settled = true; finishSpin(final); } }
+
+    for (var i = 0; i < 3; i++) {
+      (function (idx) {
+        var strip = buildStrip(reels[idx], final[idx]);
+        // Measure the live cell height (responsive breakpoints change it).
+        var cell = strip.children[0];
+        var h = cell && cell.getBoundingClientRect ? cell.getBoundingClientRect().height : 72;
+
+        // Rest: middle cell (index STRIP_MID) centered in the reel window.
+        // Start: 4 cells above, so symbols scroll INTO view.
+        var restY = -(STRIP_MID - 1) * h;
+        var startY = restY - 4 * h;
+
+        strip.style.transition = 'none';
+        strip.style.transform = 'translate3d(0,' + startY + 'px,0)';
+        void strip.offsetHeight; // commit start position
+        var dur = REEL_SPIN_MS + idx * SPIN_MS;
+        strip.style.transition = 'transform ' + dur + 'ms cubic-bezier(0.18, 0.74, 0.24, 1)';
+        strip.style.transform = 'translate3d(0,' + restY + 'px,0)';
+
+        var done = false;
+        function onLand() {
+          if (done) return; done = true;
+          sfx.tick();
+          if (++landed === 3) settle();
+        }
+        strip.addEventListener('transitionend', onLand, { once: true });
+        setTimeout(onLand, dur + 400); // safety net
+      })(i);
+    }
+  }
+
+  function finishSpin(final) {
+    if (state.phase === 'settle') return; // guard: safety timer after transitionend
+    state.phase = 'settle';
+    var mult = payout(final);
+    var win = state.bet * mult;
+    if (win > 0) state.balance += win;
+    state.lastWin = win;
+    saveState();
+    // Rebuild a clean 3-cell display (clears any stale .lit from a prior win).
+    for (var i = 0; i < 3; i++) buildIdleReel(reels[i]);
+    renderReels(final);
+    lightWinCells(mult);
+    render();
+    if (typeof lbSyncWallet === 'function') lbSyncWallet();
+    if (mult >= 10) sfx.bigWin(); else if (mult > 0) sfx.win(); else sfx.lose();
+    showResult(mult, win);
   }
 
   function render() {
@@ -664,45 +755,7 @@
     animateReels(final);
   }
 
-  var animTimers = [];
-  function animateReels(final) {
-    // In the browser: blur each reel, land them one by one.
-    // In the test harness setTimeout is synchronous, so this resolves instantly.
-    var isBrowser = typeof window !== 'undefined' && !window.__SLOTS_TEST__;
-    if (!isBrowser) { finishSpin(final); return; }
-
-    reels.forEach(function (r) { r.classList.add('spinning'); });
-    renderReels(null);
-
-    for (var i = 0; i < 3; i++) {
-      (function (idx) {
-        var t = setTimeout(function () {
-          reels[idx].classList.remove('spinning');
-          renderReels(final);
-          sfx.tick();
-          if (idx === 2) finishSpin(final);
-        }, REEL_SPIN_MS + idx * SPIN_MS);
-        animTimers.push(t);
-      })(i);
-    }
-  }
-
-  function finishSpin(final) {
-    state.phase = 'settle';
-    var mult = payout(final);
-    var win = state.bet * mult;
-    if (win > 0) state.balance += win;
-    state.lastWin = win;
-    saveState();
-    renderReels(final);
-    lightWinCells(mult);
-    render();
-    if (typeof lbSyncWallet === 'function') lbSyncWallet();
-
-    if (mult >= 10) sfx.bigWin(); else if (mult > 0) sfx.win(); else sfx.lose();
-
-    showResult(mult, win);
-  }
+  // animateReels + finishSpin are defined in the Rendering section above.
 
   function lightWinCells(mult) {
     if (mult <= 0) return;
@@ -1084,7 +1137,7 @@
   //  Boot
   // ═══════════════════════════════════════════════════════════════
   loadState();
-  renderReels(null);
+  for (var _ri = 0; _ri < 3; _ri++) buildIdleReel(reels[_ri]);
   render();
   showMsg('Place your bet and pull the lever');
 })();
