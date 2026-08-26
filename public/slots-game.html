@@ -174,26 +174,36 @@
   .paytable .mult { text-align: right; color: var(--gold-2); font-weight: 700; font-variant-numeric: tabular-nums; }
   .paytable .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
 
-  /* ── Overlay (broke / result banner) ─── */
-  .overlay {
-    position: fixed; inset: 0; z-index: 40;
-    background: rgba(5,3,12,0.72); backdrop-filter: blur(6px);
-    display: none; align-items: center; justify-content: center; padding: 20px;
+  /* ── Result bar (embedded at the bottom of the wheels) ─── */
+  .result-bar {
+    margin: 14px 2px 4px;
+    min-height: 26px;
+    text-align: center;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 6px 12px;
+    transition: background 0.2s ease, border-color 0.2s ease;
   }
-  .overlay.show { display: flex; }
-  .overlay-card {
-    background: linear-gradient(180deg, #1c1538, #120d26);
-    border: 1px solid var(--border); border-radius: 20px;
-    padding: 30px 34px; max-width: 420px; width: 100%; text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  .result-bar.has-result {
+    background: rgba(212,175,55,0.06);
+    border-color: rgba(212,175,55,0.28);
   }
-  .overlay-card .big { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
-  .overlay-card .big.win { color: var(--gold-2); }
-  .overlay-card .big.lose { color: #c9a0a0; }
-  .overlay-card .amt { font-size: 20px; font-weight: 700; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
-  .overlay-card .amt.neg { color: var(--red); }
-  .overlay-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
-  .overlay-card .btn { width: 100%; margin-top: 10px; }
+  .rb-result { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .rb-line1 { display: flex; align-items: baseline; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .rb-big { font-size: 18px; font-weight: 800; letter-spacing: 0.04em; }
+  .rb-big.win { color: var(--gold-2); }
+  .rb-big.lose { color: #c9a0a0; }
+  .rb-amt { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .rb-amt.neg { color: var(--red); }
+  .rb-line2 { color: var(--muted); font-size: 13px; }
+  .rb-broke { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 4px; }
+  .rb-broke-msg { color: var(--muted); font-size: 13px; }
+  .rb-broke-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .rb-btn { padding: 10px 18px; font-size: 14px; }
+  @media (max-width: 380px) {
+    .rb-broke-btns { flex-direction: column; width: 100%; }
+    .rb-btn { width: 100%; }
+  }
 
   /* ── Modals (account + board) ────────── */
   .modal {
@@ -258,7 +268,7 @@
     padding-right: calc(14px + env(safe-area-inset-right, 0px));
     padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   }
-  .overlay, .modal {
+  .modal {
     padding-top: calc(20px + env(safe-area-inset-top, 0px));
     padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
@@ -315,6 +325,7 @@
       <div class="reel" id="reel3"><div class="reel-cell"></div><div class="reel-cell mid"></div><div class="reel-cell"></div></div>
     </div>
     <div class="payline"><span class="line"></span><span>middle line pays</span><span class="line"></span></div>
+    <div class="result-bar" id="resultBar" aria-live="polite"></div>
     <div class="msg" id="msg">Place your bet and pull the lever</div>
 
     <div class="controls">
@@ -342,21 +353,6 @@
       <div class="note">🎰 is WILD — it substitutes for any symbol. Two 🍒 anywhere on the line pays 2×. Minimum bet $10.</div>
     </div>
   </section>
-
-  <!-- Result / broke overlay -->
-  <div class="overlay" id="overlay">
-    <div class="overlay-card">
-      <div class="big" id="resultText">—</div>
-      <div class="amt" id="amountText"></div>
-      <div class="sub" id="resultSub"></div>
-      <div id="brokeBlock" class="hidden">
-        <div class="sub" id="brokeMsg" style="margin-bottom:12px">You're out of chips — can't cover the minimum bet.</div>
-        <button class="btn btn-bank" id="brokeBorrowBtn">🏦 Borrow $2,000 from the casino</button>
-        <button class="btn btn-ghost" id="rebuyBtn">↺ Rebuy $1,000 (free play)</button>
-      </div>
-      <button class="btn btn-spin" id="newSpinBtn">SPIN AGAIN</button>
-    </div>
-  </div>
 
   <!-- Account modal -->
   <div class="modal" id="accountModal">
@@ -439,20 +435,12 @@
   var balanceVal = $('balanceVal');
   var betVal = $('betVal');
   var msgEl = $('msg');
+  var resultBar = $('resultBar');
   var reels = [ $('reel1'), $('reel2'), $('reel3') ];
   var chipBtns = Array.prototype.slice.call(document.querySelectorAll('.chip'));
   var clearBtn = $('clearBtn');
   var spinBtn = $('spinBtn');
   var muteBtn = $('muteBtn');
-  var overlay = $('overlay');
-  var resultText = $('resultText');
-  var amountText = $('amountText');
-  var resultSub = $('resultSub');
-  var brokeBlock = $('brokeBlock');
-  var brokeMsg = $('brokeMsg');
-  var brokeBorrowBtn = $('brokeBorrowBtn');
-  var rebuyBtn = $('rebuyBtn');
-  var newSpinBtn = $('newSpinBtn');
   var paytable = $('paytable');
   var paytableToggle = $('paytableToggle');
   var paytableBodyWrap = $('paytableBodyWrap');
@@ -680,7 +668,8 @@
     balanceVal.classList.toggle('neg', state.balance < 0);
     betVal.textContent = fmt(state.bet);
     var busy = state.phase === 'spinning';
-    spinBtn.disabled = busy || state.phase === 'settle';
+    spinBtn.disabled = busy;
+    spinBtn.textContent = busy ? 'SPIN…' : (state.phase === 'settle' ? 'SPIN AGAIN' : 'SPIN');
     clearBtn.disabled = busy;
     chipBtns.forEach(function (b) { b.disabled = busy; });
   }
@@ -735,9 +724,21 @@
   //  Spin
   // ═══════════════════════════════════════════════════════════════
   function spin() {
-    if (state.phase !== 'bet') return;
-    if (state.bet < MIN_BET) { showMsg('Minimum bet is $' + MIN_BET, 'lose'); return; }
-    if (state.bet > state.balance) { showMsg("Not enough balance for that bet", 'lose'); return; }
+    if (state.phase === 'spinning') return;
+
+    // From settle phase → "spin again": re-bet the last bet.
+    if (state.phase === 'settle') {
+      var reBet = (state.lastBet >= MIN_BET && state.lastBet <= state.balance)
+        ? state.lastBet
+        : (state.balance >= MIN_BET ? MIN_BET : 0);
+      if (reBet < MIN_BET) { showMsg('Not enough balance to spin again', 'lose'); return; }
+      state.bet = reBet;
+    }
+
+    if (state.phase === 'bet') {
+      if (state.bet < MIN_BET) { showMsg('Minimum bet is $' + MIN_BET, 'lose'); return; }
+      if (state.bet > state.balance) { showMsg("Not enough balance for that bet", 'lose'); return; }
+    }
 
     state.phase = 'spinning';
     state.bet = Math.floor(state.bet);
@@ -767,31 +768,44 @@
   }
 
   function showResult(mult, win) {
+    if (!resultBar) return;
     var broke = state.balance < MIN_BET;
-    if (mult > 0) {
-      resultText.textContent = (mult >= 50) ? 'JACKPOT!' : 'WIN!';
-      resultText.className = 'big win';
-    } else {
-      resultText.textContent = 'NO LUCK';
-      resultText.className = 'big lose';
-    }
-    amountText.textContent = (win > 0 ? '+' : '−') + '$' + fmt(win);
-    amountText.className = 'amt' + (win > 0 ? '' : ' neg');
     var row = state.reels.map(function (s) { return SYM_BY_ID[s].ch; }).join(' ');
-    resultSub.textContent = row + ' · bet $' + fmt(state.bet) + (mult > 0 ? (' · ' + mult + '× payout') : '');
+    var big = (mult >= 50) ? 'JACKPOT!' : (mult > 0 ? 'WIN!' : 'NO LUCK');
+    var bigCls = mult > 0 ? 'win' : 'lose';
+    var amt = (win > 0 ? '+' : '−') + '$' + fmt(win);
+    var amtCls = 'rb-amt' + (win > 0 ? '' : ' neg');
+    var line2 = row + ' · bet $' + fmt(state.bet) + (mult > 0 ? (' · ' + mult + '× payout') : '');
 
-    // Broke? Offer casino loan (account players) or free rebuy (anonymous).
-    brokeBlock.classList.toggle('hidden', !broke);
-    newSpinBtn.style.display = broke ? 'none' : '';
-    var accountPlayer = !!lbSession;
-    rebuyBtn.style.display = (broke && !accountPlayer) ? '' : 'none';
-    brokeBorrowBtn.style.display = (broke && accountPlayer) ? '' : 'none';
+    var html =
+      '<div class="rb-result">' +
+        '<div class="rb-line1">' +
+          '<span class="rb-big ' + bigCls + '">' + big + '</span>' +
+          '<span class="' + amtCls + '">' + amt + '</span>' +
+        '</div>' +
+        '<div class="rb-line2">' + line2 + '</div>' +
+      '</div>';
+
     if (broke) {
-      brokeMsg.textContent = "You're out of chips — can't cover the $" + MIN_BET + ' minimum bet.';
-      brokeBorrowBtn.textContent = '🏦 Borrow $2,000 from the casino';
+      var accountPlayer = !!lbSession;
+      var btns = '';
+      if (accountPlayer) btns += '<button class="btn btn-bank rb-btn" id="brokeBorrowBtn">🏦 Borrow $2,000 from the casino</button>';
+      if (!accountPlayer) btns += '<button class="btn btn-ghost rb-btn" id="rebuyBtn">↺ Rebuy $1,000 (free play)</button>';
+      html +=
+        '<div class="rb-broke">' +
+          '<div class="rb-broke-msg">You\'re out of chips — can\'t cover the $' + MIN_BET + ' minimum bet.</div>' +
+          '<div class="rb-broke-btns">' + btns + '</div>' +
+        '</div>';
     }
 
-    overlay.className = 'show';
+    resultBar.innerHTML = html;
+    resultBar.classList.add('has-result');
+
+    // Wire the broke actions (rebound each render since innerHTML replaced them).
+    var bb = document.getElementById('brokeBorrowBtn');
+    if (bb) bb.addEventListener('click', function () { lbBorrow().catch(function () {}); });
+    var rb = document.getElementById('rebuyBtn');
+    if (rb) rb.addEventListener('click', rebuy);
   }
 
   function newSpin() {
@@ -807,7 +821,7 @@
     }
     saveState();
     renderReels(null);
-    overlay.className = '';
+    if (resultBar) { resultBar.className = 'result-bar'; resultBar.innerHTML = ''; }
     showMsg(state.bet > 0 ? ('Bet ' + state.bet + ' — spin when ready') : 'Place your bet');
     render();
   }
@@ -817,7 +831,7 @@
     state.lastBet = 0;
     state.bet = 0;
     saveState();
-    overlay.className = '';
+    if (resultBar) { resultBar.className = 'result-bar'; resultBar.innerHTML = ''; }
     showMsg('Fresh $1,000 — place your bet');
     render();
   }
@@ -830,8 +844,6 @@
   });
   clearBtn.addEventListener('click', clearBet);
   spinBtn.addEventListener('click', spin);
-  newSpinBtn.addEventListener('click', newSpin);
-  rebuyBtn.addEventListener('click', rebuy);
   muteBtn.addEventListener('click', function () {
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
@@ -843,7 +855,7 @@
       if (state.phase === 'bet') {
         if (k === 'enter' || k === ' ') { e.preventDefault(); if (state.bet >= MIN_BET) spin(); }
       } else if (state.phase === 'settle') {
-        if (k === 'enter' || k === ' ') { e.preventDefault(); newSpin(); }
+        if (k === 'enter' || k === ' ') { e.preventDefault(); spin(); }
       }
     });
   }
@@ -1037,11 +1049,9 @@
       render();
       if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
       if (boardBorrowBtn) boardBorrowBtn.textContent = 'Borrowed $2,000 ✓';
-      if (brokeBorrowBtn) brokeBorrowBtn.textContent = 'Borrowed $2,000 ✓';
       return res;
     }).catch(function (err) {
       if (boardBorrowBtn) boardBorrowBtn.textContent = (err && err.message) ? err.message : 'Borrow failed — try again';
-      if (brokeBorrowBtn) brokeBorrowBtn.textContent = (err && err.message) ? err.message : 'Borrow failed — try again';
       throw err;
     });
   }
@@ -1071,7 +1081,6 @@
   if (accCloseBtn && accCloseBtn.addEventListener) accCloseBtn.addEventListener('click', lbCloseAccount);
   if (boardBorrowBtn && boardBorrowBtn.addEventListener) boardBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
   if (boardRepayBtn && boardRepayBtn.addEventListener) boardRepayBtn.addEventListener('click', function () { lbRepay().catch(function () {}); });
-  if (brokeBorrowBtn && brokeBorrowBtn.addEventListener) brokeBorrowBtn.addEventListener('click', function () { lbBorrow().catch(function () {}); });
   if (boardCloseBtn && boardCloseBtn.addEventListener) boardCloseBtn.addEventListener('click', lbCloseBoard);
   if (accPinInput && accPinInput.addEventListener) {
     accPinInput.addEventListener('input', function () { accPinInput.value = accPinInput.value.replace(/[^0-9]/g, '').slice(0, 4); });

@@ -48,8 +48,8 @@ function makeReel() {
   return r;
 }
 
-var ids = ['balanceVal','betVal','msg','clearBtn','spinBtn','muteBtn','overlay','resultText','amountText','resultSub',
-  'brokeBlock','brokeMsg','brokeBorrowBtn','rebuyBtn','newSpinBtn','paytableBody',
+var ids = ['balanceVal','betVal','msg','clearBtn','spinBtn','muteBtn','resultBar',
+  'paytableBody',
   'paytable','paytableToggle','paytableBodyWrap',
   'lbBtn','accName','accNameTxt','accLogout','accountModal','boardModal','tabCreate','tabLogin',
   'accNameInput','accPinInput','accGoBtn','accCloseBtn','accErr','accOk','boardBody','boardFoot',
@@ -244,10 +244,10 @@ async function main() {
   assert(S.state().balance < MIN_BET, 'game balance < 10 (broke)');
   assert(S._lbSession().wallet < MIN_BET, 'wallet synced to < 10 after losing spin');
 
-  // Broke overlay: account player sees the casino-loan button, not a free rebuy.
-  assert(elements.brokeBlock.classList.contains('hidden') === false, 'broke block visible');
-  assert(elements.brokeBorrowBtn.style.display !== 'none', 'borrow button shown (account player)');
-  assert(elements.rebuyBtn.style.display === 'none', 'free rebuy hidden (account player)');
+  // Broke result-bar: account player sees the casino-loan button, not a free rebuy.
+  var rbHtml = elements.resultBar.innerHTML;
+  assert(rbHtml.indexOf('Borrow $2,000') !== -1, 'broke bar offers casino loan (account player)');
+  assert(rbHtml.indexOf('id="rebuyBtn"') === -1, 'free rebuy hidden (account player)');
 
   // Borrow: wallet < 10 → loan allowed; wallet += 2000, debt += 2020.
   var br = await S._lbBorrow();
