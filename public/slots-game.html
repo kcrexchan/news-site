@@ -76,7 +76,7 @@
 
   /* ── Pull lever (right side) ─────────── */
   .lever {
-    width: 64px; flex: none; height: 170px;
+    width: 64px; flex: none; height: 190px;
     display: flex; flex-direction: column; align-items: center;
     background: none; border: 0; padding: 0; margin: 0 2px 0 0;
     cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
@@ -84,7 +84,7 @@
   }
   .lever:disabled { cursor: default; }
   .lever-assembly {
-    position: relative; width: 64px; height: 170px; display: block;
+    position: relative; width: 64px; height: 190px; display: block;
     perspective: 420px; perspective-origin: 50% 100%;
   }
   .lever-base {
@@ -101,7 +101,7 @@
     box-shadow: 0 0 6px rgba(212,175,55,0.6);
   }
   .lever-arm {
-    position: absolute; bottom: 16px; left: 50%; width: 10px; height: 122px;
+    position: absolute; bottom: 16px; left: 50%; width: 10px; height: 142px;
     margin-left: -5px; transform-origin: 50% 100%;
     transform-style: preserve-3d;
     background: linear-gradient(90deg, #6f6f86, #d9d9ea 45%, #8a8a9e);
@@ -470,10 +470,10 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var REEL_DURATIONS = [3000, 4000, 5000]; // spin time per reel: 1st 3s, 2nd 4s, 3rd 5s
-  var REEL_SCROLL = [12, 16, 20];          // cells scrolled per reel (~250ms/cell, same speed)
-  var STRIP_LEN = 45;      // cells in the drum strip; the middle cell is the target
-  var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 22
+  var REEL_DURATIONS = [1200, 1600, 2000]; // spin time per reel: snappy 1.2s / 1.6s / 2s
+  var REEL_SCROLL = [6, 8, 10];            // cells scrolled per reel (~130ms/cell, same speed)
+  var STRIP_LEN = 15;      // cells in the drum strip; the middle cell is the target
+  var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 7
 
   // Symbols (id, glyph, 3-of-a-kind multiplier). Wild substitutes for all.
   var SYMBOLS = [
@@ -699,7 +699,7 @@
         var dur = REEL_DURATIONS[idx];
         // Rest: middle cell (index STRIP_MID) centered in the reel window.
         // Start: scroll distance scales with duration so all reels keep the
-        // same rotation speed (~250ms per cell) over their 3s/4s/5s spins.
+        // same rotation speed (~130ms per cell) over their 1.2s/1.6s/2s spins.
         var restY = -(STRIP_MID - 1) * h;
         var scrollCells = Math.min(REEL_SCROLL[idx], STRIP_MID - 1);
         var startY = restY - scrollCells * h;
@@ -925,8 +925,8 @@
 
   // ── Pull lever (drag the ball down, or tap / Enter / Space) ──────
   if (lever && leverArm) {
-    var MAX_ANGLE = 36;      // full pull
-    var TRIGGER = 14;       // degrees that counts as a real pull
+    var MAX_ANGLE = 54;      // full pull (longer, more dramatic throw)
+    var TRIGGER = 22;       // degrees that counts as a real pull
     var dragging = false;
     var startY = 0;
     var currentAngle = 0;
@@ -960,7 +960,7 @@
     lever.addEventListener('pointermove', function (e) {
       if (!dragging) return;
       var dy = e.clientY - startY;
-      var t = Math.max(0, Math.min(1, dy / 150));
+      var t = Math.max(0, Math.min(1, dy / 180));
       setAngle(t * MAX_ANGLE);
     });
     function endDrag() {
