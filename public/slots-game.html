@@ -480,7 +480,7 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var REEL_DURATIONS = [2000, 2600, 3200]; // spin time per reel: long 2s / 2.6s / 3.2s
+  var REEL_MIN = 3000, REEL_MAX = 5000; // random spin time per reel (ms): 3-5s
   var REEL_SCROLL = [6, 8, 10];            // cells scrolled per reel (capped at STRIP_MID-1)
   var STRIP_LEN = 15;      // cells in the drum strip; the middle cell is the target
   var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 7
@@ -726,7 +726,9 @@
         var cell = strip.children[0];
         var h = cell && cell.getBoundingClientRect ? cell.getBoundingClientRect().height : 72;
 
-        var dur = REEL_DURATIONS[idx];
+        // Random spin time in [REEL_MIN, REEL_MAX]; small per-reel stagger so
+        // the reels still stop left-to-right.
+        var dur = REEL_MIN + Math.random() * (REEL_MAX - REEL_MIN) + idx * 350;
         // Rest: middle cell (index STRIP_MID) centered in the reel window.
         var restY = -(STRIP_MID - 1) * h;
         var scrollCells = Math.min(REEL_SCROLL[idx], STRIP_MID - 1);
