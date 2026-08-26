@@ -480,7 +480,7 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var REEL_DURATIONS = [800, 1050, 1300]; // spin time per reel: fast 0.8s / 1.05s / 1.3s
+  var REEL_DURATIONS = [2000, 2600, 3200]; // spin time per reel: long 2s / 2.6s / 3.2s
   var REEL_SCROLL = [6, 8, 10];            // cells scrolled per reel (capped at STRIP_MID-1)
   var STRIP_LEN = 15;      // cells in the drum strip; the middle cell is the target
   var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 7
@@ -737,6 +737,14 @@
         var done = false;
         function onLand() {
           if (done) return; done = true;
+          if (++landed === 3) settle();
+        }
+        // ~60% of reels overshoot their stop and recoil back; the rest slam
+        // straight to rest. Decided once per spin, per reel.
+        var overshoot = Math.random() < 0.6;
+        var impacted = false;
+        function onImpact() {
+          if (impacted) return; impacted = true;
           sfx.tick();
           sfx.clunk(); // hard-stop impact
           // Machine jolt on impact (pure CSS, skipped under reduced-motion).
@@ -745,7 +753,6 @@
             void machineEl.offsetWidth;
             machineEl.classList.add('jolt');
           }
-          if (++landed === 3) settle();
         }
 
         var t0 = null;
@@ -755,17 +762,20 @@
           if (t < dur) {
             strip.style.transform = 'translate3d(0,' + (startY + travel * mainPos(t / dur)) + 'px,0)';
             requestAnimationFrame(frame);
-          } else if (t < dur + 420) {
-            // Recoil: damped spring around rest, always ending at restY.
-            strip.style.transform = 'translate3d(0,' + (restY + recoilPos(t - dur) * h) + 'px,0)';
-            requestAnimationFrame(frame);
           } else {
-            strip.style.transform = 'translate3d(0,' + restY + 'px,0)';
-            onLand();
+            onImpact(); // hard stop lands here
+            if (overshoot && t < dur + 420) {
+              // Recoil: damped spring around rest, always ending at restY.
+              strip.style.transform = 'translate3d(0,' + (restY + recoilPos(t - dur) * h) + 'px,0)';
+              requestAnimationFrame(frame);
+            } else {
+              strip.style.transform = 'translate3d(0,' + restY + 'px,0)';
+              onLand();
+            }
           }
         }
         requestAnimationFrame(frame);
-        setTimeout(onLand, dur + 460); // safety net (also the test path: fires synchronously)
+        setTimeout(onLand, dur + (overshoot ? 460 : 20)); // safety net (also the test path: fires synchronously)
       })(i);
     }
   }
