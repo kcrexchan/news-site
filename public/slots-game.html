@@ -480,8 +480,8 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var REEL_DURATIONS = [1200, 1600, 2000]; // spin time per reel: snappy 1.2s / 1.6s / 2s
-  var REEL_SCROLL = [6, 8, 10];            // cells scrolled per reel (~130ms/cell, same speed)
+  var REEL_DURATIONS = [800, 1050, 1300]; // spin time per reel: fast 0.8s / 1.05s / 1.3s
+  var REEL_SCROLL = [6, 8, 10];            // cells scrolled per reel (capped at STRIP_MID-1)
   var STRIP_LEN = 15;      // cells in the drum strip; the middle cell is the target
   var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 7
 
@@ -701,18 +701,18 @@
     function settle() { if (!settled) { settled = true; finishSpin(final); } }
 
     // Physics model per reel:
-    //  1) MAIN  — short spin-up launch, then a HARD brake (ease-out^5) so
-    //     the stop feels like it slams into a wall. Continuous at the join.
+    //  1) MAIN  — very short spin-up launch, then a HARD brake (ease-out^7)
+    //     so the stop feels like it slams into a wall. Continuous at the join.
     //  2) RECOIL — damped spring: the strip bounces PAST rest, then back,
     //     settling to the exact rest position (target cell stays centered).
-    var LAUNCH_T = 0.15, LAUNCH_D = 0.12, BRAKE_K = 5;
+    var LAUNCH_T = 0.12, LAUNCH_D = 0.10, BRAKE_K = 7;
     function mainPos(p) {
       if (p < LAUNCH_T) return LAUNCH_D * Math.pow(p / LAUNCH_T, 2);
       var q = (p - LAUNCH_T) / (1 - LAUNCH_T);
       return LAUNCH_D + (1 - LAUNCH_D) * (1 - Math.pow(1 - q, BRAKE_K));
     }
-    function recoilPos(t) { // t in ms; visible overshoot past rest, then damped wobble
-      var A = 0.3, tau = 75, f = 7;
+    function recoilPos(t) { // t in ms; pronounced overshoot past rest, then damped wobble
+      var A = 0.45, tau = 85, f = 6;
       return A * Math.exp(-t / tau) * Math.sin(2 * Math.PI * f * t / 1000);
     }
 
