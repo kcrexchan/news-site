@@ -1,9 +1,18 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import {
+  verifyIdentity,
+  loginOrCreateIdentity,
+  deleteIdentity,
+  normalizeName,
+  nameKey,
+  validPin,
+} from "../../../lib/leaderboard-identity";
 
 // Blackjack leaderboard with PIN-protected accounts, backed by an R2 bucket
 // binding (same TETRIS_LEADERBOARD bucket as the Tetris board — separate object
-// key). Accounts hold a salted SHA-256 hash of their 4-digit PIN; the plain PIN
-// is never stored.
+// key). Identity (name + salted SHA-256 PIN hash) now lives in a SHARED store
+// (leaderboard/accounts.json) so one account works across ALL games; this file
+// keeps the game-specific WALLET score store. The plain PIN is never stored.
 //
 // WALLET MODEL
 //   Each account stores a `wallet` — the player's bankroll, which is the SAME
@@ -48,34 +57,6 @@ const LOAN_AMOUNT = 2000;
 const LOAN_INTEREST = 0.01; // 1%
 const LOAN_TOTAL = LOAN_AMOUNT + Math.round(LOAN_AMOUNT * LOAN_INTEREST); // 2020
 
-// ── Web Crypto helpers (CF Workers + Node 18+ both expose globalThis.crypto) ──
-function bufToHex(buf) {
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-async function sha256Hex(text) {
-  const data = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return bufToHex(digest);
-}
-async function randomSaltHex(bytes = 16) {
-  const arr = new Uint8Array(bytes);
-  crypto.getRandomValues(arr);
-  return bufToHex(arr);
-}
-async function hashPin(pin, salt) {
-  return sha256Hex(salt + ":" + pin);
-}
-// Timing-safe-ish compare (constant-length hex).
-function safeEqual(a, b) {
-  if (typeof a !== "string" || typeof b !== "string") return false;
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 function bucket(env) {
   return env.TETRIS_LEADERBOARD;
 }
@@ -84,20 +65,6 @@ function emptyDoc() {
   return { updated: new Date(0).toISOString(), accounts: {} };
 }
 
-function normalizeName(raw) {
-  const n = String(raw ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 12)
-    .trim();
-  return n || "PLAYER";
-}
-function nameKey(name) {
-  return normalizeName(name).toLowerCase();
-}
-function validPin(pin) {
-  return typeof pin === "string" && /^\d{4}$/.test(pin);
-}
 // Wallet can be negative (player owes the house) — only coerce to an integer.
 function coerceWallet(v) {
   const n = Math.floor(Number(v) || 0);
@@ -128,6 +95,9 @@ function normalizeDoc(raw) {
     const a = src[key] || {};
     accounts[key] = {
       name: String(a.name || key).slice(0, 12) || "PLAYER",
+      // Keep salt + pinHash so lazy migration into the shared identity store
+      // can verify legacy accounts (they still carry their PIN hash locally).
+      // Never exposed by publicBoard() — only used for auth fallback.
       salt: String(a.salt || ""),
       pinHash: String(a.pinHash || ""),
       wallet: coerceWallet(a.wallet),
@@ -218,17 +188,44 @@ export default async function handler(req, res) {
         const name = normalizeName(body.name);
         const pin = String(body.pin ?? "").trim();
         if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
-        const salt = await randomSaltHex();
-        const pinHash = await hashPin(pin, salt);
+
+        // Idempotent: create the identity in the shared store, or (if the
+        // player already has a shared account from another game) verify the
+        // PIN and treat it as a successful "create". Legacy accounts that
+        // still carry salt+pinHash in the blackjack store are lazy-migrated.
+        const { doc } = await readDoc(bkt);
+        const ident = await loginOrCreateIdentity(bkt, name, pin, doc);
+        if (!ident.ok) {
+          return json(res, 409, { error: ident.error });
+        }
+
+        // Create the wallet row (or return the existing one if the player
+        // already had a Blackjack account — e.g. migrated from another game).
         const created = new Date().toISOString();
-        const result = await withLock(bkt, (doc) => {
+        const result = await withLock(bkt, (d) => {
           const key = nameKey(name);
-          if (doc.accounts[key]) {
-            return { ok: false, write: false, status: 409, body: { error: "That name is already taken — try logging in" } };
+          if (d.accounts[key]) {
+            const a = d.accounts[key];
+            return {
+              write: false,
+              status: 200,
+              body: {
+                ok: true,
+                name: a.name,
+                wallet: a.wallet,
+                debt: a.debt,
+                borrows: a.borrows,
+                board: publicBoard(d),
+              },
+            };
           }
-          doc.accounts[key] = { name, salt, pinHash, wallet: 1000, debt: 0, borrows: 0, created, last: created };
-          doc.updated = created;
-          return { write: true, status: 200, body: { ok: true, name, wallet: 1000, debt: 0, borrows: 0, board: publicBoard(doc) } };
+          d.accounts[key] = { name, wallet: 1000, debt: 0, borrows: 0, created, last: created };
+          d.updated = created;
+          return {
+            write: true,
+            status: 200,
+            body: { ok: true, name, wallet: 1000, debt: 0, borrows: 0, board: publicBoard(d) },
+          };
         });
         return json(res, result.status, result.body);
       }
@@ -237,12 +234,32 @@ export default async function handler(req, res) {
         const name = normalizeName(body.name);
         const pin = String(body.pin ?? "").trim();
         if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
-        const key = nameKey(name);
+
+        // Read the game store so verifyIdentity can lazy-migrate legacy
+        // accounts that still carry salt+pinHash in the blackjack store.
         const { doc } = await readDoc(bkt);
-        const a = doc.accounts[key];
-        if (!a) return json(res, 404, { error: "No such account — create one first" });
-        const expect = await hashPin(pin, a.salt);
-        if (!safeEqual(expect, a.pinHash)) return json(res, 401, { error: "Wrong PIN" });
+        const ident = await verifyIdentity(bkt, name, pin, doc);
+        if (!ident.ok) return json(res, 404, { error: ident.error });
+
+        const a = doc.accounts[nameKey(name)];
+        if (!a) {
+          // Identity is valid but no wallet row yet (e.g. created in another
+          // game first). Auto-create the wallet row so the player can play.
+          const now = new Date().toISOString();
+          const result = await withLock(bkt, (d) => {
+            const key = nameKey(name);
+            if (d.accounts[key]) return { write: false, status: 200, body: null }; // race — re-read below
+            d.accounts[key] = { name, wallet: 1000, debt: 0, borrows: 0, created: now, last: now };
+            d.updated = now;
+            return { write: true, status: 200, body: { ok: true, name, wallet: 1000, debt: 0, borrows: 0, board: publicBoard(d) } };
+          });
+          if (result.body) return json(res, 200, result.body);
+          // Race: another request created the row — re-read and return it.
+          const { doc: d2 } = await readDoc(bkt);
+          const a2 = d2.accounts[nameKey(name)];
+          if (a2) return json(res, 200, { ok: true, name: a2.name, wallet: a2.wallet, debt: a2.debt, borrows: a2.borrows, board: publicBoard(d2) });
+          return json(res, 404, { error: "No such account — create one first" });
+        }
         return json(res, 200, {
           ok: true,
           name: a.name,
@@ -261,13 +278,15 @@ export default async function handler(req, res) {
         const wallet = coerceWallet(body.wallet);
         const now = new Date().toISOString();
         const result = await withLock(bkt, async (doc) => {
-          const a = doc.accounts[key];
-          if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
-          const expect = await hashPin(pin, a.salt);
-          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
-          doc.accounts[key] = { ...a, wallet: wallet, last: now };
+          const ident = await verifyIdentity(bkt, name, pin, doc);
+          if (!ident.ok) return { ok: false, write: false, status: 401, body: { error: ident.error } };
+          if (!doc.accounts[key]) {
+            doc.accounts[key] = { name, wallet, debt: 0, borrows: 0, created: now, last: now };
+          } else {
+            doc.accounts[key] = { ...doc.accounts[key], wallet, last: now };
+          }
           doc.updated = now;
-          return { write: true, status: 200, body: { ok: true, name: a.name, wallet: wallet, board: publicBoard(doc) } };
+          return { write: true, status: 200, body: { ok: true, name, wallet, board: publicBoard(doc) } };
         });
         return json(res, result.status, result.body);
       }
@@ -279,10 +298,10 @@ export default async function handler(req, res) {
         const key = nameKey(name);
         const now = new Date().toISOString();
         const result = await withLock(bkt, async (doc) => {
+          const ident = await verifyIdentity(bkt, name, pin, doc);
+          if (!ident.ok) return { ok: false, write: false, status: 401, body: { error: ident.error } };
           const a = doc.accounts[key];
           if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
-          const expect = await hashPin(pin, a.salt);
-          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
           // Borrowing is only for players who can't start a hand. If the wallet
           // still covers the minimum bet, there is no loan — play a hand instead.
           if (a.wallet >= MIN_BET) return { ok: false, write: false, status: 400, body: { error: "You can still cover a minimum bet — borrow only when you can't start a hand" } };
@@ -315,10 +334,10 @@ export default async function handler(req, res) {
         const key = nameKey(name);
         const now = new Date().toISOString();
         const result = await withLock(bkt, async (doc) => {
+          const ident = await verifyIdentity(bkt, name, pin, doc);
+          if (!ident.ok) return { ok: false, write: false, status: 401, body: { error: ident.error } };
           const a = doc.accounts[key];
           if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
-          const expect = await hashPin(pin, a.salt);
-          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
           if (a.debt <= 0) return { ok: false, write: false, status: 400, body: { error: "No debt to repay" } };
           // A player can only repay the FULL debt when their wallet covers it — never
           // let a short wallet drive itself negative by repaying (that would be paying
@@ -352,14 +371,16 @@ export default async function handler(req, res) {
         const key = nameKey(name);
         const now = new Date().toISOString();
         const result = await withLock(bkt, async (doc) => {
-          const a = doc.accounts[key];
-          if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
-          const expect = await hashPin(pin, a.salt);
-          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
+          const ident = await verifyIdentity(bkt, name, pin, doc);
+          if (!ident.ok) return { ok: false, write: false, status: 401, body: { error: ident.error } };
           delete doc.accounts[key];
           doc.updated = now;
-          return { write: true, status: 200, body: { ok: true, name: a.name, deleted: true, board: publicBoard(doc) } };
+          return { write: true, status: 200, body: { ok: true, name, deleted: true, board: publicBoard(doc) } };
         });
+        // Also delete the identity from the shared store.
+        if (result.status === 200 && result.body?.ok) {
+          await deleteIdentity(bkt, name);
+        }
         return json(res, result.status, result.body);
       }
 

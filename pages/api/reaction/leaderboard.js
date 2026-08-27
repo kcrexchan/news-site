@@ -1,9 +1,18 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import {
+  verifyIdentity,
+  loginOrCreateIdentity,
+  deleteIdentity,
+  normalizeName,
+  nameKey,
+  validPin,
+} from "../../../lib/leaderboard-identity";
 
 // Reaction-Time leaderboard with PIN-protected accounts, backed by an R2
 // bucket binding (same TETRIS_LEADERBOARD bucket as the other boards — separate
-// object key). Accounts hold a salted SHA-256 hash of their 4-digit PIN; the
-// plain PIN is never stored.
+// object key). Identity (name + salted SHA-256 PIN hash) now lives in a SHARED
+// store (leaderboard/accounts.json) so one account works across ALL games; this
+// file keeps the game-specific BEST-MS score store. The plain PIN is never stored.
 //
 // RANKING MODEL
 //   Each account stores `best` — the player's FASTEST reaction time in
@@ -33,55 +42,12 @@ const MAX_RETRIES = 5;
 const MIN_BEST_MS = 100;
 const MAX_BEST_MS = 5000;
 
-// ── Web Crypto helpers (CF Workers + Node 18+ both expose globalThis.crypto) ──
-function bufToHex(buf) {
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-async function sha256Hex(text) {
-  const data = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return bufToHex(digest);
-}
-async function randomSaltHex(bytes = 16) {
-  const arr = new Uint8Array(bytes);
-  crypto.getRandomValues(arr);
-  return bufToHex(arr);
-}
-async function hashPin(pin, salt) {
-  return sha256Hex(salt + ":" + pin);
-}
-// Timing-safe-ish compare (constant-length hex).
-function safeEqual(a, b) {
-  if (typeof a !== "string" || typeof b !== "string") return false;
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 function bucket(env) {
   return env.TETRIS_LEADERBOARD;
 }
 
 function emptyDoc() {
   return { updated: new Date(0).toISOString(), accounts: {} };
-}
-
-function normalizeName(raw) {
-  const n = String(raw ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 12)
-    .trim();
-  return n || "PLAYER";
-}
-function nameKey(name) {
-  return normalizeName(name).toLowerCase();
-}
-function validPin(pin) {
-  return typeof pin === "string" && /^\d{4}$/.test(pin);
 }
 // Coerce a submitted best time into a sane integer ms within the clamp.
 function coerceBest(v) {
@@ -126,6 +92,9 @@ function normalizeDoc(raw) {
         : Math.max(MIN_BEST_MS, Math.min(MAX_BEST_MS, Math.floor(Number(a.best))));
     accounts[key] = {
       name: String(a.name || key).slice(0, 12) || "PLAYER",
+      // Keep salt + pinHash so lazy migration into the shared identity store
+      // can verify legacy accounts (they still carry their PIN hash locally).
+      // Never exposed by publicBoard() — only used for auth fallback.
       salt: String(a.salt || ""),
       pinHash: String(a.pinHash || ""),
       best,
@@ -214,17 +183,33 @@ export default async function handler(req, res) {
         const name = normalizeName(body.name);
         const pin = String(body.pin ?? "").trim();
         if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
-        const salt = await randomSaltHex();
-        const pinHash = await hashPin(pin, salt);
+
+        // Idempotent: create the identity in the shared store, or (if the
+        // player already has a shared account from another game) verify the
+        // PIN and treat it as a successful "create". Legacy accounts that
+        // still carry salt+pinHash in the reaction store are lazy-migrated.
+        const { doc } = await readDoc(bkt);
+        const ident = await loginOrCreateIdentity(bkt, name, pin, doc);
+        if (!ident.ok) {
+          return json(res, 409, { error: ident.error });
+        }
+
+        // Create the best-ms row (or return the existing one if the player
+        // already had a Reaction account — e.g. migrated from another game).
         const created = new Date().toISOString();
-        const result = await withLock(bkt, (doc) => {
+        const result = await withLock(bkt, (d) => {
           const key = nameKey(name);
-          if (doc.accounts[key]) {
-            return { ok: false, write: false, status: 409, body: { error: "That name is already taken — try logging in" } };
+          if (d.accounts[key]) {
+            const a = d.accounts[key];
+            return {
+              write: false,
+              status: 200,
+              body: { ok: true, name: a.name, best: a.best, board: publicBoard(d) },
+            };
           }
-          doc.accounts[key] = { name, salt, pinHash, best: null, created, last: created };
-          doc.updated = created;
-          return { write: true, status: 200, body: { ok: true, name, best: null, board: publicBoard(doc) } };
+          d.accounts[key] = { name, best: null, created, last: created };
+          d.updated = created;
+          return { write: true, status: 200, body: { ok: true, name, best: null, board: publicBoard(d) } };
         });
         return json(res, result.status, result.body);
       }
@@ -233,12 +218,31 @@ export default async function handler(req, res) {
         const name = normalizeName(body.name);
         const pin = String(body.pin ?? "").trim();
         if (!validPin(pin)) return json(res, 400, { error: "PIN must be exactly 4 digits" });
-        const key = nameKey(name);
+
+        // Read the game store so verifyIdentity can lazy-migrate legacy
+        // accounts that still carry salt+pinHash in the reaction store.
         const { doc } = await readDoc(bkt);
-        const a = doc.accounts[key];
-        if (!a) return json(res, 404, { error: "No such account — create one first" });
-        const expect = await hashPin(pin, a.salt);
-        if (!safeEqual(expect, a.pinHash)) return json(res, 401, { error: "Wrong PIN" });
+        const ident = await verifyIdentity(bkt, name, pin, doc);
+        if (!ident.ok) return json(res, 404, { error: ident.error });
+
+        const a = doc.accounts[nameKey(name)];
+        if (!a) {
+          // Identity is valid but no best-ms row yet (created in another game
+          // first). Auto-create the row so the player can submit a time.
+          const now = new Date().toISOString();
+          const result = await withLock(bkt, (d) => {
+            const key = nameKey(name);
+            if (d.accounts[key]) return { write: false, status: 200, body: null }; // race — re-read below
+            d.accounts[key] = { name, best: null, created: now, last: now };
+            d.updated = now;
+            return { write: true, status: 200, body: { ok: true, name, best: null, board: publicBoard(d) } };
+          });
+          if (result.body) return json(res, 200, result.body);
+          const { doc: d2 } = await readDoc(bkt);
+          const a2 = d2.accounts[nameKey(name)];
+          if (a2) return json(res, 200, { ok: true, name: a2.name, best: a2.best, board: publicBoard(d2) });
+          return json(res, 404, { error: "No such account — create one first" });
+        }
         return json(res, 200, {
           ok: true,
           name: a.name,
@@ -256,15 +260,19 @@ export default async function handler(req, res) {
         if (submitted == null) return json(res, 400, { error: "A reaction time in milliseconds is required" });
         const now = new Date().toISOString();
         const result = await withLock(bkt, async (doc) => {
+          const ident = await verifyIdentity(bkt, name, pin, doc);
+          if (!ident.ok) return { ok: false, write: false, status: 401, body: { error: ident.error } };
           const a = doc.accounts[key];
-          if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
-          const expect = await hashPin(pin, a.salt);
-          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
           // Keep the player's personal best: the lower (faster) of stored and new.
-          const best = a.best == null ? submitted : Math.min(a.best, submitted);
-          doc.accounts[key] = { ...a, best, last: now };
+          const best = a && a.best != null ? Math.min(a.best, submitted) : submitted;
+          doc.accounts[key] = {
+            name: a ? a.name : name,
+            best,
+            created: a ? a.created : now,
+            last: now,
+          };
           doc.updated = now;
-          return { write: true, status: 200, body: { ok: true, name: a.name, best, board: publicBoard(doc) } };
+          return { write: true, status: 200, body: { ok: true, name: a ? a.name : name, best, board: publicBoard(doc) } };
         });
         return json(res, result.status, result.body);
       }
@@ -276,14 +284,16 @@ export default async function handler(req, res) {
         const key = nameKey(name);
         const now = new Date().toISOString();
         const result = await withLock(bkt, async (doc) => {
-          const a = doc.accounts[key];
-          if (!a) return { ok: false, write: false, status: 404, body: { error: "No such account — create one first" } };
-          const expect = await hashPin(pin, a.salt);
-          if (!safeEqual(expect, a.pinHash)) return { ok: false, write: false, status: 401, body: { error: "Wrong PIN" } };
+          const ident = await verifyIdentity(bkt, name, pin, doc);
+          if (!ident.ok) return { ok: false, write: false, status: 401, body: { error: ident.error } };
           delete doc.accounts[key];
           doc.updated = now;
-          return { write: true, status: 200, body: { ok: true, name: a.name, deleted: true, board: publicBoard(doc) } };
+          return { write: true, status: 200, body: { ok: true, name, deleted: true, board: publicBoard(doc) } };
         });
+        // Also delete the identity from the shared store.
+        if (result.status === 200 && result.body?.ok) {
+          await deleteIdentity(bkt, name);
+        }
         return json(res, result.status, result.body);
       }
 
