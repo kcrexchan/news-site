@@ -158,7 +158,7 @@ async function main() {
   var st = S.state();
   assert(st.phase === 'playing', 'start() → playing');
   assert(st.timeLeft === 30, '30s clock');
-  assert(st.size === 100, 'balloon starts at BASE_SIZE (100)');
+  assert(st.size === 0, 'balloon starts fully deflated (0)');
   assert(st.threshold >= 150 && st.threshold <= 220, 'pop threshold in [150,220]');
 
   // ═══════════════════════════════════════════════════════════════
@@ -167,41 +167,42 @@ async function main() {
   console.log('— unit: tap inflates —');
   var before = S.state().size;
   S.tap();
-  assert(S.state().size === before + 7, 'tap adds TAP_INFLATE (7)');
+  assert(S.state().size === 5, 'first tap from 0 adds 5 (INFLATE_BASE)');
 
   // ═══════════════════════════════════════════════════════════════
   //  3. UNIT — deflate rate (slower than inflate)
   // ═══════════════════════════════════════════════════════════════
   console.log('— unit: deflate —');
   S._setSeed(42); S.start();
-  S.tap(); S.tap(); // 114
+  S.tap(); S.tap(); // 5 → 10.25
   S._tick(1000);
-  assert(Math.abs(S.state().size - (114 - 2.5)) < 0.01, 'deflates 2.5/sec while idle');
+  assert(Math.abs(S.state().size - (10.25 - 2.5)) < 0.01, 'deflates 2.5/sec while idle');
 
   // ═══════════════════════════════════════════════════════════════
   //  4. UNIT — deflate floor (60), game still running
   // ═══════════════════════════════════════════════════════════════
   console.log('— unit: deflate floor —');
   S._setSeed(42); S.start();
-  S._tick(16000); // 100 - 2.5*16 = 60 exactly; timeLeft = 14
-  assert(S.state().size === 60, 'deflates to floor 60');
-  assert(S.state().phase === 'playing', 'still playing at 14s left');
+  S.tap(); S.tap(); S.tap(); // 15.61
+  S._tick(10000); // 15.61 - 2.5*10 = 0 (floor)
+  assert(S.state().size === 0, 'deflates to floor 0 (fully deflated)');
+  assert(S.state().phase === 'playing', 'still playing');
   S._tick(1000);
-  assert(S.state().size === 60, 'floor holds — never deflates below 60');
+  assert(S.state().size === 0, 'floor holds — never deflates below 0');
 
   // ═══════════════════════════════════════════════════════════════
   //  5. UNIT — lock-in banks score + spawns fresh balloon
   // ═══════════════════════════════════════════════════════════════
   console.log('— unit: lock-in —');
   S._setSeed(42); S.start();
-  S.tap(); S.tap(); S.tap(); S.tap(); S.tap(); // 135
+  S.tap(); S.tap(); S.tap(); S.tap(); S.tap(); // 5→10.25→15.61→21.42→27.53
   S.lockIn();
   st = S.state();
-  assert(st.score === 135, 'score = banked size (135)');
+  assert(st.score === 27, 'score = floor(banked size) = 27');
   assert(st.banked === 1, 'banked count = 1');
-  assert(st.size === 100, 'fresh balloon at BASE_SIZE');
+  assert(st.size === 0, 'fresh balloon starts deflated (0)');
   assert(st.threshold >= 150 && st.threshold <= 220, 'fresh balloon has a valid threshold');
-  assert(st.bankedList && st.bankedList.length === 1 && st.bankedList[0].size === 135, 'bankedList records the locked balloon (135)');
+  assert(st.bankedList && st.bankedList.length === 1 && st.bankedList[0].size === 27, 'bankedList records the locked balloon (27)');
   assert(st.bankedList[0].color && /^c-/.test(st.bankedList[0].color), 'bankedList entry carries a color');
 
   // ═══════════════════════════════════════════════════════════════
@@ -215,7 +216,7 @@ async function main() {
   st = S.state();
   assert(st.popped === 1, 'pop registered');
   assert(st.score === 0, 'popped balloon scores 0');
-  assert(st.size === 100, 'fresh balloon after pop');
+  assert(st.size === 0, 'fresh balloon after pop (deflated)');
 
   // ═══════════════════════════════════════════════════════════════
   //  7. UNIT — seeded thresholds: deterministic per seed, vary per balloon
@@ -246,13 +247,13 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════
   console.log('— integration: full round —');
   S._setSeed(99); S.start();
-  for (var i = 0; i < 4; i++) { S.tap(); S.tap(); S.tap(); S.lockIn(); } // 4 x 121 = 484
-  S.tap(); S.tap(); // 114 in flight
+  for (var i = 0; i < 4; i++) { S.tap(); S.tap(); S.tap(); S.lockIn(); } // 4 x floor(15.61) = 4 x 15 = 60
+  S.tap(); S.tap(); // 10.25 in flight
   S._tick(30000);
   st = S.state();
   assert(st.phase === 'over', 'round ends at 0s');
   assert(st.banked === 4, '4 balloons banked');
-  assert(st.finalScore === 484, 'finalScore = sum of banked sizes (484)');
+  assert(st.finalScore === 60, 'finalScore = sum of banked sizes (60)');
 
   // ═══════════════════════════════════════════════════════════════
   //  10. LEADERBOARD — create / login / score(max-keep) / rank / delete

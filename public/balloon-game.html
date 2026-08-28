@@ -20,12 +20,12 @@
     --pink: #ff6b9d;
   }
 
-  html, body { height: 100%; }
+  html, body { height: 100%; overflow: hidden; }
   body {
     background: radial-gradient(1100px 620px at 50% -12%, #16233f 0%, var(--bg-mid) 46%, var(--bg-deep) 100%);
     color: var(--text);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    min-height: 100vh; min-height: 100dvh;
+    height: 100vh; height: 100dvh;
     display: flex; flex-direction: column; align-items: center;
     padding: 12px 14px calc(16px + env(safe-area-inset-bottom));
     -webkit-tap-highlight-color: transparent;
@@ -65,8 +65,8 @@
 
   /* ── Stage ───────────────────────────── */
   .stage {
-    position: relative; width: 100%; max-width: 620px; flex: 1;
-    min-height: 44vh;
+    position: relative; width: 100%; max-width: 620px; flex: 1 1 0;
+    min-height: 0;
     border-radius: 24px;
     border: 1px solid var(--border);
     background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
@@ -129,7 +129,7 @@
 
   /* ── Banked tray (locked balloons on the side) ── */
   .bank-tray {
-    width: 100%; max-width: 620px; margin-top: 12px;
+    width: 100%; max-width: 620px; margin-bottom: 10px;
     min-height: 42px;
     display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
     background: var(--card); border: 1px solid var(--border); border-radius: 14px;
@@ -155,9 +155,9 @@
   /* ── Controls ────────────────────────── */
   .controls { width: 100%; max-width: 620px; margin-top: 12px; }
   .lock-btn {
-    width: 100%; padding: 16px 0; border: none; border-radius: 14px; cursor: pointer;
+    width: 100%; padding: 22px 0; border: none; border-radius: 16px; cursor: pointer;
     background: linear-gradient(180deg, #ff85ad, #e04f80); color: #fff;
-    font-size: 17px; font-weight: 900; letter-spacing: 0.04em;
+    font-size: 22px; font-weight: 900; letter-spacing: 0.04em;
     box-shadow: 0 8px 22px rgba(224,79,128,0.4);
     transition: transform .08s ease, box-shadow .15s;
   }
@@ -252,18 +252,20 @@
   }
   @media (max-width: 420px) {
     .hud .stat { min-width: 56px; padding: 2px 5px; }
-    .stage { min-height: 40vh; }
+    .stage { min-height: 0; }
   }
 </style>
 </head>
 <body>
+
+  <!-- ── Banked tray (storage) — top of screen ── -->
+  <div class="bank-tray" id="bankTray"></div>
 
   <!-- ── HUD ── -->
   <div class="hud">
     <div class="title">🎈 Balloon Pop</div>
     <div class="stats">
       <div class="stat"><div class="lbl">Time</div><div class="val" id="timeVal">30</div></div>
-      <div class="stat"><div class="lbl">Size</div><div class="val" id="sizeVal">100</div></div>
       <div class="stat"><div class="lbl">Score</div><div class="val" id="scoreVal">0</div></div>
       <div class="stat"><div class="lbl">Banked</div><div class="val" id="bankedVal">0</div></div>
     </div>
@@ -281,9 +283,6 @@
     <div class="pop-flash" id="popFlash">POP!</div>
     <div class="hint">Tap anywhere to inflate · lock in before it pops!</div>
   </div>
-
-  <!-- ── Banked tray (locked balloons) ── -->
-  <div class="bank-tray" id="bankTray"></div>
 
   <!-- ── Controls ── -->
   <div class="controls">
@@ -355,12 +354,13 @@
   // ═══════════════════════════════════════════════════════════════
   //  Config
   // ═══════════════════════════════════════════════════════════════
-  var GAME_SECONDS = 30;   // round length
-  var BASE_SIZE = 100;     // every new balloon starts here
-  var TAP_INFLATE = 7;     // size added per tap
-  var DEF_RATE = 2.5;      // size lost per second while not tapping (slower than inflate)
-  var DEFLOOR = 60;        // balloons never deflate below this
-  var POP_MIN = 150;       // random pop threshold range (each balloon differs)
+  var GAME_SECONDS = 30;      // round length
+  var START_SIZE = 0;         // every new balloon starts fully deflated
+  var INFLATE_BASE = 5;       // size added per tap when deflated (grows as it inflates)
+  var INFLATE_GROWTH = 0.05;  // extra per-tap inflate per point of current size
+  var DEF_RATE = 2.5;         // size lost per second while not tapping (slower than inflate)
+  var DEFLOOR = 0;            // can deflate all the way to fully deflated
+  var POP_MIN = 150;          // random pop threshold range (each balloon differs)
   var POP_MAX = 220;
 
   // ═══════════════════════════════════════════════════════════════
@@ -383,7 +383,7 @@
   function $(id) { return document.getElementById(id); }
   var stage = $('stage'), balloon = $('balloon'), popFlash = $('popFlash');
   var bankTray = $('bankTray');
-  var timeVal = $('timeVal'), sizeVal = $('sizeVal'), scoreVal = $('scoreVal'), bankedVal = $('bankedVal');
+  var timeVal = $('timeVal'), scoreVal = $('scoreVal'), bankedVal = $('bankedVal');
   var lockBtn = $('lockBtn');
   var startOverlay = $('startOverlay'), startBtn = $('startBtn');
   var overOverlay = $('overOverlay'), finalScore = $('finalScore'), finalStats = $('finalStats');
@@ -402,7 +402,7 @@
   // ═══════════════════════════════════════════════════════════════
   // phase: 'idle' | 'playing' | 'over'
   var phase = 'idle';
-  var size = BASE_SIZE;
+  var size = START_SIZE;
   var threshold = 0;
   var score = 0;
   var banked = 0;
@@ -420,7 +420,7 @@
   //  Core rules
   // ═══════════════════════════════════════════════════════════════
   function newBalloon() {
-    size = BASE_SIZE;
+    size = START_SIZE;
     threshold = POP_MIN + rng() * (POP_MAX - POP_MIN);
     currentColor = COLORS[Math.floor(rng() * COLORS.length)];
     if (balloon) balloon.className = 'balloon ' + currentColor;
@@ -444,9 +444,11 @@
     }
   }
 
+  function inflateAmount(s) { return INFLATE_BASE + s * INFLATE_GROWTH; }
+
   function tap() {
     if (phase !== 'playing' || animating) return;
-    size += TAP_INFLATE;
+    size += inflateAmount(size);
     if (size > threshold) {
       // POP — this balloon scores 0
       popped++;
@@ -534,13 +536,12 @@
     if (timeVal) timeVal.textContent = String(Math.ceil(timeLeft));
     if (timeVal && timeLeft <= 5 && phase === 'playing') timeVal.classList.add('warn');
     else if (timeVal) timeVal.classList.remove('warn');
-    if (sizeVal) sizeVal.textContent = String(Math.round(size));
     if (scoreVal) scoreVal.textContent = String(score);
     if (bankedVal) bankedVal.textContent = String(banked);
     if (lockBtn) lockBtn.disabled = (phase !== 'playing' || animating);
     if (balloon) {
-      // scale: 100 size → 120px wide; 220 → 264px (fits 360px stage)
-      var px = (size / 100) * 120;
+      // deflated nub (26px) at size 0 → full balloon (266px) at POP_MAX
+      var px = 26 + (size / POP_MAX) * 240;
       balloon.style.width = px + 'px';
       balloon.style.height = (px * 1.166) + 'px';
     }
