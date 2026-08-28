@@ -42,7 +42,7 @@ function makeEl(attrs) {
   return e;
 }
 
-var ids = ['stage','balloon','popFlash','hint','bankTray',
+var ids = ['stage','balloon','popFlash','crackWarn','hint','bankTray',
   'timeVal','sizeVal','scoreVal','bankedVal',
   'accChip','accNameEl','accLogoutEl','lbBtn',
   'lockBtn','overOverlay','finalScore','finalStats','againBtn','saveBtn',
@@ -219,7 +219,28 @@ async function main() {
   assert(st.size === 0, 'fresh balloon after pop (deflated)');
 
   // ═══════════════════════════════════════════════════════════════
-  //  7. UNIT — seeded thresholds: deterministic per seed, vary per balloon
+  //  7. UNIT — cracking warning before pop
+  // ═══════════════════════════════════════════════════════════════
+  console.log('— unit: cracking warning —');
+  S._setSeed(42); S.start();
+  assert(S.state().cracking === false, 'no cracks on a fresh deflated balloon');
+  var guard7 = 0;
+  while (!S.state().cracking && S.state().popped === 0 && guard7++ < 50) S.tap();
+  st = S.state();
+  assert(st.cracking === true, 'cracking warning appears as size nears threshold');
+  assert(st.size < st.threshold, 'still below the pop threshold while cracking (warning fires BEFORE pop)');
+  var guard7b = 0;
+  while (S.state().popped === 0 && guard7b++ < 50) S.tap();
+  st = S.state();
+  assert(st.popped === 1, 'keeps tapping after cracking eventually pops it');
+
+  // DOM: crack visuals wired in
+  assert(html.indexOf('id="crackWarn"') !== -1, 'crack warning banner element present');
+  assert(html.indexOf('class="cracks"') !== -1, 'crack SVG overlay present');
+  assert(html.indexOf('crackShake') !== -1, 'crack shake animation defined');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  8. UNIT — seeded thresholds: deterministic per seed, vary per balloon
   // ═══════════════════════════════════════════════════════════════
   console.log('— unit: threshold determinism —');
   S._setSeed(7); S.start(); var t1 = S.state().threshold;

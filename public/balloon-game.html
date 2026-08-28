@@ -99,6 +99,22 @@
   .balloon.c-violet{ --balloon: #9d7bff; --balloon-dark: #5f45b8; }
   .balloon.c-pink  { --balloon: #ff6b9d; --balloon-dark: #b03a62; }
 
+  /* ── Cracking warning (near pop threshold) ── */
+  .balloon.cracking {
+    animation: crackShake 0.3s linear infinite;
+    box-shadow: 0 14px 34px rgba(0,0,0,0.45), inset -10px -14px 24px rgba(0,0,0,0.25), 0 0 28px rgba(255,70,70,0.55);
+  }
+  @keyframes crackShake {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    20%  { transform: translate(-2px, 1px) rotate(-1.2deg); }
+    40%  { transform: translate(2px, -1px) rotate(1.2deg); }
+    60%  { transform: translate(-1px, -1px) rotate(-0.8deg); }
+    80%  { transform: translate(1px, 1px) rotate(0.8deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+  .balloon .cracks { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .18s ease; pointer-events: none; }
+  .balloon.cracking .cracks { opacity: 1; }
+
   .balloon.pop { animation: popAnim 0.38s ease-out forwards; }
   @keyframes popAnim {
     0%   { transform: scale(1); opacity: 1; }
@@ -125,6 +141,14 @@
   }
 
   .hint { margin-top: 74px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.55); text-align: center; }
+  .crack-warn {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,60,60,0.18); border: 1px solid rgba(255,90,90,0.65);
+    color: #ffd7d7; font-weight: 800; font-size: 14px; letter-spacing: 0.08em;
+    padding: 7px 14px; border-radius: 999px; white-space: nowrap; z-index: 5;
+    animation: warnPulse 0.7s ease-in-out infinite;
+  }
+  @keyframes warnPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   .stage.idle .balloon, .stage.idle .hint { opacity: 0.55; }
 
   /* ── Banked tray (locked balloons on the side) ── */
@@ -279,7 +303,18 @@
 
   <!-- ── Stage ── -->
   <div class="stage idle" id="stage">
-    <div class="balloon c-red" id="balloon"></div>
+    <div class="balloon c-red" id="balloon">
+      <svg class="cracks" viewBox="0 0 100 116" preserveAspectRatio="none" aria-hidden="true">
+        <g fill="none" stroke="rgba(30,0,0,0.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M50 6 L45 24 L53 42 L43 60 L51 78 L46 96" />
+          <path d="M45 24 L31 32 L25 46" />
+          <path d="M53 42 L67 48 L73 62" />
+          <path d="M43 60 L31 68 L27 82" />
+          <path d="M51 78 L61 88 L58 100" />
+        </g>
+      </svg>
+    </div>
+    <div class="crack-warn hidden" id="crackWarn">⚠️ CRACKING — LOCK IT IN!</div>
     <div class="pop-flash" id="popFlash">POP!</div>
     <div class="hint">Tap anywhere to inflate · lock in before it pops!</div>
   </div>
@@ -298,7 +333,8 @@
       Tap the stage to inflate the balloon<br>
       Hit <b>Lock In</b> to bank its size as points<br>
       Over-inflate and it <b>pops</b> — zero points<br>
-      Every balloon pops at a different size…
+      Every balloon pops at a different size…<br>
+      <b>Cracks</b> are your warning — lock in before it pops!
     </div>
     <button class="primary-btn" id="startBtn">▶ Start 30s Round</button>
   </div>
@@ -362,6 +398,7 @@
   var DEFLOOR = 0;            // can deflate all the way to fully deflated
   var POP_MIN = 150;          // random pop threshold range (each balloon differs)
   var POP_MAX = 220;
+  var CRACK_AT = 0.72;        // cracking warning shows at this fraction of the (secret) threshold
 
   // ═══════════════════════════════════════════════════════════════
   //  Seeded RNG (mulberry32) — deterministic under _setSeed
@@ -382,6 +419,7 @@
   // ═══════════════════════════════════════════════════════════════
   function $(id) { return document.getElementById(id); }
   var stage = $('stage'), balloon = $('balloon'), popFlash = $('popFlash');
+  var crackWarn = $('crackWarn');
   var bankTray = $('bankTray');
   var timeVal = $('timeVal'), scoreVal = $('scoreVal'), bankedVal = $('bankedVal');
   var lockBtn = $('lockBtn');
@@ -411,6 +449,7 @@
   var rafId = 0;
   var lastFrame = 0;
   var animating = false;   // true while a pop/bank animation is in flight (blocks input)
+  var wasCracking = false; // edge-detect entering the crack zone (haptic cue)
 
   var COLORS = ['c-red', 'c-teal', 'c-amber', 'c-violet', 'c-pink'];
   var bankedList = [];      // locked balloons: [{size, color}, ...]
@@ -431,6 +470,7 @@
     score = 0; banked = 0; popped = 0;
     timeLeft = GAME_SECONDS;
     animating = false;
+    wasCracking = false;
     bankedList = [];
     newBalloon();
     renderBank();
@@ -532,6 +572,10 @@
   // ═══════════════════════════════════════════════════════════════
   //  Rendering
   // ═══════════════════════════════════════════════════════════════
+  function isCracking() {
+    return phase === 'playing' && !animating && threshold > 0 && size >= threshold * CRACK_AT;
+  }
+
   function render() {
     if (timeVal) timeVal.textContent = String(Math.ceil(timeLeft));
     if (timeVal && timeLeft <= 5 && phase === 'playing') timeVal.classList.add('warn');
@@ -545,6 +589,12 @@
       balloon.style.width = px + 'px';
       balloon.style.height = (px * 1.166) + 'px';
     }
+    // crack warning: balloon is near its (secret) pop threshold
+    var cracking = isCracking();
+    if (balloon) balloon.classList.toggle('cracking', cracking);
+    if (crackWarn) crackWarn.classList.toggle('hidden', !cracking);
+    if (cracking && !wasCracking) buzz([40, 70, 40]);
+    wasCracking = cracking;
   }
 
   // ── Banked tray: show each locked balloon with its size ──
@@ -736,6 +786,7 @@
     phase = 'idle';
     if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
     animating = false;
+    wasCracking = false;
     score = 0; banked = 0; popped = 0;
     timeLeft = GAME_SECONDS;
     bankedList = [];
@@ -787,7 +838,8 @@
           popped: popped,
           bankedList: bankedList.slice(),
           timeLeft: timeLeft,
-          finalScore: score
+          finalScore: score,
+          cracking: isCracking()
         };
       },
       start: start,
