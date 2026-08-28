@@ -127,6 +127,31 @@
   .hint { margin-top: 74px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.55); text-align: center; }
   .stage.idle .balloon, .stage.idle .hint { opacity: 0.55; }
 
+  /* ── Banked tray (locked balloons on the side) ── */
+  .bank-tray {
+    width: 100%; max-width: 620px; margin-top: 12px;
+    min-height: 42px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 8px 10px;
+  }
+  .bank-tray .bank-empty { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+  .bank-item {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px 3px 5px; border-radius: 999px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums;
+  }
+  .bank-item .bank-dot {
+    width: 15px; height: 18px; border-radius: 50% 50% 48% 48% / 52% 52% 46% 46%;
+    display: inline-block; box-shadow: inset -2px -3px 4px rgba(0,0,0,0.3);
+  }
+  .bank-item.c-red .bank-dot   { background: radial-gradient(circle at 34% 28%, #ffffffaa, #ff5a5a 60%, #b23030); }
+  .bank-item.c-teal .bank-dot  { background: radial-gradient(circle at 34% 28%, #ffffffaa, #35d0ba 60%, #1e8f80); }
+  .bank-item.c-amber .bank-dot { background: radial-gradient(circle at 34% 28%, #ffffffaa, #ffb020 60%, #a86f10); }
+  .bank-item.c-violet .bank-dot{ background: radial-gradient(circle at 34% 28%, #ffffffaa, #9d7bff 60%, #5f45b8); }
+  .bank-item.c-pink .bank-dot  { background: radial-gradient(circle at 34% 28%, #ffffffaa, #ff6b9d 60%, #b03a62); }
+
   /* ── Controls ────────────────────────── */
   .controls { width: 100%; max-width: 620px; margin-top: 12px; }
   .lock-btn {
@@ -257,6 +282,9 @@
     <div class="hint">Tap anywhere to inflate · lock in before it pops!</div>
   </div>
 
+  <!-- ── Banked tray (locked balloons) ── -->
+  <div class="bank-tray" id="bankTray"></div>
+
   <!-- ── Controls ── -->
   <div class="controls">
     <button class="lock-btn" id="lockBtn" disabled>🔒 Lock In</button>
@@ -354,6 +382,7 @@
   // ═══════════════════════════════════════════════════════════════
   function $(id) { return document.getElementById(id); }
   var stage = $('stage'), balloon = $('balloon'), popFlash = $('popFlash');
+  var bankTray = $('bankTray');
   var timeVal = $('timeVal'), sizeVal = $('sizeVal'), scoreVal = $('scoreVal'), bankedVal = $('bankedVal');
   var lockBtn = $('lockBtn');
   var startOverlay = $('startOverlay'), startBtn = $('startBtn');
@@ -384,6 +413,8 @@
   var animating = false;   // true while a pop/bank animation is in flight (blocks input)
 
   var COLORS = ['c-red', 'c-teal', 'c-amber', 'c-violet', 'c-pink'];
+  var bankedList = [];      // locked balloons: [{size, color}, ...]
+  var currentColor = COLORS[0];
 
   // ═══════════════════════════════════════════════════════════════
   //  Core rules
@@ -391,8 +422,8 @@
   function newBalloon() {
     size = BASE_SIZE;
     threshold = POP_MIN + rng() * (POP_MAX - POP_MIN);
-    var cls = 'balloon ' + COLORS[Math.floor(rng() * COLORS.length)];
-    if (balloon) balloon.className = cls;
+    currentColor = COLORS[Math.floor(rng() * COLORS.length)];
+    if (balloon) balloon.className = 'balloon ' + currentColor;
   }
 
   function start() {
@@ -400,7 +431,9 @@
     score = 0; banked = 0; popped = 0;
     timeLeft = GAME_SECONDS;
     animating = false;
+    bankedList = [];
     newBalloon();
+    renderBank();
     if (startOverlay) startOverlay.classList.add('hidden');
     if (overOverlay) overOverlay.classList.add('hidden');
     if (stage) stage.classList.remove('idle');
@@ -424,9 +457,12 @@
 
   function lockIn() {
     if (phase !== 'playing' || animating) return;
-    score += Math.floor(size);
+    var pts = Math.floor(size);
+    score += pts;
     banked++;
+    bankedList.push({ size: pts, color: currentColor });
     doBank();
+    renderBank();
     render();
   }
 
@@ -508,6 +544,21 @@
       balloon.style.width = px + 'px';
       balloon.style.height = (px * 1.166) + 'px';
     }
+  }
+
+  // ── Banked tray: show each locked balloon with its size ──
+  function renderBank() {
+    if (!bankTray) return;
+    if (!bankedList.length) {
+      bankTray.innerHTML = '<div class="bank-empty">Locked balloons land here</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < bankedList.length; i++) {
+      var b = bankedList[i];
+      html += '<span class="bank-item ' + b.color + '"><span class="bank-dot"></span><b>' + b.size + '</b></span>';
+    }
+    bankTray.innerHTML = html;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -686,12 +737,15 @@
     animating = false;
     score = 0; banked = 0; popped = 0;
     timeLeft = GAME_SECONDS;
+    bankedList = [];
     newBalloon();
+    renderBank();
     if (overOverlay) overOverlay.classList.add('hidden');
     if (startOverlay) startOverlay.classList.remove('hidden');
     if (stage) stage.classList.add('idle');
     render();
   }
+  if (lockBtn && lockBtn.addEventListener) lockBtn.addEventListener('click', lockIn);
   if (againBtn && againBtn.addEventListener) againBtn.addEventListener('click', function () { start(); });
   if (startBtn && startBtn.addEventListener) startBtn.addEventListener('click', start);
 
@@ -730,6 +784,7 @@
           score: score,
           banked: banked,
           popped: popped,
+          bankedList: bankedList.slice(),
           timeLeft: timeLeft,
           finalScore: score
         };
@@ -767,6 +822,7 @@
 
   // ── boot ──
   newBalloon();
+  renderBank();
   render();
 })();
 </script>

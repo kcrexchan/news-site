@@ -42,7 +42,7 @@ function makeEl(attrs) {
   return e;
 }
 
-var ids = ['stage','balloon','popFlash','hint',
+var ids = ['stage','balloon','popFlash','hint','bankTray',
   'timeVal','sizeVal','scoreVal','bankedVal',
   'accChip','accNameEl','accLogoutEl','lbBtn',
   'lockBtn','overOverlay','finalScore','finalStats','againBtn','saveBtn',
@@ -201,6 +201,8 @@ async function main() {
   assert(st.banked === 1, 'banked count = 1');
   assert(st.size === 100, 'fresh balloon at BASE_SIZE');
   assert(st.threshold >= 150 && st.threshold <= 220, 'fresh balloon has a valid threshold');
+  assert(st.bankedList && st.bankedList.length === 1 && st.bankedList[0].size === 135, 'bankedList records the locked balloon (135)');
+  assert(st.bankedList[0].color && /^c-/.test(st.bankedList[0].color), 'bankedList entry carries a color');
 
   // ═══════════════════════════════════════════════════════════════
   //  6. UNIT — over-inflate pops: 0 points, fresh balloon
