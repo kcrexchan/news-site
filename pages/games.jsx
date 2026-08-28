@@ -94,6 +94,19 @@ const games = [
       'PIN-protected leaderboard ranked by fastest ms',
     ],
   },
+  {
+    name: 'Balloon Pop',
+    emoji: '🎈',
+    description: 'Tap to inflate, lock in for points, and don\'t overdo it — every balloon pops at a different size. 30 seconds, highest total wins.',
+    route: '/balloon',
+    accent: '#ff6b9d',
+    features: [
+      'Tap the stage to inflate the balloon',
+      'Lock In to bank its size as score',
+      'Over-inflate and it pops — zero points',
+      '30-second rounds, PIN leaderboard',
+    ],
+  },
 ];
 
 export default function Games() {

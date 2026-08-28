@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Balloon Pop 🎈</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-deep: #070a14;
+    --bg-mid: #0d1526;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(90,140,255,0.25);
+    --text: #eaf0ff;
+    --muted: #8b97b8;
+    --accent: #4d8dff;
+    --green: #35e08a;
+    --red: #ff5a5a;
+    --pink: #ff6b9d;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1100px 620px at 50% -12%, #16233f 0%, var(--bg-mid) 46%, var(--bg-deep) 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 12px 14px calc(16px + env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  /* ── HUD ─────────────────────────────── */
+  .hud {
+    width: 100%; max-width: 620px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 10px 14px; margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .hud .title { font-size: 17px; font-weight: 800; letter-spacing: 0.04em; color: #bcd0ff; display: flex; align-items: center; gap: 8px; }
+  .hud .stats { display: flex; gap: 6px; flex-wrap: wrap; }
+  .hud .stat { text-align: center; min-width: 62px; padding: 2px 8px; }
+  .hud .stat .lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+  .hud .stat .val { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .hud .stat .val.warn { color: #ffb020; }
+  .hud .actions { display: flex; gap: 8px; align-items: center; }
+  .icon-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 11px; cursor: pointer; font-size: 14px; font-weight: 700;
+    transition: border-color .15s, background .15s;
+  }
+  .icon-btn:hover { border-color: var(--accent); background: rgba(77,141,255,0.12); }
+  .acc-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; font-size: 13px; font-weight: 700;
+  }
+  .acc-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .acc-chip .logout { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .acc-chip .logout:hover { color: var(--text); }
+  .hidden { display: none !important; }
+
+  /* ── Stage ───────────────────────────── */
+  .stage {
+    position: relative; width: 100%; max-width: 620px; flex: 1;
+    min-height: 44vh;
+    border-radius: 24px;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    padding: 18px 16px;
+  }
+  .balloon {
+    position: relative;
+    width: 120px; height: 140px;
+    border-radius: 50% 50% 48% 48% / 52% 52% 46% 46%;
+    background: radial-gradient(circle at 34% 28%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.25) 18%, var(--balloon, #ff5a5a) 55%, rgba(0,0,0,0.35) 100%);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.45), inset -10px -14px 24px rgba(0,0,0,0.25);
+    transition: none;
+  }
+  .balloon::before { /* knot */
+    content: ''; position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%);
+    border-left: 9px solid transparent; border-right: 9px solid transparent;
+    border-top: 12px solid var(--balloon-dark, #b23);
+  }
+  .balloon::after { /* string */
+    content: ''; position: absolute; left: 50%; bottom: -74px; width: 2px; height: 64px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.12));
+    transform: translateX(-50%);
+  }
+  .balloon.c-red   { --balloon: #ff5a5a; --balloon-dark: #b23030; }
+  .balloon.c-teal  { --balloon: #35d0ba; --balloon-dark: #1e8f80; }
+  .balloon.c-amber { --balloon: #ffb020; --balloon-dark: #a86f10; }
+  .balloon.c-violet{ --balloon: #9d7bff; --balloon-dark: #5f45b8; }
+  .balloon.c-pink  { --balloon: #ff6b9d; --balloon-dark: #b03a62; }
+
+  .balloon.pop { animation: popAnim 0.38s ease-out forwards; }
+  @keyframes popAnim {
+    0%   { transform: scale(1); opacity: 1; }
+    35%  { transform: scale(1.28); opacity: 1; }
+    100% { transform: scale(1.55); opacity: 0; }
+  }
+  .balloon.banked { animation: bankAnim 0.45s ease-in forwards; }
+  @keyframes bankAnim {
+    0%   { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-160px) scale(0.7); opacity: 0; }
+  }
+
+  .pop-flash {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(0.4);
+    font-size: clamp(40px, 12vw, 72px); font-weight: 900; letter-spacing: 0.06em;
+    color: #ffd7d7; text-shadow: 0 0 30px rgba(255,90,90,0.9);
+    opacity: 0; pointer-events: none;
+  }
+  .pop-flash.show { animation: flashAnim 0.5s ease-out forwards; }
+  @keyframes flashAnim {
+    0% { opacity: 0; transform: translate(-50%,-50%) scale(0.4); }
+    25% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%,-50%) scale(1.25); }
+  }
+
+  .hint { margin-top: 74px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.55); text-align: center; }
+  .stage.idle .balloon, .stage.idle .hint { opacity: 0.55; }
+
+  /* ── Controls ────────────────────────── */
+  .controls { width: 100%; max-width: 620px; margin-top: 12px; }
+  .lock-btn {
+    width: 100%; padding: 16px 0; border: none; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, #ff85ad, #e04f80); color: #fff;
+    font-size: 17px; font-weight: 900; letter-spacing: 0.04em;
+    box-shadow: 0 8px 22px rgba(224,79,128,0.4);
+    transition: transform .08s ease, box-shadow .15s;
+  }
+  .lock-btn:active { transform: scale(0.985); box-shadow: 0 4px 12px rgba(224,79,128,0.4); }
+  .lock-btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
+
+  /* ── Overlays ────────────────────────── */
+  .overlay {
+    position: fixed; inset: 0; z-index: 40;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; text-align: center;
+    background: rgba(4,7,14,0.82); backdrop-filter: blur(4px);
+  }
+  .overlay .kicker { font-size: 13px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--pink); margin-bottom: 10px; }
+  .overlay .big { font-size: clamp(52px, 16vw, 92px); font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; color: #fff; text-shadow: 0 0 34px rgba(255,107,157,0.5); }
+  .overlay .sub { margin-top: 12px; font-size: clamp(14px, 3.6vw, 17px); color: rgba(255,255,255,0.75); font-weight: 600; }
+  .overlay .rules { margin-top: 18px; font-size: 13.5px; line-height: 1.9; color: rgba(255,255,255,0.55); font-weight: 600; }
+  .primary-btn {
+    margin-top: 24px; width: 100%; max-width: 320px; padding: 15px 0; border: none; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, #5c97ff, #3f78e0); color: #fff; font-size: 16px; font-weight: 800; letter-spacing: 0.03em;
+    box-shadow: 0 6px 18px rgba(63,120,224,0.35);
+  }
+  .primary-btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+  .ghost-btn {
+    margin-top: 10px; width: 100%; max-width: 320px; padding: 12px 16px;
+    border: 1px solid var(--border); border-radius: 12px; cursor: pointer;
+    background: transparent; color: var(--text); font-size: 14px; font-weight: 700;
+  }
+  .ghost-btn:hover { border-color: var(--accent); }
+
+  /* ── Modal ───────────────────────────── */
+  .modal {
+    position: fixed; inset: 0; z-index: 50; display: none;
+    align-items: center; justify-content: center; padding: 18px;
+    background: rgba(4,7,14,0.72); backdrop-filter: blur(3px);
+  }
+  .modal.show { display: flex; }
+  .box {
+    width: 100%; max-width: 400px; background: #0f1830; border: 1px solid var(--border);
+    border-radius: 18px; padding: 22px 22px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    max-height: 88vh; overflow-y: auto;
+  }
+  .box h2 { font-size: 20px; font-weight: 900; margin-bottom: 6px; }
+  .box .hint { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; padding: 9px 0; border: 1px solid var(--border); background: transparent; color: var(--muted);
+    border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 700;
+  }
+  .tab.active { background: rgba(77,141,255,0.16); border-color: var(--accent); color: #d7e6ff; }
+  .err, .ok { font-size: 12.5px; min-height: 16px; margin-bottom: 8px; }
+  .err.show { color: #ff8a8a; }
+  .ok.show { color: var(--green); }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 5px; }
+  .field input {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: rgba(255,255,255,0.04); color: var(--text); font-size: 15px; font-weight: 600;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .field input.pin { letter-spacing: 0.4em; font-size: 18px; text-align: center; }
+  .go-btn {
+    width: 100%; margin-top: 4px; padding: 12px 0; border: none; border-radius: 10px; cursor: pointer;
+    background: linear-gradient(180deg, #5c97ff, #3f78e0); color: #fff; font-size: 15px; font-weight: 800;
+  }
+  .go-btn:disabled { opacity: .5; cursor: default; }
+  .close-btn {
+    width: 100%; margin-top: 8px; padding: 10px 0; border: 1px solid var(--border); border-radius: 10px;
+    background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .close-btn:hover { color: var(--text); }
+
+  /* leaderboard table */
+  .lb-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .lb-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 6px 6px; border-bottom: 1px solid rgba(120,150,220,0.18); }
+  .lb-table th.num, .lb-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lb-table td { padding: 9px 6px; border-bottom: 1px solid rgba(120,150,220,0.1); }
+  .lb-table tr:last-child td { border-bottom: none; }
+  .lb-table .rank { font-weight: 900; color: #7f93bd; width: 24px; }
+  .lb-table .lb-name { font-weight: 800; color: #eaf0ff; }
+  .lb-table .lb-score { font-weight: 900; color: #cfe0ff; }
+  .lb-table tr.me .lb-name { color: #7fdbca; }
+  .lb-table tr.me .lb-name::after { content: '  (you)'; font-size: 10px; color: #7f93bd; font-weight: 700; }
+  .lb-table tr.top1 .lb-score { color: #7dffbe; }
+  .lb-empty { font-size: 13px; color: #8ba0d0; padding: 18px 0; text-align: center; }
+  .lb-foot { font-size: 11px; color: #5a6a94; margin-top: 10px; text-align: center; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .balloon, .pop-flash, .lock-btn { animation: none !important; transition: none !important; }
+    .balloon.pop { opacity: 0; }
+    .balloon.banked { opacity: 0; }
+  }
+  @media (max-width: 420px) {
+    .hud .stat { min-width: 56px; padding: 2px 5px; }
+    .stage { min-height: 40vh; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ── HUD ── -->
+  <div class="hud">
+    <div class="title">🎈 Balloon Pop</div>
+    <div class="stats">
+      <div class="stat"><div class="lbl">Time</div><div class="val" id="timeVal">30</div></div>
+      <div class="stat"><div class="lbl">Size</div><div class="val" id="sizeVal">100</div></div>
+      <div class="stat"><div class="lbl">Score</div><div class="val" id="scoreVal">0</div></div>
+      <div class="stat"><div class="lbl">Banked</div><div class="val" id="bankedVal">0</div></div>
+    </div>
+    <div class="actions">
+      <span class="acc-chip hidden" id="accChip">
+        <span class="dot"></span><span id="accNameEl"></span><span class="logout" id="accLogoutEl">✕</span>
+      </span>
+      <button class="icon-btn" id="lbBtn" title="Leaderboard">🏆</button>
+    </div>
+  </div>
+
+  <!-- ── Stage ── -->
+  <div class="stage idle" id="stage">
+    <div class="balloon c-red" id="balloon"></div>
+    <div class="pop-flash" id="popFlash">POP!</div>
+    <div class="hint">Tap anywhere to inflate · lock in before it pops!</div>
+  </div>
+
+  <!-- ── Controls ── -->
+  <div class="controls">
+    <button class="lock-btn" id="lockBtn" disabled>🔒 Lock In</button>
+  </div>
+
+  <!-- ── Start overlay ── -->
+  <div class="overlay" id="startOverlay">
+    <div class="kicker">🎈 Balloon Pop</div>
+    <div class="big">30s</div>
+    <div class="sub">Inflate. Lock in. Don't pop.</div>
+    <div class="rules">
+      Tap the stage to inflate the balloon<br>
+      Hit <b>Lock In</b> to bank its size as points<br>
+      Over-inflate and it <b>pops</b> — zero points<br>
+      Every balloon pops at a different size…
+    </div>
+    <button class="primary-btn" id="startBtn">▶ Start 30s Round</button>
+  </div>
+
+  <!-- ── Game-over overlay ── -->
+  <div class="overlay hidden" id="overOverlay">
+    <div class="kicker">Time's up!</div>
+    <div class="big" id="finalScore">0</div>
+    <div class="sub" id="finalStats">0 banked · 0 popped</div>
+    <button class="primary-btn" id="saveBtn">🏆 Save to leaderboard</button>
+    <button class="ghost-btn" id="againBtn">↺ Play Again</button>
+  </div>
+
+  <!-- ── Account modal (create / login with PIN) ── -->
+  <div class="modal" id="accountModal">
+    <div class="box">
+      <h2>🏆 Leaderboard</h2>
+      <div class="hint">Create an account or log in to post your best score.</div>
+      <div class="tabs">
+        <button class="tab active" id="tabCreate">Create</button>
+        <button class="tab" id="tabLogin">Log in</button>
+      </div>
+      <div class="err" id="accErr"></div>
+      <div class="ok" id="accOk"></div>
+      <div class="field">
+        <label for="accNameInput">Player name</label>
+        <input id="accNameInput" type="text" maxlength="12" autocomplete="off" placeholder="e.g. Bolt" />
+      </div>
+      <div class="field">
+        <label for="accPinInput">4-digit PIN</label>
+        <input id="accPinInput" class="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <button class="go-btn" id="accGoBtn">Create account</button>
+      <button class="close-btn" id="accCloseBtn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── Leaderboard modal (top 10 board) ── -->
+  <div class="modal" id="boardModal">
+    <div class="box">
+      <h2>🏆 Top 10</h2>
+      <div class="hint">Highest total balloon size wins — ranked by best score.</div>
+      <div id="boardBody"></div>
+      <div class="lb-foot" id="boardFoot"></div>
+      <button class="close-btn" id="boardCloseBtn">Close</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Config
+  // ═══════════════════════════════════════════════════════════════
+  var GAME_SECONDS = 30;   // round length
+  var BASE_SIZE = 100;     // every new balloon starts here
+  var TAP_INFLATE = 7;     // size added per tap
+  var DEF_RATE = 2.5;      // size lost per second while not tapping (slower than inflate)
+  var DEFLOOR = 60;        // balloons never deflate below this
+  var POP_MIN = 150;       // random pop threshold range (each balloon differs)
+  var POP_MAX = 220;
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Seeded RNG (mulberry32) — deterministic under _setSeed
+  // ═══════════════════════════════════════════════════════════════
+  var rng = Math.random;
+  function makeRng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  DOM refs
+  // ═══════════════════════════════════════════════════════════════
+  function $(id) { return document.getElementById(id); }
+  var stage = $('stage'), balloon = $('balloon'), popFlash = $('popFlash');
+  var timeVal = $('timeVal'), sizeVal = $('sizeVal'), scoreVal = $('scoreVal'), bankedVal = $('bankedVal');
+  var lockBtn = $('lockBtn');
+  var startOverlay = $('startOverlay'), startBtn = $('startBtn');
+  var overOverlay = $('overOverlay'), finalScore = $('finalScore'), finalStats = $('finalStats');
+  var againBtn = $('againBtn'), saveBtn = $('saveBtn');
+  var accChip = $('accChip'), accNameEl = $('accNameEl'), accLogoutEl = $('accLogoutEl');
+  var lbBtn = $('lbBtn');
+  var accountModal = $('accountModal'), boardModal = $('boardModal');
+  var tabCreate = $('tabCreate'), tabLogin = $('tabLogin');
+  var accErr = $('accErr'), accOk = $('accOk');
+  var accNameInput = $('accNameInput'), accPinInput = $('accPinInput');
+  var accGoBtn = $('accGoBtn'), accCloseBtn = $('accCloseBtn');
+  var boardBody = $('boardBody'), boardFoot = $('boardFoot'), boardCloseBtn = $('boardCloseBtn');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  State
+  // ═══════════════════════════════════════════════════════════════
+  // phase: 'idle' | 'playing' | 'over'
+  var phase = 'idle';
+  var size = BASE_SIZE;
+  var threshold = 0;
+  var score = 0;
+  var banked = 0;
+  var popped = 0;
+  var timeLeft = GAME_SECONDS;
+  var rafId = 0;
+  var lastFrame = 0;
+  var animating = false;   // true while a pop/bank animation is in flight (blocks input)
+
+  var COLORS = ['c-red', 'c-teal', 'c-amber', 'c-violet', 'c-pink'];
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Core rules
+  // ═══════════════════════════════════════════════════════════════
+  function newBalloon() {
+    size = BASE_SIZE;
+    threshold = POP_MIN + rng() * (POP_MAX - POP_MIN);
+    var cls = 'balloon ' + COLORS[Math.floor(rng() * COLORS.length)];
+    if (balloon) balloon.className = cls;
+  }
+
+  function start() {
+    phase = 'playing';
+    score = 0; banked = 0; popped = 0;
+    timeLeft = GAME_SECONDS;
+    animating = false;
+    newBalloon();
+    if (startOverlay) startOverlay.classList.add('hidden');
+    if (overOverlay) overOverlay.classList.add('hidden');
+    if (stage) stage.classList.remove('idle');
+    render();
+    lastFrame = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 1000;
+    if (typeof requestAnimationFrame === 'function') {
+      rafId = requestAnimationFrame(frame);
+    }
+  }
+
+  function tap() {
+    if (phase !== 'playing' || animating) return;
+    size += TAP_INFLATE;
+    if (size > threshold) {
+      // POP — this balloon scores 0
+      popped++;
+      doPop();
+    }
+    render();
+  }
+
+  function lockIn() {
+    if (phase !== 'playing' || animating) return;
+    score += Math.floor(size);
+    banked++;
+    doBank();
+    render();
+  }
+
+  function deflate(dtSec) {
+    size = Math.max(DEFLOOR, size - DEF_RATE * dtSec);
+  }
+
+  function end() {
+    phase = 'over';
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
+    // in-flight balloon is forfeited — score stays as the banked total
+    if (finalScore) finalScore.textContent = String(score);
+    if (finalStats) finalStats.textContent = banked + ' banked · ' + popped + ' popped';
+    if (overOverlay) overOverlay.classList.remove('hidden');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '🏆 Save to leaderboard'; }
+    render();
+  }
+
+  function frame(now) {
+    if (phase !== 'playing') return;
+    var dt = Math.min(0.25, Math.max(0, (now - lastFrame) / 1000));
+    lastFrame = now;
+    if (!animating) deflate(dt);
+    timeLeft -= dt;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      render();
+      end();
+      return;
+    }
+    render();
+    rafId = requestAnimationFrame(frame);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Effects (pop / bank) — pure visual, rules already applied
+  // ═══════════════════════════════════════════════════════════════
+  function buzz(ms) { try { if (navigator && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
+  function doPop() {
+    buzz(60);
+    if (!balloon) { newBalloon(); return; }
+    animating = true;
+    balloon.classList.add('pop');
+    if (popFlash) { popFlash.classList.remove('show'); void popFlash.offsetWidth; popFlash.classList.add('show'); }
+    setTimeout(function () {
+      animating = false;
+      newBalloon();
+      render();
+    }, 380);
+  }
+
+  function doBank() {
+    buzz(25);
+    if (!balloon) { newBalloon(); return; }
+    animating = true;
+    balloon.classList.add('banked');
+    setTimeout(function () {
+      animating = false;
+      newBalloon();
+      render();
+    }, 450);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Rendering
+  // ═══════════════════════════════════════════════════════════════
+  function render() {
+    if (timeVal) timeVal.textContent = String(Math.ceil(timeLeft));
+    if (timeVal && timeLeft <= 5 && phase === 'playing') timeVal.classList.add('warn');
+    else if (timeVal) timeVal.classList.remove('warn');
+    if (sizeVal) sizeVal.textContent = String(Math.round(size));
+    if (scoreVal) scoreVal.textContent = String(score);
+    if (bankedVal) bankedVal.textContent = String(banked);
+    if (lockBtn) lockBtn.disabled = (phase !== 'playing' || animating);
+    if (balloon) {
+      // scale: 100 size → 120px wide; 220 → 264px (fits 360px stage)
+      var px = (size / 100) * 120;
+      balloon.style.width = px + 'px';
+      balloon.style.height = (px * 1.166) + 'px';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Leaderboard (PIN-protected accounts, R2-backed)
+  // ═══════════════════════════════════════════════════════════════
+  var LB_URL = '/api/balloon/leaderboard';
+  var lbMode = 'create';
+  var lbSession = null;   // { name, pin, best }
+  var lbBoard = null;
+  var lbBusy = false;
+
+  function lbSetErr(msg) { if (accErr) { accErr.textContent = msg || ''; accErr.classList.toggle('show', !!msg); } if (accOk) accOk.classList.remove('show'); }
+  function lbSetOk(msg) { if (accOk) { accOk.textContent = msg || ''; accOk.classList.toggle('show', !!msg); } if (accErr) accErr.classList.remove('show'); }
+
+  function lbFetch(method, body) {
+    if (typeof fetch !== 'function') return Promise.reject(new Error('offline'));
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(LB_URL, opts).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) { var e = new Error((data && data.error) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+        return data;
+      });
+    });
+  }
+
+  function lbEsc(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function lbRenderBoard(board) {
+    if (!boardBody) return;
+    board = board || lbBoard || { scores: [] };
+    lbBoard = board;
+    var rows = board.scores || [];
+    if (!rows.length) {
+      boardBody.innerHTML = '<div class="lb-empty">No scores yet — be the first to set a record!</div>';
+    } else {
+      var html = '<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th class="num">Best</th></tr></thead><tbody>';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var me = lbSession && String(r.name).toLowerCase() === String(lbSession.name).toLowerCase();
+        var cls = (i === 0 ? 'top1 ' : '') + (me ? 'me' : '');
+        html += '<tr class="' + cls.trim() + '"><td class="rank">' + (i + 1) + '</td><td class="lb-name">' + lbEsc(r.name) + '</td><td class="num lb-score">' + Math.round(r.best) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      boardBody.innerHTML = html;
+    }
+    if (boardFoot) boardFoot.textContent = board.updated ? ('Updated ' + new Date(board.updated).toLocaleString()) : '';
+  }
+
+  function lbUpdateBadge() {
+    if (!accChip) return;
+    if (lbSession) {
+      accNameEl.textContent = lbSession.name;
+      accChip.classList.remove('hidden');
+      if (accLogoutEl) accLogoutEl.classList.remove('hidden');
+    } else {
+      accNameEl.textContent = '';
+      accChip.classList.add('hidden');
+      if (accLogoutEl) accLogoutEl.classList.add('hidden');
+    }
+  }
+
+  function lbSwitchMode(mode) {
+    lbMode = mode;
+    if (tabCreate) tabCreate.classList.toggle('active', mode === 'create');
+    if (tabLogin) tabLogin.classList.toggle('active', mode === 'login');
+    if (accGoBtn) accGoBtn.textContent = (mode === 'create') ? 'Create account' : 'Log in';
+    if (accNameInput) accNameInput.placeholder = (mode === 'create') ? 'e.g. Bolt' : 'Your name';
+    lbSetErr(''); lbSetOk('');
+  }
+
+  function lbOpenAccount() {
+    lbSwitchMode(lbSession ? 'login' : 'create');
+    if (accNameInput) accNameInput.value = lbSession ? lbSession.name : '';
+    if (accPinInput) accPinInput.value = '';
+    if (accountModal) accountModal.classList.add('show');
+    setTimeout(function () { if (accNameInput && accNameInput.focus) accNameInput.focus(); }, 30);
+  }
+  function lbCloseAccount() { if (accountModal) accountModal.classList.remove('show'); }
+
+  function lbDoGo() {
+    if (lbBusy) return;
+    var name = (accNameInput && accNameInput.value || '').trim();
+    var pin = (accPinInput && accPinInput.value || '').trim();
+    if (!name) { lbSetErr('Enter a name'); return; }
+    if (!/^\d{4}$/.test(pin)) { lbSetErr('PIN must be exactly 4 digits'); return; }
+    lbBusy = true;
+    if (accGoBtn) accGoBtn.disabled = true;
+    var fn = (lbMode === 'create') ? lbCreate : lbLogin;
+    fn(name, pin).then(function (res) {
+      lbSetOk((lbMode === 'create') ? ('Account created — welcome, ' + res.name + '!') : ('Logged in as ' + res.name));
+      lbCloseAccount();
+      setTimeout(function () { lbOpenBoard(); }, 120);
+    }).catch(function (e) {
+      lbSetErr(e.message || 'Something went wrong');
+    }).then(function () {
+      lbBusy = false;
+      if (accGoBtn) accGoBtn.disabled = false;
+    });
+  }
+
+  function lbCreate(name, pin) {
+    return lbFetch('POST', { action: 'create', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, best: res.best != null ? res.best : null };
+      if (res.board) lbBoard = res.board;
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogin(name, pin) {
+    return lbFetch('POST', { action: 'login', name: name, pin: pin }).then(function (res) {
+      lbSession = { name: res.name, pin: pin, best: res.best != null ? res.best : null };
+      if (res.board) lbBoard = res.board;
+      lbUpdateBadge();
+      return res;
+    });
+  }
+  function lbLogout() { lbSession = null; lbUpdateBadge(); if (boardModal) boardModal.classList.remove('show'); }
+
+  function lbOpenBoard() {
+    if (!lbSession) { lbOpenAccount(); return; }
+    if (boardModal) boardModal.classList.add('show');
+    if (typeof fetch === 'function') {
+      lbFetch('POST', { action: 'board' }).then(function (b) { lbRenderBoard(b); }).catch(function () { lbRenderBoard(null); });
+    } else { lbRenderBoard(null); }
+  }
+  function lbCloseBoard() { if (boardModal) boardModal.classList.remove('show'); }
+
+  // Submit the player's score. Keeps the HIGHER of the stored best and the
+  // new one — the server is the source of truth.
+  function lbSubmitBest(val) {
+    if (!lbSession) return Promise.resolve();
+    return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: val }).then(function (res) {
+      lbSession.best = res.best;
+      if (res.board) { lbBoard = res.board; lbRenderBoard(res.board); }
+      return res;
+    });
+  }
+
+  // ── wire up leaderboard UI ──
+  if (lbBtn && lbBtn.addEventListener) lbBtn.addEventListener('click', function () { lbOpenBoard(); });
+  if (accLogoutEl && accLogoutEl.addEventListener) accLogoutEl.addEventListener('click', function (e) { if (e.stopPropagation) e.stopPropagation(); lbLogout(); });
+  if (tabCreate && tabCreate.addEventListener) tabCreate.addEventListener('click', function () { lbSwitchMode('create'); });
+  if (tabLogin && tabLogin.addEventListener) tabLogin.addEventListener('click', function () { lbSwitchMode('login'); });
+  if (accGoBtn && accGoBtn.addEventListener) accGoBtn.addEventListener('click', lbDoGo);
+  if (accCloseBtn && accCloseBtn.addEventListener) accCloseBtn.addEventListener('click', lbCloseAccount);
+  if (boardCloseBtn && boardCloseBtn.addEventListener) boardCloseBtn.addEventListener('click', lbCloseBoard);
+  if (accPinInput && accPinInput.addEventListener) {
+    accPinInput.addEventListener('input', function () { accPinInput.value = accPinInput.value.replace(/[^0-9]/g, '').slice(0, 4); });
+    accPinInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  }
+  if (accNameInput && accNameInput.addEventListener) accNameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') lbDoGo(); });
+  [accountModal, boardModal].forEach(function (m) {
+    if (m && m.addEventListener) m.addEventListener('click', function (e) { if (e.target === m) { lbCloseAccount(); lbCloseBoard(); } });
+  });
+  lbUpdateBadge();
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Save / restart
+  // ═══════════════════════════════════════════════════════════════
+  function doSave() {
+    if (phase !== 'over') return;
+    if (!lbSession) { lbOpenAccount(); return; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    lbSubmitBest(score).then(function () {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '✓ Saved — you\'re on the board'; }
+      lbOpenBoard();
+    }).catch(function () {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save failed — try again'; }
+    });
+  }
+  if (saveBtn && saveBtn.addEventListener) saveBtn.addEventListener('click', doSave);
+
+  function resetToIdle() {
+    phase = 'idle';
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
+    animating = false;
+    score = 0; banked = 0; popped = 0;
+    timeLeft = GAME_SECONDS;
+    newBalloon();
+    if (overOverlay) overOverlay.classList.add('hidden');
+    if (startOverlay) startOverlay.classList.remove('hidden');
+    if (stage) stage.classList.add('idle');
+    render();
+  }
+  if (againBtn && againBtn.addEventListener) againBtn.addEventListener('click', function () { start(); });
+  if (startBtn && startBtn.addEventListener) startBtn.addEventListener('click', start);
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Input — pointerdown on the stage (mouse + touch + pen)
+  // ═══════════════════════════════════════════════════════════════
+  var inputLock = false;
+  function onStageInput() {
+    if (inputLock) return;
+    inputLock = true;
+    tap();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () { inputLock = false; });
+    } else {
+      setTimeout(function () { inputLock = false; }, 0);
+    }
+  }
+  if (stage && stage.addEventListener) {
+    stage.addEventListener('pointerdown', onStageInput, { passive: true });
+    if (typeof window !== 'undefined' && !window.PointerEvent) {
+      stage.addEventListener('touchstart', function (e) { e.preventDefault(); onStageInput(); }, { passive: false });
+      stage.addEventListener('mousedown', onStageInput);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Test-only handle (no effect in the browser UI)
+  // ═══════════════════════════════════════════════════════════════
+  if (typeof window !== 'undefined') {
+    window.__BALLOON__ = {
+      state: function () {
+        return {
+          phase: phase,
+          size: size,
+          threshold: threshold,
+          score: score,
+          banked: banked,
+          popped: popped,
+          timeLeft: timeLeft,
+          finalScore: score
+        };
+      },
+      start: start,
+      tap: tap,
+      lockIn: lockIn,
+      // deterministic step for tests (drives the same math as the rAF loop)
+      _tick: function (ms) {
+        if (phase !== 'playing') return;
+        var dt = ms / 1000;
+        deflate(dt);
+        timeLeft -= dt;
+        if (timeLeft <= 0) {
+          timeLeft = 0;
+          render();
+          end();
+          return;
+        }
+        render();
+      },
+      _setSeed: function (n) { rng = makeRng(n); },
+      // leaderboard
+      _lbCreate: lbCreate,
+      _lbLogin: lbLogin,
+      _lbBoard: function () { return lbFetch('POST', { action: 'board' }); },
+      _lbScore: function (best) {
+        if (!lbSession) return Promise.reject(new Error('no session'));
+        return lbFetch('POST', { action: 'score', name: lbSession.name, pin: lbSession.pin, best: best });
+      },
+      _lbLogout: lbLogout,
+      _lbSession: function () { return lbSession; }
+    };
+  }
+
+  // ── boot ──
+  newBalloon();
+  render();
+})();
+</script>
+</body>
+</html>

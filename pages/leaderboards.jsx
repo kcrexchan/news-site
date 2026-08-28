@@ -47,6 +47,19 @@ const GAMES = [
     accent: '#8fd0ff',
     note: 'Fastest reaction time wins.',
   },
+  {
+    id: 'balloon',
+    icon: '🎈',
+    title: 'Balloon Pop',
+    href: '/balloon',
+    unit: 'pts',
+    higherIsBetter: true,
+    endpoint: '/api/balloon/leaderboard',
+    scoreKey: 'best',
+    scoreLabel: 'Best',
+    accent: '#ff6b9d',
+    note: 'Highest total balloon size wins.',
+  },
 ];
 
 /* =========================================================================== */
