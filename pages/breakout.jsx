@@ -409,6 +409,12 @@ export default function Breakout() {
 
       if (shootTimer > 0) shootTimer = Math.max(0, shootTimer - 1 / 60)
 
+      // Auto-fire bullets while S power-up is active — no tap needed
+      if (shootTimer > 0 && now - lastShot >= SHOOT_COOLDOWN) {
+        lastShot = now
+        bullets.push({ x: paddleX + paddleW / 2, y: H - paddleH - 14, r: 3 })
+      }
+
       const paddleTop = H - paddleH - 6
       for (let i = balls.length - 1; i >= 0; i--) {
         const b = balls[i]
