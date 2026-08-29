@@ -757,10 +757,10 @@
           if (t0 === null) t0 = ts;
           var t = ts - t0;
           if (t < dur) {
-            // Stage 1 — FAST spin: ramp up then cruise, covering most of the travel.
+            // Stage 1 — FAST spin at CONSTANT speed: cover most of the travel,
+            // no easing. The slow-down and stop are owned entirely by Stage 2.
             var p = t / dur;
-            var q = p < 0.25 ? easeIn(p / 0.25) : 0.25 + (1 - 0.25) * easeOut((p - 0.25) / 0.75);
-            strip.style.transform = 'translate3d(0,' + (startY + travel * STAGE1_FRAC * q) + 'px,0)';
+            strip.style.transform = 'translate3d(0,' + (startY + travel * STAGE1_FRAC * p) + 'px,0)';
             requestAnimationFrame(frame);
           } else if (t < dur + slowDur) {
             // Stage 2 — SLOW deceleration: crawl the last stretch to rest.
