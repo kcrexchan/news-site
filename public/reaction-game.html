@@ -469,12 +469,8 @@
       }
       return;
     }
-    if (phase === 'done') {
-      // tapping again restarts
-      resetRun();
-      startRound();
-      return;
-    }
+    // phase === 'done': tapping the pad does nothing now —
+    // use the dedicated Restart button to run it back.
   }
 
   function resetRun() {
