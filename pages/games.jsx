@@ -120,6 +120,19 @@ const games = [
       'Running scoreboard across games',
     ],
   },
+  {
+    name: 'Memory Match',
+    emoji: '🃏',
+    description: 'Flip the cards and find every matching pair. Three board sizes, a live move counter, and a best-time record to beat. Train your memory — how fast can you clear it?',
+    route: '/memory-match',
+    accent: '#e0c060',
+    features: [
+      'Three difficulty levels: 4×3, 4×4, 6×4 boards',
+      'Smooth 3D card-flip animations',
+      'Live move + pair counter',
+      'Best-time record saved per board size',
+    ],
+  },
 ];
 
 export default function Games() {

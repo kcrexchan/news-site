@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#061204">
+<title>Memory Match 🃏</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #061204; color: #ecfccb;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    touch-action: none; overscroll-behavior: none;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  /* ─── Back button (unified theme) ────────────────────── */
+  .back-btn {
+    position: fixed; top: max(10px, env(safe-area-inset-top)); left: 12px; z-index: 30;
+    display: inline-flex; align-items: center; gap: 5px; text-decoration: none;
+    background: rgba(20,26,46,0.9); border: 1px solid rgba(58,134,255,0.3); color: #e0e8ff;
+    border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+    backdrop-filter: blur(6px); transition: background .2s, border-color .2s;
+  }
+  .back-btn:hover { color: #fff; background: rgba(36,46,76,0.95); border-color: rgba(58,134,255,0.6); }
+
+  /* ─── Layout ─────────────────────────────── */
+  #wrap {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 72px 16px calc(24px + env(safe-area-inset-bottom));
+    background: radial-gradient(ellipse at top, #0d2a0f 0%, #061204 70%);
+  }
+
+  /* ─── Title ─────────────────────────────── */
+  .title {
+    font-size: clamp(28px, 8vw, 44px); font-weight: 900; letter-spacing: -0.02em;
+    margin-bottom: 6px; text-align: center;
+    background: linear-gradient(135deg, #6bdf4a, #e0c060);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .subtitle { font-size: 14px; color: #7a8f6e; margin-bottom: 18px; text-align: center; font-weight: 600; }
+
+  /* ─── Scoreboard ─────────────────────────────── */
+  #scoreboard {
+    display: flex; gap: 14px; margin-bottom: 18px; width: 100%; max-width: 380px;
+  }
+  .score-box {
+    flex: 1; text-align: center; padding: 10px 6px; border-radius: 14px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .score-box .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; }
+  .score-box .val { font-size: 24px; font-weight: 900; line-height: 1; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .sb-moves .val { color: #6bdf4a; text-shadow: 0 0 14px rgba(107,223,74,0.6); }
+  .sb-matches .val { color: #e0c060; text-shadow: 0 0 14px rgba(224,192,96,0.6); }
+  .sb-best .val { color: #8b97b8; }
+
+  /* ─── Status line ─────────────────────────────── */
+  #status { font-size: 15px; font-weight: 700; margin-bottom: 14px; min-height: 22px; text-align: center; color: #ecfccb; transition: color .2s; }
+
+  /* ─── Board ─────────────────────────────── */
+  #board {
+    display: grid; gap: 8px; width: 100%; max-width: 420px;
+    padding: 12px; border-radius: 20px;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .card {
+    position: relative; aspect-ratio: 1 / 1; perspective: 600px; cursor: pointer;
+  }
+  .card-inner {
+    position: relative; width: 100%; height: 100%; transform-style: preserve-3d;
+    transition: transform .45s cubic-bezier(.4,.2,.2,1); border-radius: 14px;
+  }
+  .card.flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
+
+  .card-front, .card-back {
+    position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    display: flex; align-items: center; justify-content: center; border-radius: 14px;
+    font-size: clamp(26px, 9vw, 42px); user-select: none;
+  }
+  .card-front {
+    background: linear-gradient(145deg, #1e2b1e, #0f1a0f);
+    border: 1px solid rgba(107,223,74,0.25);
+    color: rgba(107,223,74,0.5);
+    box-shadow: inset 0 0 18px rgba(107,223,74,0.06);
+  }
+  .card-front::after { content: '?'; font-weight: 900; }
+  .card-back {
+    background: linear-gradient(145deg, #2a3a2a, #162416);
+    border: 2px solid rgba(107,223,74,0.5);
+    transform: rotateY(180deg);
+    box-shadow: 0 0 18px rgba(107,223,74,0.25);
+  }
+  .card.matched .card-back {
+    border-color: rgba(224,192,96,0.7);
+    box-shadow: 0 0 22px rgba(224,192,96,0.45);
+    animation: matchPop .4s ease;
+  }
+  .card:not(.matched):not(.flipped) .card-front:active { transform: scale(0.93); }
+  @keyframes matchPop { 0%{transform: rotateY(180deg) scale(0.8);} 50%{transform: rotateY(180deg) scale(1.1);} 100%{transform: rotateY(180deg) scale(1);} }
+
+  /* ─── Controls ─────────────────────────────── */
+  #controls { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 380px; }
+  .mode-row { display: flex; gap: 6px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; justify-content: center; }
+  .mode-btn {
+    flex: 1 1 auto; min-width: 74px; padding: 9px 6px; border: none; border-radius: 9px; cursor: pointer;
+    background: transparent; color: #8a9e82; font-size: 12.5px; font-weight: 700; transition: all .15s;
+  }
+  .mode-btn.active { background: rgba(107,223,74,0.2); color: #6bdf4a; box-shadow: 0 2px 10px rgba(107,223,74,0.2); }
+  #new-game-btn {
+    width: 100%; padding: 14px 0; border: none; border-radius: 12px; cursor: pointer;
+    background: linear-gradient(180deg, #6bdf4a, #4aa835); color: #061204;
+    font-size: 16px; font-weight: 800; letter-spacing: 0.02em; box-shadow: 0 6px 18px rgba(107,223,74,0.35);
+    transition: transform .1s, filter .15s;
+  }
+  #new-game-btn:active { transform: scale(0.97); }
+  #new-game-btn:hover { filter: brightness(1.08); }
+
+  /* ─── Result overlay ─────────────────────────────── */
+  #overlay {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #0d2a0f 0%, #061204 72%);
+    text-align: center; padding: 24px; animation: fadeIn .3s ease;
+  }
+  #overlay.show { display: flex; }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+  #overlay .result-emoji { font-size: clamp(60px, 18vw, 90px); margin-bottom: 12px; }
+  #overlay .result-text { font-size: clamp(34px, 10vw, 56px); font-weight: 900; letter-spacing: -0.02em; margin-bottom: 8px; color: #6bdf4a; text-shadow: 0 0 20px rgba(107,223,74,0.5); }
+  #overlay .result-sub { font-size: 16px; color: #7a8f6e; margin-bottom: 12px; font-weight: 600; }
+  #overlay .result-stats { font-size: 14px; color: #8a9e82; margin-bottom: 30px; }
+  #overlay .play-again { padding: 16px 40px; border: none; border-radius: 14px; cursor: pointer; background: linear-gradient(180deg, #6bdf4a, #4aa835); color: #061204; font-size: 18px; font-weight: 800; box-shadow: 0 8px 24px rgba(107,223,74,0.4); transition: transform .1s; }
+  #overlay .play-again:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+  <a href="/" class="back-btn">← Back</a>
+
+  <div id="wrap">
+    <div class="title">🃏 Memory Match</div>
+    <div class="subtitle">Flip the cards, find every matching pair. How fast can you clear it?</div>
+
+    <div id="scoreboard">
+      <div class="score-box sb-moves"><div class="lbl">Moves</div><div class="val" id="sb-moves">0</div></div>
+      <div class="score-box sb-matches"><div class="lbl">Pairs</div><div class="val" id="sb-matches">0 / 8</div></div>
+      <div class="score-box sb-best"><div class="lbl">Best</div><div class="val" id="sb-best">--</div></div>
+    </div>
+
+    <div id="status">Tap a card to flip it</div>
+
+    <div id="board"></div>
+
+    <div id="controls">
+      <div class="mode-row">
+        <button class="mode-btn active" data-diff="easy">🙂 Easy 4×3</button>
+        <button class="mode-btn" data-diff="medium">🔥 Medium 4×4</button>
+        <button class="mode-btn" data-diff="hard">😈 Hard 6×4</button>
+      </div>
+      <button id="new-game-btn">New Game</button>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="result-emoji">🏆</div>
+    <div class="result-text">You Win!</div>
+    <div class="result-sub" id="result-sub">All pairs found!</div>
+    <div class="result-stats" id="result-stats"></div>
+    <button class="play-again" id="play-again-btn">Play Again</button>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  const SYMBOLS = ['🍎','🚀','🌟','🐙','🍕','🎸','🌈','🎯','🦄','🍩','🎲','🔥','👾','🍄','⚽','🎁','🐳','🌸'];
+
+  const DIFFS = {
+    easy:   { cols: 4, rows: 3 }, // 12 cards → 6 pairs
+    medium: { cols: 4, rows: 4 }, // 16 cards → 8 pairs
+    hard:   { cols: 6, rows: 4 }, // 24 cards → 12 pairs
+  };
+
+  let mode = 'easy';
+  let board = [];          // array of symbol strings (length = total cards)
+  let flipped = [];        // indices of currently-flipped non-matched cards
+  let lockBoard = false;
+  let moves = 0;
+  let matches = 0;
+  let totalPairs = 0;
+  let startTime = 0;
+  let timerId = null;
+  let firstFlipFired = false;
+
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const overlay = document.getElementById('overlay');
+  const cells = [];
+
+  // ─── Best-time persistence (per difficulty) ──────────────────────
+  function bestKey(){ return 'mm_best_' + mode; }
+  function getBest(){ try { return localStorage.getItem(bestKey()); } catch(e){ return null; } }
+  function setBest(v){ try { localStorage.setItem(bestKey(), String(v)); } catch(e){} }
+
+  // ─── Build a shuffled board ───────────────────────────────
+  function buildBoard(){
+    const cfg = DIFFS[mode];
+    totalPairs = (cfg.cols * cfg.rows) / 2;
+    const deck = SYMBOLS.slice(0, totalPairs);
+    const full = [...deck, ...deck].map((s,i)=>({sym:s, idx:i}));
+
+    // Fisher–Yates shuffle
+    for (let i = full.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [full[i], full[j]] = [full[j], full[i]];
+    }
+
+    board = full.map(o => o.sym);
+    matches = 0; moves = 0; flipped = []; lockBoard = false; firstFlipFired = false;
+    stopTimer(); startTime = 0;
+
+    // Grid layout
+    boardEl.style.gridTemplateColumns = `repeat(${cfg.cols}, 1fr)`;
+    boardEl.innerHTML = '';
+    cells.length = 0;
+
+    for (let i = 0; i < board.length; i++){
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.idx = i;
+      card.innerHTML = `<div class="card-inner">
+        <div class="card-front"></div>
+        <div class="card-back">${board[i]}</div>
+      </div>`;
+      card.addEventListener('click', () => onCardClick(i));
+      boardEl.appendChild(card);
+      cells.push(card);
+    }
+
+    updateScoreboard();
+    setStatus("Tap a card to flip it");
+  }
+
+  // ─── Card click ───────────────────────────────
+  function onCardClick(idx){
+    if (lockBoard) return;
+    const card = cells[idx];
+    if (!card || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+    // Start the clock on first flip
+    if (!firstFlipFired){
+      firstFlipFired = true;
+      startTime = Date.now();
+      startTimer();
+    }
+
+    card.classList.add('flipped');
+    flipped.push(idx);
+
+    if (flipped.length === 2){
+      moves++;
+      updateScoreboard();
+      lockBoard = true;
+      const [a, b] = flipped;
+      if (board[a] === board[b]){
+        // Match!
+        setTimeout(() => {
+          cells[a].classList.add('matched');
+          cells[b].classList.add('matched');
+          matches++;
+          flipped = [];
+          lockBoard = false;
+          updateScoreboard();
+          setStatus("Nice match! 🎯");
+          if (matches === totalPairs) winGame();
+        }, 380);
+      } else {
+        // No match — flip back after a beat
+        setTimeout(() => {
+          cells[a].classList.remove('flipped');
+          cells[b].classList.remove('flipped');
+          flipped = [];
+          lockBoard = false;
+          setStatus("No pair — try again");
+        }, 850);
+      }
+    }
+  }
+
+  // ─── Timer ───────────────────────────────
+  function startTimer(){
+    stopTimer();
+    timerId = setInterval(updateTimer, 500);
+  }
+  function updateTimer(){
+    if (!startTime) return;
+    const secs = Math.floor((Date.now() - startTime) / 1000);
+    const mins = Math.floor(secs / 60);
+    const s = secs % 60;
+    // Only show the clock while actively flipping (not mid-match feedback).
+    if (!statusEl.textContent.includes('Match') && !statusEl.textContent.includes('No pair')){
+      setStatus(`Flipping… ${mins}:${String(s).padStart(2,'0')}`);
+    }
+  }
+  function stopTimer(){ if (timerId){ clearInterval(timerId); timerId = null; } }
+
+  // ─── UI helpers ───────────────────────────────
+  function setStatus(t){ statusEl.textContent = t; }
+
+  function updateScoreboard(){
+    document.getElementById('sb-moves').textContent = moves;
+    document.getElementById('sb-matches').textContent = `${matches} / ${totalPairs}`;
+    const best = getBest();
+    document.getElementById('sb-best').textContent = best ? formatTime(Number(best)) : '--';
+  }
+
+  function formatTime(ms){
+    const secs = Math.round(ms / 1000);
+    const mins = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${mins}:${String(s).padStart(2,'0')}`;
+  }
+
+  // ─── Win ───────────────────────────────
+  function winGame(){
+    stopTimer();
+    const elapsed = Date.now() - startTime;
+    let best = getBest();
+    let isRecord = false;
+    if (!best || elapsed < Number(best)){
+      best = String(elapsed);
+      setBest(best);
+      isRecord = true;
+    }
+    document.getElementById('result-sub').textContent = isRecord ? 'New best time! 🏅' : 'All pairs found!';
+    document.getElementById('result-stats').textContent =
+      `Solved in ${moves} moves · ${formatTime(elapsed)}` + (isRecord ? '  ·  ⭐ New record!' : '');
+    setTimeout(() => overlay.classList.add('show'), 600);
+    updateScoreboard();
+  }
+
+  // ─── Mode buttons ───────────────────────────────
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.diff;
+      buildBoard();
+    });
+  });
+
+  document.getElementById('new-game-btn').addEventListener('click', buildBoard);
+  document.getElementById('play-again-btn').addEventListener('click', () => {
+    overlay.classList.remove('show');
+    buildBoard();
+  });
+
+  // ─── Init ───────────────────────────────
+  updateScoreboard();
+  setStatus("Tap a card to flip it");
+})();
+</script>
+</body>
+</html>
