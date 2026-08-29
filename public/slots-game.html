@@ -706,22 +706,13 @@
     function settle() { if (!settled) { settled = true; finishSpin(final); } }
 
     // Physics model per reel:
-    //  1) MAIN  — very short spin-up launch, then a HARD brake (ease-out^7)
-    //     so the stop feels like it slams into a wall. Continuous at the join.
-    //  2) SNAP-BACK (only if the reel overshoots its stop) — a single clean
-    //     overshoot past rest, then a snap back to the exact rest position
-    //     (target cell stays centered). No wobble.
+    //  MAIN — very short spin-up launch, then a HARD brake (ease-out^7)
+    //  so the stop feels like it slams into a wall. Continuous at the join.
     var LAUNCH_T = 0.12, LAUNCH_D = 0.10, BRAKE_K = 7;
-    var SNAP_T = 180; // ms for the single overshoot + snap-back
     function mainPos(p) {
       if (p < LAUNCH_T) return LAUNCH_D * Math.pow(p / LAUNCH_T, 2);
       var q = (p - LAUNCH_T) / (1 - LAUNCH_T);
       return LAUNCH_D + (1 - LAUNCH_D) * (1 - Math.pow(1 - q, BRAKE_K));
-    }
-    function snapBackPos(t) { // t in ms within [0, SNAP_T]; single overshoot past rest, then snap back to rest
-      if (t <= 0 || t >= SNAP_T) return 0;
-      var A = 0.45; // overshoot distance in cells (peak at t = SNAP_T/2)
-      return A * Math.sin(Math.PI * t / SNAP_T);
     }
 
     for (var i = 0; i < 3; i++) {
@@ -749,9 +740,6 @@
           if (done) return; done = true;
           if (++landed === 3) settle();
         }
-        // ~60% of reels overshoot their stop and snap back; the rest slam
-        // straight to rest. Decided once per spin, per reel.
-        var overshoot = Math.random() < 0.6;
         var impacted = false;
         function onImpact() {
           if (impacted) return; impacted = true;
@@ -774,18 +762,12 @@
             requestAnimationFrame(frame);
           } else {
             onImpact(); // hard stop lands here
-            if (overshoot && t < dur + SNAP_T) {
-              // Snap-back: single overshoot past rest, then return to rest.
-              strip.style.transform = 'translate3d(0,' + (restY + snapBackPos(t - dur) * h) + 'px,0)';
-              requestAnimationFrame(frame);
-            } else {
-              strip.style.transform = 'translate3d(0,' + restY + 'px,0)';
-              onLand();
-            }
+            strip.style.transform = 'translate3d(0,' + restY + 'px,0)';
+            onLand();
           }
         }
         requestAnimationFrame(frame);
-        setTimeout(onLand, dur + (overshoot ? SNAP_T + 40 : 20)); // safety net (also the test path: fires synchronously)
+        setTimeout(onLand, dur + 20); // safety net (also the test path: fires synchronously)
       })(i);
     }
   }
