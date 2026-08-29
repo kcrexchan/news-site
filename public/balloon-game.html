@@ -177,15 +177,26 @@
   .bank-item.c-pink .bank-dot  { background: radial-gradient(circle at 34% 28%, #ffffffaa, #ff6b9d 60%, #b03a62); }
 
   /* ── Controls ────────────────────────── */
-  .controls { width: 100%; max-width: 620px; margin-top: 12px; }
-  .lock-btn {
-    width: 100%; padding: 22px 0; border: none; border-radius: 16px; cursor: pointer;
-    background: linear-gradient(180deg, #ff85ad, #e04f80); color: #fff;
-    font-size: 22px; font-weight: 900; letter-spacing: 0.04em;
-    box-shadow: 0 8px 22px rgba(224,79,128,0.4);
+  .controls {
+    display: flex; gap: 12px; width: 100%; max-width: 620px; margin-top: 12px;
+  }
+  .inflate-btn, .lock-btn {
+    flex: 1; padding: 24px 0; border: none; border-radius: 18px; cursor: pointer;
+    font-size: 22px; font-weight: 900; letter-spacing: 0.03em; color: #fff;
+    min-height: 66px;
     transition: transform .08s ease, box-shadow .15s;
   }
-  .lock-btn:active { transform: scale(0.985); box-shadow: 0 4px 12px rgba(224,79,128,0.4); }
+  .inflate-btn {
+    background: linear-gradient(180deg, #7ff0a4, #2fbf6e);
+    text-shadow: 0 1px 3px rgba(0,80,30,0.45);
+    box-shadow: 0 8px 22px rgba(47,191,110,0.4);
+  }
+  .inflate-btn:active { transform: scale(0.97); box-shadow: 0 3px 10px rgba(47,191,110,0.6); }
+  .lock-btn {
+    background: linear-gradient(180deg, #ff85ad, #e04f80);
+    box-shadow: 0 8px 22px rgba(224,79,128,0.4);
+  }
+  .lock-btn:active { transform: scale(0.97); box-shadow: 0 4px 12px rgba(224,79,128,0.4); }
   .lock-btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
 
   /* ── Overlays ────────────────────────── */
@@ -316,11 +327,12 @@
     </div>
     <div class="crack-warn hidden" id="crackWarn">⚠️ CRACKING — LOCK IT IN!</div>
     <div class="pop-flash" id="popFlash">POP!</div>
-    <div class="hint">Tap anywhere to inflate · lock in before it pops!</div>
+    <div class="hint">Tap Inflate to grow · Lock In before it pops!</div>
   </div>
 
   <!-- ── Controls ── -->
   <div class="controls">
+    <button class="inflate-btn" id="inflateBtn" disabled>🎈 Inflate</button>
     <button class="lock-btn" id="lockBtn" disabled>🔒 Lock In</button>
   </div>
 
@@ -330,7 +342,7 @@
     <div class="big">30s</div>
     <div class="sub">Inflate. Lock in. Don't pop.</div>
     <div class="rules">
-      Tap the stage to inflate the balloon<br>
+      Tap <b>Inflate</b> to grow the balloon<br>
       Hit <b>Lock In</b> to bank its size as points<br>
       Over-inflate and it <b>pops</b> — zero points<br>
       Every balloon pops at a different size…<br>
@@ -423,6 +435,7 @@
   var bankTray = $('bankTray');
   var timeVal = $('timeVal'), scoreVal = $('scoreVal'), bankedVal = $('bankedVal');
   var lockBtn = $('lockBtn');
+  var inflateBtn = $('inflateBtn');
   var startOverlay = $('startOverlay'), startBtn = $('startBtn');
   var overOverlay = $('overOverlay'), finalScore = $('finalScore'), finalStats = $('finalStats');
   var againBtn = $('againBtn'), saveBtn = $('saveBtn');
@@ -487,6 +500,17 @@
   function inflateAmount(s) { return INFLATE_BASE + s * INFLATE_GROWTH; }
 
   function tap() {
+    if (phase !== 'playing' || animating) return;
+    size += inflateAmount(size);
+    if (size > threshold) {
+      // POP — this balloon scores 0
+      popped++;
+      doPop();
+    }
+    render();
+  }
+
+  function tapInflate() {
     if (phase !== 'playing' || animating) return;
     size += inflateAmount(size);
     if (size > threshold) {
@@ -583,6 +607,7 @@
     if (scoreVal) scoreVal.textContent = String(score);
     if (bankedVal) bankedVal.textContent = String(banked);
     if (lockBtn) lockBtn.disabled = (phase !== 'playing' || animating);
+    if (inflateBtn) inflateBtn.disabled = (phase !== 'playing' || animating);
     if (balloon) {
       // deflated nub (26px) at size 0 → full balloon (266px) at POP_MAX
       var px = 26 + (size / POP_MAX) * 240;
@@ -798,30 +823,9 @@
     render();
   }
   if (lockBtn && lockBtn.addEventListener) lockBtn.addEventListener('click', lockIn);
+  if (inflateBtn && inflateBtn.addEventListener) inflateBtn.addEventListener('click', tapInflate);
   if (againBtn && againBtn.addEventListener) againBtn.addEventListener('click', function () { start(); });
   if (startBtn && startBtn.addEventListener) startBtn.addEventListener('click', start);
-
-  // ═══════════════════════════════════════════════════════════════
-  //  Input — pointerdown on the stage (mouse + touch + pen)
-  // ═══════════════════════════════════════════════════════════════
-  var inputLock = false;
-  function onStageInput() {
-    if (inputLock) return;
-    inputLock = true;
-    tap();
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(function () { inputLock = false; });
-    } else {
-      setTimeout(function () { inputLock = false; }, 0);
-    }
-  }
-  if (stage && stage.addEventListener) {
-    stage.addEventListener('pointerdown', onStageInput, { passive: true });
-    if (typeof window !== 'undefined' && !window.PointerEvent) {
-      stage.addEventListener('touchstart', function (e) { e.preventDefault(); onStageInput(); }, { passive: false });
-      stage.addEventListener('mousedown', onStageInput);
-    }
-  }
 
   // ═══════════════════════════════════════════════════════════════
   //  Test-only handle (no effect in the browser UI)
