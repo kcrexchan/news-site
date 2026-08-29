@@ -480,7 +480,7 @@
   // ═══════════════════════════════════════════════════════════════
   var MIN_BET = 10;
   var START_BALANCE = 1000;
-  var REEL_MIN = 600, REEL_MAX = 1000; // random fast-spin time per reel (ms): ~0.6-1s (10x faster)
+  var REEL_MIN = 300, REEL_MAX = 500; // random fast-spin time per reel (ms): ~0.3-0.5s (double the previous)
   var SLOW_MIN = 1000, SLOW_MAX = 2000;   // slow-decel phase after the fast spin (ms)
   var REEL_SCROLL = [10, 12, 14];         // cells scrolled per reel (capped at STRIP_MID-1)
   var STRIP_LEN = 31;      // cells in the drum strip; the middle cell is the target
