@@ -188,12 +188,12 @@ async function main() {
   assert(S._payout(['wild','wild','cherry']) === 5, 'wild,wild,cherry → cherry 5×');
   assert(S._payout(['cherry','cherry','wild']) === 5, 'cherry,cherry,wild → cherry 5×');
   assert(S._payout(['diam','diam','wild']) === 100, 'diamond,diamond,wild → 100×');
-  assert(S._payout(['cherry','cherry','lemon']) === 2, 'cherry pair + lemon → 2× (any pair pays)');
-  assert(S._payout(['cherry','lemon','cherry']) === 2, 'cherry,lemon,cherry → 2×');
-  assert(S._payout(['diam','diam','lemon']) === 2, 'diamond pair + lemon → 2× (any pair pays)');
-  assert(S._payout(['diam','lemon','diam']) === 2, 'diamond,lemon,diamond → 2× (any pair pays)');
-  assert(S._payout(['bell','lemon','bell']) === 2, 'bell pair + lemon → 2× (any pair pays)');
-  assert(S._payout(['lemon','orange','lemon']) === 2, 'lemon pair + orange → 2× (any pair pays)');
+  assert(S._payout(['cherry','cherry','lemon']) === 3, 'cherry pair + lemon → 3× (any pair pays)');
+  assert(S._payout(['cherry','lemon','cherry']) === 3, 'cherry,lemon,cherry → 3×');
+  assert(S._payout(['diam','diam','lemon']) === 3, 'diamond pair + lemon → 3× (any pair pays)');
+  assert(S._payout(['diam','lemon','diam']) === 3, 'diamond,lemon,diamond → 3× (any pair pays)');
+  assert(S._payout(['bell','lemon','bell']) === 3, 'bell pair + lemon → 3× (any pair pays)');
+  assert(S._payout(['lemon','orange','lemon']) === 3, 'lemon pair + orange → 3× (any pair pays)');
   assert(S._payout(['wild','wild','lemon']) === 8, 'wild,wild,lemon → lemon triple 8× (wilds complete triple)');
   assert(S._payout(['cherry','lemon','orange']) === 0, 'three distinct → 0');
   assert(S._payout(['wild','cherry','lemon']) === 0, 'wild + cherry + lemon → 0 (no pair)');

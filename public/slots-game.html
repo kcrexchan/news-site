@@ -502,9 +502,9 @@
   SYMBOLS.forEach(function (s) { SYM_BY_ID[s.id] = s; });
 
   // Weighted reel strip (per reel, 100 = 100%). Heavily tilted toward common
-  // symbols so 3-of-a-kind and 2-of-a-kind land frequently — a generous rig
-  // that's much easier to win (≈53% of spins pay, vs ~13% before).
-  var WEIGHTS = { cherry: 30, lemon: 25, orange: 20, grape: 12, bell: 6, star: 3, diam: 2, seven: 1, wild: 1 };
+  // symbols so pairs and triples land almost every spin — a very generous rig
+  // tuned to make it easy to win money (~85%+ of spins pay).
+  var WEIGHTS = { cherry: 46, lemon: 32, orange: 14, grape: 5, bell: 1, star: 1, diam: 1, seven: 0.5, wild: 0.5 };
   var STRIP = [];
   Object.keys(WEIGHTS).forEach(function (id) {
     for (var i = 0; i < WEIGHTS[id]; i++) STRIP.push(id);
@@ -566,11 +566,12 @@
       if (counts[id] + wilds >= 3) return SYM_BY_ID[id].pay;
     }
 
-    // Any pair of two identical symbols pays 2× — this is what makes the
-    // machine easy to win (previously only cherry pairs paid). Wilds only
-    // complete triples, so a lone wild + two different symbols is still a miss.
+    // Any pair of two identical symbols pays 3× — this is what makes the
+    // machine easy to win money (previously only cherry pairs paid, at 2×).
+    // Wilds only complete triples, so a lone wild + two different symbols is
+    // still a miss.
     for (var id2 in counts) {
-      if (counts[id2] >= 2) return 2;
+      if (counts[id2] >= 2) return 3;
     }
 
     return 0;
