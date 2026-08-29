@@ -3187,6 +3187,7 @@ export default function AirplaneGame() {
         {!started && !gameOver && !gameWon && (
           <div style={styles.overlay}>
             <div style={styles.card}>
+              <button onClick={() => router.back()} style={{ ...styles.backLink, position: 'absolute', top: 12, left: 12 }}>← Back</button>
               <div style={styles.cardAccent} />
               <h2 style={styles.mainTitle}>✈️ SKY FIGHTER</h2>
               <p style={styles.desc}>Drag to fly · Auto-fire destroys enemies</p>
