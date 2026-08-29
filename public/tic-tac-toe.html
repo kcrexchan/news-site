@@ -51,7 +51,7 @@
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
   }
   .score-box .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; }
-  .score-box .val { font-size: 26px; font-weight: 900; line-height: 1.2; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .score-box .val { font-size: 26px; font-weight: 900; line-height: 1; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .sb-x .val { color: #6bdf4a; text-shadow: 0 0 14px rgba(107,223,74,0.6); }
   .sb-o .val { color: #e0c060; text-shadow: 0 0 14px rgba(224,192,96,0.6); }
   .sb-d .val { color: #8b97b8; }
@@ -90,10 +90,10 @@
 
   /* ─── Controls ─────────────────────────────── */
   #controls { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 340px; }
-  .mode-row { display: flex; gap: 8px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+  .mode-row { display: flex; gap: 6px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; justify-content: center; }
   .mode-btn {
-    flex: 1; padding: 9px 6px; border: none; border-radius: 9px; cursor: pointer;
-    background: transparent; color: #8a9e82; font-size: 13px; font-weight: 700; transition: all .15s;
+    flex: 1 1 auto; min-width: 84px; padding: 9px 6px; border: none; border-radius: 9px; cursor: pointer;
+    background: transparent; color: #8a9e82; font-size: 12.5px; font-weight: 700; transition: all .15s;
   }
   .mode-btn.active { background: rgba(107,223,74,0.2); color: #6bdf4a; box-shadow: 0 2px 10px rgba(107,223,74,0.2); }
   #new-game-btn {
@@ -133,7 +133,7 @@
 
   <div id="wrap">
     <div class="title">❌⭕ Tic-Tac-Toe</div>
-    <div class="subtitle">Beat the unbeatable AI — can you draw?</div>
+    <div class="subtitle">Beat the unbeatable AI, or challenge a friend in 2-player mode</div>
 
     <div id="scoreboard">
       <div class="score-box sb-x"><div class="lbl">You (X)</div><div class="val" id="score-x">0</div></div>
@@ -150,6 +150,7 @@
         <button class="mode-btn active" data-mode="unbeatable">😈 Unbeatable</button>
         <button class="mode-btn" data-mode="hard">🔥 Hard</button>
         <button class="mode-btn" data-mode="easy">🙂 Easy</button>
+        <button class="mode-btn" data-mode="twoPlayer">👥 2 Players</button>
       </div>
       <button id="new-game-btn">New Game</button>
     </div>
@@ -201,7 +202,26 @@
   // ─── Cell click ───────────────────────────────
   function onCellClick(e){
     const idx = +e.currentTarget.dataset.idx;
-    if (!playing || !humanTurn || board[idx]) return;
+    if (!playing || board[idx]) return;
+
+    // Whose turn? X always goes first, then alternate — same in every mode.
+    const xCount = board.filter(v => v === 'X').length;
+    const oCount = board.filter(v => v === 'O').length;
+    const player = xCount === oCount ? HUMAN : AI;
+
+    // Two-player mode: both humans share the device, just place and pass the turn.
+    if (mode === 'twoPlayer') {
+      makeMove(idx, player);
+      cells[idx].textContent = player;
+      cells[idx].classList.add('filled', player.toLowerCase());
+      evaluateAfterMove();
+      if (playing) setStatus(player === HUMAN ? "🟦 Player X's turn" : "🟧 Player O's turn");
+      else resetBoard();
+      return;
+    }
+
+    // AI modes: only the human (X) may click.
+    if (player !== HUMAN) return;
     makeMove(idx, HUMAN);
     cells[idx].textContent = HUMAN;
     cells[idx].classList.add('filled', 'x');
@@ -229,7 +249,8 @@
     if (w){
       playing = false;
       highlightWin(w.line);
-      if (w.player === HUMAN) { scores.x++; showResult('win'); }
+      if (mode === 'twoPlayer') { updateScores(); showResult('win', w.player); }
+      else if (w.player === HUMAN) { scores.x++; showResult('win'); }
       else { scores.o++; showResult('lose'); }
       updateScores();
       return;
@@ -261,9 +282,7 @@
     // Random move, but block an immediate human win and grab an immediate AI win.
     const free = board.map((v,i)=>v?null:i).filter(v=>v!==null);
     if (!free.length) return 4;
-    // grab winning
     for (const i of free){ board[i]=AI; if(checkWinner(board).player===AI){board[i]='';return i;} board[i]=''; }
-    // block human
     for (const i of free){ board[i]=HUMAN; if(checkWinner(board).player===HUMAN){board[i]='';return i;} board[i]=''; }
     return free[Math.floor(Math.random()*free.length)];
   }
@@ -332,11 +351,15 @@
     document.getElementById('score-d').textContent = scores.d;
   }
 
-  function showResult(outcome){
+  function showResult(outcome, winner){
     const emoji = document.getElementById('result-emoji');
     const text = document.getElementById('result-text');
     const sub = document.getElementById('result-sub');
-    if (outcome === 'win'){
+    if (outcome === 'win' && mode === 'twoPlayer'){
+      emoji.textContent = '🏆'; text.textContent = `Player ${winner} Wins!`;
+      text.style.color = winner === 'X' ? '#6bdf4a' : '#e0c060';
+      sub.textContent = 'Great game — rematch?';
+    } else if (outcome === 'win'){
       emoji.textContent = '🏆'; text.textContent = 'You Win!'; text.style.color='#6bdf4a';
       sub.textContent = 'Impossible… but you pulled it off.';
     } else if (outcome === 'lose'){
@@ -344,7 +367,7 @@
       sub.textContent = mode==='unbeatable' ? 'Perfect play. Try the Hard mode to sneak a win.' : 'So close! Again?';
     } else {
       emoji.textContent = '🤝'; text.textContent = 'Draw!'; text.style.color='#e0c060';
-      sub.textContent = 'Stalemate against perfection — respect.';
+      sub.textContent = mode==='twoPlayer' ? 'A perfectly matched duel!' : 'Stalemate against perfection — respect.';
     }
     setTimeout(()=> overlay.classList.add('show'), 700);
   }
@@ -354,9 +377,7 @@
     playing = false;
     buildBoard();
     updateScores();
-    // Winner stays: show overlay already handles messaging.
-    if (overlay.classList.contains('show')) return; // overlay shown by showResult
-    // If no overlay path (shouldn't happen), clear status
+    if (overlay.classList.contains('show')) return;
   }
 
   function newGame(){
@@ -365,7 +386,7 @@
     humanTurn = true;
     overlay.classList.remove('show');
     buildBoard();
-    setStatus("Your move — you are X");
+    setStatus(mode === 'twoPlayer' ? "🟦 Player X's turn" : "Your move — you are X");
   }
 
   // ─── Mode buttons ───────────────────────────────

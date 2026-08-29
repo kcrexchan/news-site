@@ -110,7 +110,7 @@ const games = [
   {
     name: 'Tic-Tac-Toe',
     emoji: '❌⭕',
-    description: 'The classic noughts and crosses. Challenge an unbeatable AI that never loses — or dial down the difficulty. Can you force a draw?',
+    description: 'The classic noughts and crosses. Challenge an unbeatable AI that never loses — or switch to 2-player mode for a local duel against a friend. Can you force a draw?',
     route: '/tic-tac-toe',
     accent: '#35e08a',
     features: [
