@@ -207,10 +207,12 @@
     // Whose turn? X always goes first, then alternate — same in every mode.
     const xCount = board.filter(v => v === 'X').length;
     const oCount = board.filter(v => v === 'O').length;
-    const player = xCount === oCount ? HUMAN : AI;
+    let player = xCount === oCount ? HUMAN : AI;
 
     // Two-player mode: both humans share the device, just place and pass the turn.
     if (mode === 'twoPlayer') {
+      // Respect who started this game so X/O alternate correctly after an O starter.
+      player = (xCount === oCount) ? twoPlayerStarter : (twoPlayerStarter === 'X' ? 'O' : 'X');
       makeMove(idx, player);
       cells[idx].textContent = player;
       cells[idx].classList.add('filled', player.toLowerCase());
@@ -380,13 +382,28 @@
     if (overlay.classList.contains('show')) return;
   }
 
+  let twoPlayerStarter = 'X'; // alternates each 2-player game so X and O take turns starting
+
   function newGame(){
     board = Array(9).fill('');
     playing = true;
     humanTurn = true;
     overlay.classList.remove('show');
     buildBoard();
-    setStatus(mode === 'twoPlayer' ? "🟦 Player X's turn" : "Your move — you are X");
+    if (mode === 'twoPlayer') {
+      // Alternate who starts each game: X, O, X, O...
+      twoPlayerStarter = twoPlayerStarter === 'X' ? 'O' : 'X';
+      const starterCell = board.map((v,i)=>({v,i})).filter(o=>!o.v);
+      if (twoPlayerStarter === 'O') {
+        const pick = starterCell[Math.floor(Math.random()*starterCell.length)];
+        makeMove(pick.i, 'O');
+        cells[pick.i].textContent = 'O';
+        cells[pick.i].classList.add('filled','o');
+      }
+      setStatus("🟦 Player X's turn");
+    } else {
+      setStatus("Your move — you are X");
+    }
   }
 
   // ─── Mode buttons ───────────────────────────────
