@@ -28,6 +28,47 @@ const SHOOT_TIME = 10
 const SHOOT_COOLDOWN = 0.5
 const BULLET_SPEED = 12
 const PU_FALL = 2.2
+// ── Sound: Web Audio API, fully synthesized (no asset files needed) ─────────
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)() } catch (e) { audioCtx = null }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume() } catch (e) {} }
+  return audioCtx
+}
+function tone(freq, dur, type, vol, delay) {
+  const ctx = audioCtx; if (!ctx) return
+  const t0 = ctx.currentTime + (delay || 0)
+  const osc = ctx.createOscillator(), g = ctx.createGain()
+  osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, t0)
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.exponentialRampToValueAtTime(vol || 0.2, t0 + 0.01)
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+  osc.connect(g).connect(ctx.destination); osc.start(t0); osc.stop(t0 + dur + 0.02)
+}
+function blip(toFreq, fromFreq, dur, type, vol) {
+  const ctx = audioCtx; if (!ctx) return
+  const t0 = ctx.currentTime
+  const osc = ctx.createOscillator(), g = ctx.createGain()
+  osc.type = type || 'square'; osc.frequency.setValueAtTime(fromFreq, t0)
+  osc.frequency.exponentialRampToValueAtTime(toFreq, t0 + dur)
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.exponentialRampToValueAtTime(vol || 0.15, t0 + 0.005)
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+  osc.connect(g).connect(ctx.destination); osc.start(t0); osc.stop(t0 + dur + 0.02)
+}
+function arp(freqs, type, vol, perDur, gap) { for (let i = 0; i < freqs.length; i++) tone(freqs[i], perDur, type, vol, i * gap) }
+function soundPaddle() { blip(330, 200, 0.08, 'square', 0.12) }
+function soundWall()    { tone(160, 0.05, 'sine', 0.06) }
+function soundLaunch()  { blip(820, 300, 0.16, 'triangle', 0.12) }
+function soundBrick(br) { const map = { 1: 440, 2: 523, 3: 659, 4: 784 }; tone(map[br.hp] || 440, 0.09, 'square', 0.13) }
+function soundPowerUp() { arp([523, 784], 'triangle', 0.16, 0.12, 0.08) }
+function soundLoseLife(){ blip(140, 520, 0.4, 'sawtooth', 0.18) }
+function soundLevelComplete() { arp([392, 494, 587, 784], 'square', 0.15, 0.13, 0.1) }
+function soundWin()     { arp([523, 659, 784, 1047, 784, 1047], 'square', 0.17, 0.15, 0.12) }
+function soundGameOver(){ arp([400, 320, 250, 180], 'sawtooth', 0.18, 0.22, 0.14) }
+
 
 // ── Levels (full walls, tougher mix per level) ────────────────────────────────
 const LEVELS = {
@@ -163,6 +204,8 @@ export default function Breakout() {
             b.vy = -sp
           }
         }
+        ensureAudio()
+        soundLaunch()
         return
       }
       if (shootTimer > 0 && now - lastShot >= SHOOT_COOLDOWN) {
@@ -377,11 +420,12 @@ export default function Breakout() {
         b.x += b.vx
         b.y += b.vy
 
-        if (b.x + b.r > W || b.x - b.r < 0) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)) }
-        if (b.y - b.r < 0) b.vy = -b.vy
+        if (b.x + b.r > W || b.x - b.r < 0) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); soundWall() }
+        if (b.y - b.r < 0) { b.vy = -b.vy; soundWall() }
 
         if (b.y + b.r > paddleTop && b.y + b.r < paddleTop + paddleH + 10 &&
             b.x > paddleX && b.x < paddleX + paddleW && b.vy > 0) {
+          soundPaddle()
           const hitPos = (b.x - paddleX) / paddleW
           const angle = (hitPos - 0.5) * Math.PI * 0.7
           const speed = Math.hypot(b.vx, b.vy)
@@ -401,6 +445,7 @@ export default function Breakout() {
             const ddx = b.x - closestX, ddy = b.y - closestY
             if (ddx * ddx + ddy * ddy < b.r * b.r) {
               if (b.fast && br.hp < 3) continue
+              soundBrick(br)
               const dmg = b.fast ? 2 : 1
               br.hp -= dmg
               if (wideHits > 0) wideHits--
@@ -428,9 +473,11 @@ export default function Breakout() {
           if (balls.length === 0) {
             lives_--
             setLives(lives_)
+            soundLoseLife()
             if (lives_ <= 0) {
               phase = 'over'
               running = false
+              soundGameOver()
               setGameOver(true)
               drawPaddle(); drawBricks(); drawHUD()
               drawOverlay('Game Over', 'Final Score: ' + scoreRef.current + ' · Press Space or Play Again to restart')
@@ -455,6 +502,7 @@ export default function Breakout() {
               if (!br.alive) continue
               if (bl.x + bl.r > br.x && bl.x - bl.r < br.x + br.w &&
                   bl.y + bl.r > br.y && bl.y - bl.r < br.y + br.h) {
+                soundBrick(br)
                 br.hp -= 1
                 if (wideHits > 0) wideHits--
                 if (br.hp <= 0) {
@@ -479,6 +527,7 @@ export default function Breakout() {
         if (p.y - p.r > H + 10) { powerups.splice(i, 1); continue }
         if (p.y + p.r > paddleTop && p.y - p.r < paddleTop + paddleH + 8 &&
             p.x > paddleX - 4 && p.x < paddleX + paddleW + 4) {
+          soundPowerUp()
           applyPower(p.k)
           powerups.splice(i, 1)
         }
@@ -489,12 +538,14 @@ export default function Breakout() {
         if (lvl < MAX_LEVEL) {
           phase = 'levelup'
           drawPaddle(); drawBricks(); drawHUD()
+          soundLevelComplete()
           drawOverlay('Level ' + lvl + ' Complete! 🎉', 'Next: Level ' + (lvl + 1) + ' · Score: ' + scoreRef.current)
           levelTimeout = setTimeout(() => setLevel(lvl + 1), 2500)
         } else {
           phase = 'won'
           setWon(true)
           drawPaddle(); drawBricks(); drawHUD()
+          soundWin()
           drawOverlay('You Win! 🏆', 'All 4 levels cleared · Final Score: ' + scoreRef.current)
         }
         return
