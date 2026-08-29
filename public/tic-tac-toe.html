@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#061204">
+<title>Tic-Tac-Toe ❌⭕</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #061204; color: #ecfccb;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    touch-action: none; overscroll-behavior: none;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  /* ─── Back button (unified theme) ────────────────────── */
+  .back-btn {
+    position: fixed; top: max(10px, env(safe-area-inset-top)); left: 12px; z-index: 30;
+    display: inline-flex; align-items: center; gap: 5px; text-decoration: none;
+    background: rgba(20,26,46,0.9); border: 1px solid rgba(58,134,255,0.3); color: #e0e8ff;
+    border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+    backdrop-filter: blur(6px); transition: background .2s, border-color .2s;
+  }
+  .back-btn:hover { color: #fff; background: rgba(36,46,76,0.95); border-color: rgba(58,134,255,0.6); }
+
+  /* ─── Layout ─────────────────────────────── */
+  #wrap {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 72px 16px calc(24px + env(safe-area-inset-bottom));
+    background: radial-gradient(ellipse at top, #0d2a0f 0%, #061204 70%);
+  }
+
+  /* ─── Title ─────────────────────────────── */
+  .title {
+    font-size: clamp(28px, 8vw, 44px); font-weight: 900; letter-spacing: -0.02em;
+    margin-bottom: 6px; text-align: center;
+    background: linear-gradient(135deg, #6bdf4a, #e0c060);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .subtitle { font-size: 14px; color: #7a8f6e; margin-bottom: 20px; text-align: center; font-weight: 600; }
+
+  /* ─── Scoreboard ─────────────────────────────── */
+  #scoreboard {
+    display: flex; gap: 14px; margin-bottom: 20px; width: 100%; max-width: 340px;
+  }
+  .score-box {
+    flex: 1; text-align: center; padding: 10px 6px; border-radius: 14px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .score-box .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; }
+  .score-box .val { font-size: 26px; font-weight: 900; line-height: 1.2; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .sb-x .val { color: #6bdf4a; text-shadow: 0 0 14px rgba(107,223,74,0.6); }
+  .sb-o .val { color: #e0c060; text-shadow: 0 0 14px rgba(224,192,96,0.6); }
+  .sb-d .val { color: #8b97b8; }
+
+  /* ─── Status line ─────────────────────────────── */
+  #status {
+    font-size: 16px; font-weight: 700; margin-bottom: 16px; min-height: 24px; text-align: center;
+    color: #ecfccb; transition: color .2s;
+  }
+  #status.win { color: #6bdf4a; }
+  #status.lose { color: #ff5a5a; }
+
+  /* ─── Board ─────────────────────────────── */
+  #board {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    width: min(82vw, 340px); height: min(82vw, 340px);
+    padding: 12px; border-radius: 20px;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .cell {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.03); border-radius: 14px;
+    font-size: clamp(40px, 13vw, 68px); font-weight: 900; cursor: pointer;
+    transition: background .15s, transform .1s; user-select: none; -webkit-user-select: none;
+  }
+  .cell:hover:not(.filled) { background: rgba(107,223,74,0.12); }
+  .cell:active:not(.filled) { transform: scale(0.94); }
+  .cell.x { color: #6bdf4a; text-shadow: 0 0 18px rgba(107,223,74,0.5); }
+  .cell.o { color: #e0c060; text-shadow: 0 0 18px rgba(224,192,96,0.5); }
+  .cell.filled { cursor: default; }
+  .cell.win-cell {
+    background: rgba(107,223,74,0.2); border: 2px solid rgba(107,223,74,0.6);
+    animation: pop .35s ease;
+  }
+  @keyframes pop { 0%{transform:scale(0.8);} 50%{transform:scale(1.08);} 100%{transform:scale(1);} }
+
+  /* ─── Controls ─────────────────────────────── */
+  #controls { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 340px; }
+  .mode-row { display: flex; gap: 8px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+  .mode-btn {
+    flex: 1; padding: 9px 6px; border: none; border-radius: 9px; cursor: pointer;
+    background: transparent; color: #8a9e82; font-size: 13px; font-weight: 700; transition: all .15s;
+  }
+  .mode-btn.active { background: rgba(107,223,74,0.2); color: #6bdf4a; box-shadow: 0 2px 10px rgba(107,223,74,0.2); }
+  #new-game-btn {
+    width: 100%; padding: 14px 0; border: none; border-radius: 12px; cursor: pointer;
+    background: linear-gradient(180deg, #6bdf4a, #4aa835); color: #061204;
+    font-size: 16px; font-weight: 800; letter-spacing: 0.02em; box-shadow: 0 6px 18px rgba(107,223,74,0.35);
+    transition: transform .1s, filter .15s;
+  }
+  #new-game-btn:active { transform: scale(0.97); }
+  #new-game-btn:hover { filter: brightness(1.08); }
+
+  /* ─── Result overlay ─────────────────────────────── */
+  #overlay {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #0d2a0f 0%, #061204 72%);
+    text-align: center; padding: 24px; animation: fadeIn .3s ease;
+  }
+  #overlay.show { display: flex; }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+  #overlay .result-emoji { font-size: clamp(60px, 18vw, 90px); margin-bottom: 12px; }
+  #overlay .result-text {
+    font-size: clamp(34px, 10vw, 56px); font-weight: 900; letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  #overlay .result-sub { font-size: 16px; color: #7a8f6e; margin-bottom: 32px; font-weight: 600; }
+  #overlay .play-again {
+    padding: 16px 40px; border: none; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, #6bdf4a, #4aa835); color: #061204;
+    font-size: 18px; font-weight: 800; box-shadow: 0 8px 24px rgba(107,223,74,0.4);
+    transition: transform .1s;
+  }
+  #overlay .play-again:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+  <a href="/" class="back-btn">← Back</a>
+
+  <div id="wrap">
+    <div class="title">❌⭕ Tic-Tac-Toe</div>
+    <div class="subtitle">Beat the unbeatable AI — can you draw?</div>
+
+    <div id="scoreboard">
+      <div class="score-box sb-x"><div class="lbl">You (X)</div><div class="val" id="score-x">0</div></div>
+      <div class="score-box sb-d"><div class="lbl">Draws</div><div class="val" id="score-d">0</div></div>
+      <div class="score-box sb-o"><div class="lbl">AI (O)</div><div class="val" id="score-o">0</div></div>
+    </div>
+
+    <div id="status">Your move — you are X</div>
+
+    <div id="board"></div>
+
+    <div id="controls">
+      <div class="mode-row">
+        <button class="mode-btn active" data-mode="unbeatable">😈 Unbeatable</button>
+        <button class="mode-btn" data-mode="hard">🔥 Hard</button>
+        <button class="mode-btn" data-mode="easy">🙂 Easy</button>
+      </div>
+      <button id="new-game-btn">New Game</button>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="result-emoji" id="result-emoji">🎉</div>
+    <div class="result-text" id="result-text">You Win!</div>
+    <div class="result-sub" id="result-sub">Brilliant play.</div>
+    <button class="play-again" id="play-again-btn">Play Again</button>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  const HUMAN = 'X', AI = 'O';
+  const WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8],   // rows
+    [0,3,6],[1,4,7],[2,5,8],   // cols
+    [0,4,8],[2,4,6]            // diagonals
+  ];
+
+  let board = Array(9).fill('');
+  let playing = true;
+  let humanTurn = true;
+  let mode = 'unbeatable';
+  let scores = { x: 0, o: 0, d: 0 };
+
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const overlay = document.getElementById('overlay');
+  const cells = [];
+
+  // ─── Build board ───────────────────────────────
+  function buildBoard(){
+    boardEl.innerHTML = '';
+    cells.length = 0;
+    for (let i = 0; i < 9; i++){
+      const c = document.createElement('div');
+      c.className = 'cell';
+      c.dataset.idx = i;
+      c.addEventListener('click', onCellClick);
+      boardEl.appendChild(c);
+      cells.push(c);
+    }
+  }
+
+  // ─── Cell click ───────────────────────────────
+  function onCellClick(e){
+    const idx = +e.currentTarget.dataset.idx;
+    if (!playing || !humanTurn || board[idx]) return;
+    makeMove(idx, HUMAN);
+    cells[idx].textContent = HUMAN;
+    cells[idx].classList.add('filled', 'x');
+    evaluateAfterMove();
+    if (playing) { humanTurn = false; setStatus("AI is thinking…"); setTimeout(aiMove, 420); }
+    else resetBoard();
+  }
+
+  // ─── Make a move on the data model ───────────────────────────────
+  function makeMove(idx, player){ board[idx] = player; }
+
+  // ─── Check winner ───────────────────────────────
+  function checkWinner(bd){
+    for (const [a,b,c] of WIN_LINES){
+      if (bd[a] && bd[a] === bd[b] && bd[a] === bd[c]) return { player: bd[a], line: [a,b,c] };
+    }
+    return null;
+  }
+
+  function isFull(bd){ return bd.every(v => v); }
+
+  // ─── After each move, decide game state ───────────────────────────────
+  function evaluateAfterMove(){
+    const w = checkWinner(board);
+    if (w){
+      playing = false;
+      highlightWin(w.line);
+      if (w.player === HUMAN) { scores.x++; showResult('win'); }
+      else { scores.o++; showResult('lose'); }
+      updateScores();
+      return;
+    }
+    if (isFull(board)){
+      playing = false;
+      scores.d++; updateScores();
+      showResult('draw');
+    }
+  }
+
+  // ─── AI move ───────────────────────────────
+  function aiMove(){
+    if (!playing) return;
+    let idx;
+    if (mode === 'easy') idx = easyMove();
+    else if (mode === 'hard') idx = hardMove();
+    else idx = bestMove(); // unbeatable minimax
+
+    makeMove(idx, AI);
+    cells[idx].textContent = AI;
+    cells[idx].classList.add('filled', 'o');
+    evaluateAfterMove();
+    if (playing){ humanTurn = true; setStatus("Your move — you are X"); }
+    else resetBoard();
+  }
+
+  function easyMove(){
+    // Random move, but block an immediate human win and grab an immediate AI win.
+    const free = board.map((v,i)=>v?null:i).filter(v=>v!==null);
+    if (!free.length) return 4;
+    // grab winning
+    for (const i of free){ board[i]=AI; if(checkWinner(board).player===AI){board[i]='';return i;} board[i]=''; }
+    // block human
+    for (const i of free){ board[i]=HUMAN; if(checkWinner(board).player===HUMAN){board[i]='';return i;} board[i]=''; }
+    return free[Math.floor(Math.random()*free.length)];
+  }
+
+  function hardMove(){
+    // 80% optimal, 20% random — strong but beatable.
+    if (Math.random() < 0.2) return easyMove();
+    return bestMove();
+  }
+
+  // ─── Minimax (unbeatable) ───────────────────────────────
+  function bestMove(){
+    let bestScore = -Infinity, move = -1;
+    const free = board.map((v,i)=>v?null:i).filter(v=>v!==null);
+    // opening: take a corner or center for variety
+    if (board.filter(v=>v).length <= 1){
+      const openings = [0,2,4,6,8].filter(i=>!board[i]);
+      return openings[Math.floor(Math.random()*openings.length)];
+    }
+    for (const i of free){
+      board[i] = AI;
+      const score = minimax(board, 0, false, -Infinity, Infinity);
+      board[i] = '';
+      if (score > bestScore){ bestScore = score; move = i; }
+    }
+    return move;
+  }
+
+  function minimax(bd, depth, isMax, alpha, beta){
+    const w = checkWinner(bd);
+    if (w){
+      if (w.player === AI) return 10 - depth;
+      return depth - 10;
+    }
+    if (isFull(bd)) return 0;
+
+    if (isMax){
+      let best = -Infinity;
+      for (let i=0;i<9;i++){
+        if (bd[i]) continue;
+        bd[i]=AI; best=Math.max(best, minimax(bd, depth+1, false, alpha, beta)); bd[i]='';
+        alpha=Math.max(alpha,best); if(beta<=alpha) break;
+      }
+      return best;
+    } else {
+      let best = Infinity;
+      for (let i=0;i<9;i++){
+        if (bd[i]) continue;
+        bd[i]=HUMAN; best=Math.min(best, minimax(bd, depth+1, true, alpha, beta)); bd[i]='';
+        beta=Math.min(beta,best); if(beta<=alpha) break;
+      }
+      return best;
+    }
+  }
+
+  // ─── UI helpers ───────────────────────────────
+  function setStatus(t){ statusEl.textContent = t; statusEl.className=''; }
+
+  function highlightWin(line){
+    line.forEach(i => cells[i].classList.add('win-cell'));
+  }
+
+  function updateScores(){
+    document.getElementById('score-x').textContent = scores.x;
+    document.getElementById('score-o').textContent = scores.o;
+    document.getElementById('score-d').textContent = scores.d;
+  }
+
+  function showResult(outcome){
+    const emoji = document.getElementById('result-emoji');
+    const text = document.getElementById('result-text');
+    const sub = document.getElementById('result-sub');
+    if (outcome === 'win'){
+      emoji.textContent = '🏆'; text.textContent = 'You Win!'; text.style.color='#6bdf4a';
+      sub.textContent = 'Impossible… but you pulled it off.';
+    } else if (outcome === 'lose'){
+      emoji.textContent = '🤖'; text.textContent = 'AI Wins!'; text.style.color='#ff5a5a';
+      sub.textContent = mode==='unbeatable' ? 'Perfect play. Try the Hard mode to sneak a win.' : 'So close! Again?';
+    } else {
+      emoji.textContent = '🤝'; text.textContent = 'Draw!'; text.style.color='#e0c060';
+      sub.textContent = 'Stalemate against perfection — respect.';
+    }
+    setTimeout(()=> overlay.classList.add('show'), 700);
+  }
+
+  function resetBoard(){
+    board = Array(9).fill('');
+    playing = false;
+    buildBoard();
+    updateScores();
+    // Winner stays: show overlay already handles messaging.
+    if (overlay.classList.contains('show')) return; // overlay shown by showResult
+    // If no overlay path (shouldn't happen), clear status
+  }
+
+  function newGame(){
+    board = Array(9).fill('');
+    playing = true;
+    humanTurn = true;
+    overlay.classList.remove('show');
+    buildBoard();
+    setStatus("Your move — you are X");
+  }
+
+  // ─── Mode buttons ───────────────────────────────
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      newGame();
+    });
+  });
+
+  document.getElementById('new-game-btn').addEventListener('click', newGame);
+  document.getElementById('play-again-btn').addEventListener('click', newGame);
+
+  // ─── Init ───────────────────────────────
+  buildBoard();
+  setStatus("Your move — you are X");
+})();
+</script>
+</body>
+</html>

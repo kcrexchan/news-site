@@ -107,6 +107,19 @@ const games = [
       '30-second rounds, PIN leaderboard',
     ],
   },
+  {
+    name: 'Tic-Tac-Toe',
+    emoji: '❌⭕',
+    description: 'The classic noughts and crosses. Challenge an unbeatable AI that never loses — or dial down the difficulty. Can you force a draw?',
+    route: '/tic-tac-toe',
+    accent: '#35e08a',
+    features: [
+      'Unbeatable minimax AI (never loses)',
+      'Three difficulty modes: Unbeatable, Hard, Easy',
+      'Tap cells to play — works on any device',
+      'Running scoreboard across games',
+    ],
+  },
 ];
 
 export default function Games() {
