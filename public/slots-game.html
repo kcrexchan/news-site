@@ -789,9 +789,13 @@
     if (win > 0) state.balance += win;
     state.lastWin = win;
     saveState();
-    // Rebuild a clean 3-cell display (clears any stale .lit from a prior win).
-    for (var i = 0; i < 3; i++) buildIdleReel(reels[i]);
-    renderReels(final);
+    // Keep each reel frozen at its slow-spin rest position — do NOT rebuild.
+    // The animated strip already centers the winning symbol at STRIP_MID, so
+    // just re-highlight the center cell (clears any stale .lit from a prior win).
+    for (var i = 0; i < 3; i++) {
+      var cells = reels[i] && reels[i].querySelectorAll ? reels[i].querySelectorAll('.reel-cell') : [];
+      cells.forEach(function (c) { c.classList.remove('lit'); });
+    }
     lightWinCells(mult);
     render();
     if (typeof lbSyncWallet === 'function') lbSyncWallet();
