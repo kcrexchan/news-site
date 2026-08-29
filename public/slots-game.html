@@ -806,6 +806,8 @@
     if (typeof lbSyncWallet === 'function') lbSyncWallet();
     if (mult >= 10) sfx.bigWin(); else if (mult > 0) sfx.win(); else sfx.lose();
     showResult(mult, win);
+    // Clear the "Spinning…" label now that the machine has stopped.
+    showMsg('');
   }
 
   function render() {
