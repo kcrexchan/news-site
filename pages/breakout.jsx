@@ -598,7 +598,7 @@ export default function Breakout() {
 
       <div style={{ minHeight: '100vh', background: '#0f1a0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", color: '#ecfccb' }}>
         <div style={{ width: 'min(800px, 100%)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(167,139,108,0.15)' }}>
-          <button onClick={() => router.back()} style={{ color: '#a7c4a0', background: 'none', border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Back</button>
+          <button onClick={() => router.back()} style={{ color: '#e0e8ff', background: 'rgba(20,26,46,0.9)', border: '1px solid rgba(58,134,255,0.3)', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: '8px 14px', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.4)', transition: 'background 0.2s, border-color 0.2s' }}>← Back</button>
           <span style={{ fontSize: 13, color: '#7a8f6e' }}>Move: arrows / mouse · Launch: Space · Shoot: Space (when S active)</span>
         </div>
 

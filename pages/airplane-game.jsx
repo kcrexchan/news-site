@@ -3161,7 +3161,7 @@ export default function AirplaneGame() {
 
       <div style={styles.page}>
         <div style={styles.header}>
-          <button onClick={() => router.back()} style={{ ...styles.backLink, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
+          <button onClick={() => router.back()} style={{ ...styles.backLink }}>← Back</button>
           <span style={styles.title}>✈️ SKY FIGHTER</span>
           <button
             onClick={() => setMusicOn(m => !m)}
@@ -3418,11 +3418,18 @@ const styles = {
     justifyContent: 'space-between',
   },
   backLink: {
-    color: '#6b7db3',
+    color: '#e0e8ff',
     textDecoration: 'none',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 600,
     fontFamily: "'Rajdhani', sans-serif",
+    padding: '8px 14px',
+    background: 'rgba(20,26,46,0.9)',
+    border: '1px solid rgba(58,134,255,0.3)',
+    borderRadius: 10,
+    cursor: 'pointer',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+    transition: 'background 0.2s, border-color 0.2s',
   },
   title: {
     color: '#3a86ff',
