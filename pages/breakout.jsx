@@ -417,26 +417,31 @@ export default function Breakout() {
           b.y = paddleTop - b.r
           continue
         }
-        b.x += b.vx
-        b.y += b.vy
+        // Advance in small substeps so a fast ball can't tunnel through thin bricks.
+        const dist = Math.hypot(b.vx, b.vy)
+        let steps = Math.max(1, Math.ceil(dist / (b.r * 0.5)))
+        for (let s = 0; s < steps; s++) {
+          const svx = b.vx / steps, svy = b.vy / steps
+          b.x += svx
+          b.y += svy
 
-        if (b.x + b.r > W || b.x - b.r < 0) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); soundWall() }
-        if (b.y - b.r < 0) { b.vy = -b.vy; soundWall() }
+          if (b.x + b.r > W || b.x - b.r < 0) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); soundWall() }
+          if (b.y - b.r < 0) { b.vy = -b.vy; soundWall() }
 
-        if (b.y + b.r > paddleTop && b.y + b.r < paddleTop + paddleH + 10 &&
-            b.x > paddleX && b.x < paddleX + paddleW && b.vy > 0) {
-          soundPaddle()
-          const hitPos = (b.x - paddleX) / paddleW
-          const angle = (hitPos - 0.5) * Math.PI * 0.7
-          const speed = Math.hypot(b.vx, b.vy)
-          b.vy = -Math.abs(speed * Math.cos(angle))
-          b.vx = speed * Math.sin(angle)
-          b.y = paddleTop - b.r
-          if (speed < 10) { const f = 1.02; b.vx *= f; b.vy *= f }
-        }
+          if (b.y + b.r > paddleTop && b.y + b.r < paddleTop + paddleH + 10 &&
+              b.x > paddleX && b.x < paddleX + paddleW && b.vy > 0) {
+            soundPaddle()
+            const hitPos = (b.x - paddleX) / paddleW
+            const angle = (hitPos - 0.5) * Math.PI * 0.7
+            const speed = Math.hypot(b.vx, b.vy)
+            b.vy = -Math.abs(speed * Math.cos(angle))
+            b.vx = speed * Math.sin(angle)
+            b.y = paddleTop - b.r
+            if (speed < 10) { const f = 1.02; b.vx *= f; b.vy *= f }
+          }
 
-        let hitBrick = false
-        for (let r = 0; r < ROWS && !hitBrick; r++) {
+          let hitBrick = false
+          for (let r = 0; r < ROWS && !hitBrick; r++) {
           for (let c = 0; c < COLS; c++) {
             const br = bricks[r][c]
             if (!br.alive) continue
@@ -467,6 +472,7 @@ export default function Breakout() {
             }
           }
         }
+      }
 
         if (b.y - b.r > H + 20) {
           balls.splice(i, 1)

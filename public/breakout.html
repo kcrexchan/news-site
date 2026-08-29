@@ -476,29 +476,34 @@
         b.y = paddleTop - b.r;
         continue;
       }
-      b.x += b.vx;
-      b.y += b.vy;
-
-      // Walls
-      if (b.x + b.r > W || b.x - b.r < 0) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); soundWall(); }
-      if (b.y - b.r < 0) { b.vy = -b.vy; soundWall(); }
-
-      // Paddle
-      if (b.y + b.r > paddleTop && b.y + b.r < paddleTop + paddleH() + 10 &&
-          b.x > paddleX && b.x < paddleX + paddleW && b.vy > 0) {
-        soundPaddle();
-        const hitPos = (b.x - paddleX) / paddleW;
-        const angle = (hitPos - 0.5) * Math.PI * 0.7;
-        const speed = Math.hypot(b.vx, b.vy);
-        b.vy = -Math.abs(speed * Math.cos(angle));
-        b.vx = speed * Math.sin(angle);
-        b.y = paddleTop - b.r;
-        if (speed < 10) { const f = 1.02; b.vx *= f; b.vy *= f; }
-      }
-
-      // Bricks — at most one hit per ball per frame
+      // Advance in small substeps so a fast ball can't tunnel through thin bricks.
       let hitBrick = false;
-      for (let r = 0; r < ROWS && !hitBrick; r++) {
+      const dist = Math.hypot(b.vx, b.vy);
+      let steps = Math.max(1, Math.ceil(dist / (b.r * 0.5)));
+      for (let s = 0; s < steps && !hitBrick; s++) {
+        const svx = b.vx / steps, svy = b.vy / steps;
+        b.x += svx;
+        b.y += svy;
+
+        // Walls
+        if (b.x + b.r > W || b.x - b.r < 0) { b.vx = -b.vx; b.x = Math.max(b.r, Math.min(W - b.r, b.x)); soundWall(); }
+        if (b.y - b.r < 0) { b.vy = -b.vy; soundWall(); }
+
+        // Paddle
+        if (b.y + b.r > paddleTop && b.y + b.r < paddleTop + paddleH() + 10 &&
+            b.x > paddleX && b.x < paddleX + paddleW && b.vy > 0) {
+          soundPaddle();
+          const hitPos = (b.x - paddleX) / paddleW;
+          const angle = (hitPos - 0.5) * Math.PI * 0.7;
+          const speed = Math.hypot(b.vx, b.vy);
+          b.vy = -Math.abs(speed * Math.cos(angle));
+          b.vx = speed * Math.sin(angle);
+          b.y = paddleTop - b.r;
+          if (speed < 10) { const f = 1.02; b.vx *= f; b.vy *= f; }
+        }
+
+        // Bricks — at most one hit per ball per frame
+        for (let r = 0; r < ROWS && !hitBrick; r++) {
         for (let c = 0; c < COLS; c++) {
           const br = bricks[r][c];
           if (!br.alive) continue;
@@ -531,8 +536,9 @@
           }
         }
       }
+    }
 
-      // Ball lost — only when ALL balls are gone does a life cost
+    // Ball lost — only when ALL balls are gone does a life cost
       if (b.y - b.r > H + 20) {
         balls.splice(i, 1);
         if (balls.length === 0) {
