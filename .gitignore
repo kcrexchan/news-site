@@ -30,3 +30,11 @@ desktop.ini
 # OpenNext build output
 .open-next/
 .wrangler/
+
+# Test / screenshot scripts + outputs
+scripts/mobile-shots.js
+scripts/paytable-check.js
+shots/
+
+# Hermes session metadata
+.hermes/
