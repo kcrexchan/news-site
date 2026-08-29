@@ -455,7 +455,7 @@ export default function Breakout() {
             const closestY = Math.max(br.y, Math.min(b.y, br.y + br.h))
             const ddx = b.x - closestX, ddy = b.y - closestY
             if (ddx * ddx + ddy * ddy < b.r * b.r) {
-              if (b.fast && br.hp < 3) continue
+              // F (fast) ball: destroys every brick it passes through
               soundBrick(br)
               const dmg = b.fast ? 2 : 1
               br.hp -= dmg

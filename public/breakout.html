@@ -52,7 +52,7 @@
   // ── Power-ups ─────────────────────────────────────────────────────────────
   // W = paddle +50% for 15 brick hits
   // B = extra ball (same color/power/speed as original; no life lost until ALL balls missed)
-  // F = extra ball, different color, faster, passes through bricks needing <3 hits,
+  // F = extra ball, different color, faster, destroys every brick it passes through,
   //     deals 2 damage to bricks needing >=3 hits
   // S = shoot 1 bullet at a time, 2 per second, for 10 seconds
   const POWERUPS = {
@@ -517,8 +517,7 @@
           const closestY = Math.max(br.y, Math.min(b.y, br.y + br.h));
           const ddx = b.x - closestX, ddy = b.y - closestY;
           if (ddx * ddx + ddy * ddy < b.r * b.r) {
-            // F (fast) ball: passes through bricks needing <3 hits
-            if (b.fast && br.hp < 3) continue;
+            // F (fast) ball: destroys every brick it passes through
             soundBrick(br);
             const dmg = b.fast ? 2 : 1;
             br.hp -= dmg;
