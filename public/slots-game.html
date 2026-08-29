@@ -637,6 +637,20 @@
     clunk: function () { tone(120, 0.09, 0, 'square', 0.09); tone(70, 0.12, 0.02, 'sine', 0.08); },
     tick: function () { tone(520, 0.05, 0, 'square', 0.05); },
     win: function () { tone(660, 0.12, 0, 'triangle', 0.09); tone(880, 0.12, 0.12, 'triangle', 0.09); tone(1320, 0.2, 0.24, 'triangle', 0.09); },
+    coins: function (loud) {
+      // cascade of coins dropping into the tray — bright metallic tinks, slight pitch descent
+      var count = loud ? 9 : 6;
+      var vol = loud ? 0.07 : 0.05;
+      var base = loud ? 2000 : 1900;
+      var step = loud ? 130 : 160;
+      for (var i = 0; i < count; i++) {
+        var pitch = base - i * step;
+        var d = i * (loud ? 0.05 : 0.07);
+        tone(pitch, 0.05, d, 'square', vol);          // metallic click
+        tone(pitch * 2.7, 0.04, d, 'triangle', vol * 0.6); // shimmering overtone
+        if (loud) tone(pitch * 1.5, 0.06, d + 0.004, 'sine', vol * 0.4); // body
+      }
+    },
     bigWin: function () {
       var n = [523, 659, 784, 1047, 1319];
       for (var i = 0; i < n.length; i++) tone(n[i], 0.16, i * 0.1, 'triangle', 0.1);
@@ -799,7 +813,7 @@
     lightWinCells(mult);
     render();
     if (typeof lbSyncWallet === 'function') lbSyncWallet();
-    if (mult >= 10) sfx.bigWin(); else if (mult > 0) sfx.win(); else sfx.lose();
+    if (mult >= 10) sfx.coins(true); else if (mult > 0) sfx.coins(false); else sfx.lose();
     showResult(mult, win);
     // Clear the "Spinning…" label now that the machine has stopped.
     showMsg('');
