@@ -38,6 +38,13 @@
     padding: 10px 16px; margin-bottom: 14px; flex-wrap: wrap;
   }
   .hud .title { font-size: 18px; font-weight: 700; letter-spacing: 0.06em; color: var(--gold-2); }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 12px; cursor: pointer; font-size: 14px;
+    text-decoration: none; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .back-btn:hover { background: rgba(212,175,55,0.1); border-color: var(--gold-2); color: var(--gold-2); }
   .hud .stat { text-align: center; min-width: 84px; }
   .hud .stat .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
   .hud .stat .val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -368,6 +375,7 @@
 
   <!-- HUD -->
   <header class="hud">
+    <a class="back-btn" id="backBtn" href="/" title="Back to home">← Back</a>
     <div class="title">🎰 SLOTS</div>
     <div class="stat">
       <div class="lbl">Balance</div>
