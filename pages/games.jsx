@@ -133,6 +133,19 @@ const games = [
       'Best-time record saved per board size',
     ],
   },
+  {
+    name: 'Sudoku',
+    emoji: '🔢',
+    description: 'The classic number puzzle. Fill every row, column and 3×3 box with digits 1–9 — no repeats. Three difficulty levels, live timer, hints and error-checking.',
+    route: '/sudoku',
+    accent: '#6bdf4a',
+    features: [
+      'Randomly generated puzzles (never the same twice)',
+      'Three difficulties: Easy, Medium, Hard',
+      'Live timer + move counter',
+      'Hints, error-checking and erase tool',
+    ],
+  },
 ];
 
 export default function Games() {
