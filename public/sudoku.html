@@ -141,6 +141,8 @@
         <button class="mode-btn active" data-diff="easy">🙂 Easy</button>
         <button class="mode-btn" data-diff="medium">🔥 Medium</button>
         <button class="mode-btn" data-diff="hard">😈 Hard</button>
+        <button class="mode-btn" data-diff="expert">💀 Expert</button>
+        <button class="mode-btn" data-diff="insane">🌶️ Insane</button>
       </div>
 
       <div id="numpad"></div>
@@ -229,11 +231,13 @@
     fillGrid(full);
     solution = full.map(row => row.slice());
 
-    // Remove cells based on difficulty.
+    // Remove cells based on difficulty (holes removed).
     let attempts;
     if (mode === 'easy') attempts = 38;
     else if (mode === 'medium') attempts = 46;
-    else attempts = 54;
+    else if (mode === 'hard') attempts = 54;
+    else if (mode === 'expert') attempts = 58;
+    else attempts = 62; // insane
 
     puzzle = solution.map(row => row.slice());
     given = Array.from({length: SIZE}, () => Array(SIZE).fill(true));

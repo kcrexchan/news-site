@@ -136,12 +136,12 @@ const games = [
   {
     name: 'Sudoku',
     emoji: '🔢',
-    description: 'The classic number puzzle. Fill every row, column and 3×3 box with digits 1–9 — no repeats. Three difficulty levels, live timer, hints and error-checking.',
+    description: 'The classic number puzzle. Fill every row, column and 3×3 box with digits 1–9 — no repeats. Five difficulty levels from Easy to Insane, live timer, hints and error-checking.',
     route: '/sudoku',
     accent: '#6bdf4a',
     features: [
       'Randomly generated puzzles (never the same twice)',
-      'Three difficulties: Easy, Medium, Hard',
+      'Five difficulties: Easy, Medium, Hard, Expert, Insane',
       'Live timer + move counter',
       'Hints, error-checking and erase tool',
     ],
