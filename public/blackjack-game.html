@@ -33,6 +33,15 @@
   .hud-block.hud-mid { align-items: center; }
   .hud-block.hud-end { align-items: flex-end; }
   .hud-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #6f9c86; }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(120,200,160,0.10); border: 1px solid rgba(120,200,160,0.35);
+    color: #a7d4bd; border-radius: 8px; padding: 6px 11px; cursor: pointer;
+    font-size: 13px; font-weight: 700; text-decoration: none; flex: none;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .back-btn:hover { background: rgba(120,200,160,0.22); border-color: #f5e6a8; color: #f5e6a8; }
+  .back-btn:active { transform: scale(0.94); }
   .hud-value { font-size: 21px; font-weight: 800; color: #f5e6a8; font-variant-numeric: tabular-nums; line-height: 1.1; }
   /* ── Shoe (undealt cards) ── */
   .shoe { display: flex; align-items: center; gap: 8px; }
@@ -397,6 +406,7 @@
 <div id="wrap">
   <div id="hud">
     <div class="hud-top">
+      <a class="back-btn" id="backBtn" href="/" title="Back to home">← Back</a>
       <div class="hud-block">
         <span class="hud-label">Balance</span>
         <span class="hud-value" id="balanceVal">1000</span>
