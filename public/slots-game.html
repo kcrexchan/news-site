@@ -481,6 +481,7 @@
   var MIN_BET = 10;
   var START_BALANCE = 1000;
   var REEL_MIN = 6000, REEL_MAX = 10000; // random spin time per reel (ms): 6-10s
+  var SLOW_MIN = 1000, SLOW_MAX = 2000;   // slow-decel phase after the fast spin (ms)
   var REEL_SCROLL = [10, 12, 14];         // cells scrolled per reel (capped at STRIP_MID-1)
   var STRIP_LEN = 31;      // cells in the drum strip; the middle cell is the target
   var STRIP_MID = (STRIP_LEN - 1) / 2;     // = 15
@@ -705,15 +706,11 @@
     var landed = 0, settled = false;
     function settle() { if (!settled) { settled = true; finishSpin(final); } }
 
-    // Physics model per reel:
-    //  MAIN — very short spin-up launch, then a HARD brake (ease-out^7)
-    //  so the stop feels like it slams into a wall. Continuous at the join.
-    var LAUNCH_T = 0.12, LAUNCH_D = 0.10, BRAKE_K = 7;
-    function mainPos(p) {
-      if (p < LAUNCH_T) return LAUNCH_D * Math.pow(p / LAUNCH_T, 2);
-      var q = (p - LAUNCH_T) / (1 - LAUNCH_T);
-      return LAUNCH_D + (1 - LAUNCH_D) * (1 - Math.pow(1 - q, BRAKE_K));
-    }
+    // Two-stage stop per reel: a FAST spin phase covering most of the travel,
+    // then a SLOW deceleration to the exact rest position. Continuous at the join.
+    var STAGE1_FRAC = 0.9; // fraction of total travel covered during the fast phase
+    function easeIn(q) { return q * q; }              // ramp up (fast spin start)
+    function easeOut(q) { return 1 - Math.pow(1 - q, 3); } // decelerate to rest
 
     for (var i = 0; i < 3; i++) {
       (function (idx) {
@@ -722,9 +719,11 @@
         var cell = strip.children[0];
         var h = cell && cell.getBoundingClientRect ? cell.getBoundingClientRect().height : 72;
 
-        // Random spin time in [REEL_MIN, REEL_MAX]; small per-reel stagger so
-        // the reels still stop left-to-right.
+        // Random spin time in [REEL_MIN, REEL_MAX] for the FAST phase; then a
+        // SLOW deceleration phase of [SLOW_MIN, SLOW_MAX]. Small per-reel stagger
+        // so the reels still stop left-to-right.
         var dur = REEL_MIN + Math.random() * (REEL_MAX - REEL_MIN) + idx * 350;
+        var slowDur = SLOW_MIN + Math.random() * (SLOW_MAX - SLOW_MIN);
         // Rest: middle cell (index STRIP_MID) centered in the reel window.
         var restY = -(STRIP_MID - 1) * h;
         var scrollCells = Math.min(REEL_SCROLL[idx], STRIP_MID - 1);
@@ -758,7 +757,16 @@
           if (t0 === null) t0 = ts;
           var t = ts - t0;
           if (t < dur) {
-            strip.style.transform = 'translate3d(0,' + (startY + travel * mainPos(t / dur)) + 'px,0)';
+            // Stage 1 — FAST spin: ramp up then cruise, covering most of the travel.
+            var p = t / dur;
+            var q = p < 0.25 ? easeIn(p / 0.25) : 0.25 + (1 - 0.25) * easeOut((p - 0.25) / 0.75);
+            strip.style.transform = 'translate3d(0,' + (startY + travel * STAGE1_FRAC * q) + 'px,0)';
+            requestAnimationFrame(frame);
+          } else if (t < dur + slowDur) {
+            // Stage 2 — SLOW deceleration: crawl the last stretch to rest.
+            var s = (t - dur) / slowDur;
+            var frac = STAGE1_FRAC + (1 - STAGE1_FRAC) * easeOut(s);
+            strip.style.transform = 'translate3d(0,' + (startY + travel * frac) + 'px,0)';
             requestAnimationFrame(frame);
           } else {
             onImpact(); // hard stop lands here
@@ -767,7 +775,7 @@
           }
         }
         requestAnimationFrame(frame);
-        setTimeout(onLand, dur + 20); // safety net (also the test path: fires synchronously)
+        setTimeout(onLand, dur + slowDur + 20); // safety net (also the test path: fires synchronously)
       })(i);
     }
   }
