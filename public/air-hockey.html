@@ -209,6 +209,7 @@ let muted = false;
 let last = 0;
 let shake = 0;                    // screen shake magnitude (px)
 let particles = [];
+let stuckTimer = 0;   // frames the puck has been stalled/wedged (drives auto-unstuck)
 let lastGoalFlash = 0, goalFlashColor = '#6bdf4a';
 
 // ─── Mode: 1P (vs CPU, top) or 2P (both human) ───────────────
@@ -368,6 +369,8 @@ function collideMallet(p) {
   // separate
   BALL.x = p.x + nx * minD;
   BALL.y = p.y + ny * minD;
+  // keep inside table — a mallet can't shove the puck out of bounds into a corner
+  clampBall();
   // reflect relative velocity
   const rvx = BALL.vx - p.vx, rvy = BALL.vy - p.vy;
   const vn = rvx * nx + rvy * ny;
@@ -415,8 +418,35 @@ function stepBall(dt) {
   BALL.vx *= f; BALL.vy *= f;
   const sp = Math.hypot(BALL.vx, BALL.vy);
   if (sp > MAX_BALL_SPEED) { BALL.vx = BALL.vx / sp * MAX_BALL_SPEED; BALL.vy = BALL.vy / sp * MAX_BALL_SPEED; }
-  // tiny stall cleanup
-  if (sp < 0.05) { BALL.vx = 0; BALL.vy = 0; }
+  // Wedge fix: if the puck is pinned against two walls (a corner) or held by a
+  // mallet against one wall, nudge it toward center so it can't get stuck dead-still.
+  const againstLeft = BALL.x - BALL.r <= T.left + 0.5;
+  const againstRight = BALL.x + BALL.r >= T.right - 0.5;
+  const againstTop = BALL.y - BALL.r <= T.top + 0.5;
+  const againstBottom = BALL.y + BALL.r >= T.bottom - 0.5;
+  const wallCount = (againstLeft ? 1 : 0) + (againstRight ? 1 : 0) + (againstTop ? 1 : 0) + (againstBottom ? 1 : 0);
+  let pinnedByMallet = false;
+  for (const m of [P1, P2]) {
+    if (Math.hypot(BALL.x - m.x, BALL.y - m.y) < BALL.r + m.r + 1) { pinnedByMallet = true; break; }
+  }
+  const wedged = wallCount >= 2 || (wallCount === 1 && pinnedByMallet);
+
+  if (sp < 0.05) {
+    if (wedged) {
+      stuckTimer += dt;
+      const dx = T.cx - BALL.x, dy = T.cy - BALL.y;
+      const d = Math.hypot(dx, dy) || 1;
+      // Escalating kick toward center so it breaks free even if the mallet keeps pressing.
+      const boost = 1 + Math.min(2, stuckTimer / 60);
+      BALL.vx += (dx / d) * 0.4 * dt * boost;
+      BALL.vy += (dy / d) * 0.4 * dt * boost;
+    } else {
+      stuckTimer = 0;
+      BALL.vx = 0; BALL.vy = 0; // genuine stall — stop it cleanly
+    }
+  } else {
+    stuckTimer = 0;
+  }
 }
 
 // ─── CPU AI (top mallet, P2) ──────────────────────────────────
