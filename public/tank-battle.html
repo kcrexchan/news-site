@@ -660,6 +660,7 @@ function update() {
           enemy.takeDamage(b.damage);
           if (!enemy.alive) {
             kills++;
+            enemiesRemaining--;
             score += enemy.type === 'heavy' ? 200 : enemy.type === 'sniper' ? 150 : 100;
             maybeSpawnPowerup(enemy.x, enemy.y);
           }
@@ -931,10 +932,10 @@ function render() {
   }
   ctx.globalAlpha = 1;
 
-  // Draw minimap
-  drawMinimap();
-
   ctx.restore();
+
+  // Minimap drawn in screen space (outside camera transform)
+  drawMinimap();
 }
 
 function drawTank(tank) {
@@ -1014,8 +1015,8 @@ function drawTank(tank) {
 
 function drawMinimap() {
   const mmSize = 140;
-  const mmX = MAP_W * TILE - mmSize - 10;
-  const mmY = MAP_H * TILE - mmSize - 10;
+  const mmX = window.innerWidth - mmSize - 12;
+  const mmY = window.innerHeight - mmSize - 12;
   const scaleX = mmSize / (MAP_W * TILE);
   const scaleY = mmSize / (MAP_H * TILE);
 
