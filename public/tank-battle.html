@@ -560,6 +560,75 @@ canvas.addEventListener('mousedown', e => {
 canvas.addEventListener('mouseup', () => { mouse.down = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
+// ─── TOUCH CONTROLS (mobile / tablet) ──────────────────────
+// Left half of screen = virtual joystick for movement.
+// Right half = aim toward finger and hold to fire.
+let moveTouchId = null;
+let moveBaseX = 0, moveBaseY = 0;
+const fireTouchIds = new Set();
+
+function applyJoystickDir(dx, dy) {
+  keys['w'] = dy < -0.3;
+  keys['s'] = dy > 0.3;
+  keys['a'] = dx < -0.3;
+  keys['d'] = dx > 0.3;
+}
+
+function handleTouch(e, phase) {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  for (const t of e.changedTouches) {
+    const tx = (t.clientX - rect.left) * scaleX;
+    const ty = (t.clientY - rect.top) * scaleY;
+    if (phase === 'start') initAudio();
+
+    if (t.identifier === moveTouchId) {
+      if (phase === 'end' || phase === 'cancel') {
+        moveTouchId = null;
+        applyJoystickDir(0, 0);
+      } else {
+        applyJoystickDir(tx - moveBaseX, ty - moveBaseY);
+      }
+      continue;
+    }
+
+    if (phase === 'start') {
+      fireTouchIds.add(t.identifier);
+      mouse.down = true;
+    }
+    // Aim toward the touching finger on the right side.
+    if (tx >= canvas.width / 2) {
+      mouse.x = tx;
+      mouse.y = ty;
+    }
+    if ((phase === 'end' || phase === 'cancel') && fireTouchIds.has(t.identifier)) {
+      fireTouchIds.delete(t.identifier);
+      if (fireTouchIds.size === 0) mouse.down = false;
+    }
+  }
+}
+
+canvas.addEventListener('touchstart', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  for (const t of e.changedTouches) {
+    const tx = (t.clientX - rect.left) * scaleX;
+    if (tx < canvas.width / 2 && moveTouchId === null) {
+      moveTouchId = t.identifier;
+      moveBaseX = (t.clientX - rect.left) * scaleX;
+      moveBaseY = (t.clientY - rect.top) * (canvas.height / rect.height);
+    } else {
+      handleTouch(e, 'start');
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => handleTouch(e, 'move'), { passive: false });
+canvas.addEventListener('touchend', e => handleTouch(e, 'end'), { passive: false });
+canvas.addEventListener('touchcancel', e => handleTouch(e, 'cancel'), { passive: false });
+
 // ─── RESIZE ────────────────────────────────────────────────
 // Handled by initCanvasSize() above — no duplicate needed.
 
