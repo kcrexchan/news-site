@@ -116,7 +116,7 @@
 
   /* ─── Navigation cards grid ────────────── */
   .nav-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 24px; margin-bottom: 3.5rem;
   }
 
@@ -278,112 +278,15 @@
       </div>
     </a>
 
-    <!-- Card 2: Tetris -->
-    <a href="/tetris/" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">🎮</span>
-        <h3 class="card-title">Tetris</h3>
-        <p class="card-desc">Classic block-stacking puzzle game with mobile touch controls. No keyboard required — swipe or tap to play anywhere.</p>
-        <div class="card-btn">Play →</div>
-      </div>
-    </a>
-
-    <!-- Card 3: Breakout -->
-    <a href="/breakout/" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">🕹️</span>
-        <h3 class="card-title">Breakout</h3>
-        <p class="card-desc">Retro brick-breaking arcade game with smooth physics and vibrant gradients. Test your reflexes on any device.</p>
-        <div class="card-btn">Play →</div>
-      </div>
-    </a>
-
-    <!-- Card 3b: Arcade Hub -->
+    <!-- Card 2: Arcade -->
     <a href="/games/" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
       <div class="card">
         <div class="card-glow"></div>
         <div class="card-border"></div>
         <span class="card-icon">🎮</span>
         <h3 class="card-title">Arcade</h3>
-        <p class="card-desc">The full game arcade in one place — Tetris, Breakout, Sky Fighter, Air Hockey, Tic-Tac-Toe (vs AI or a friend), and more. Pick any to start playing.</p>
+        <p class="card-desc">All 14 games in one place — Tetris, Breakout, Air Hockey, Blackjack, Sudoku and more. Pick any to start playing instantly.</p>
         <div class="card-btn">Open Arcade →</div>
-      </div>
-    </a>
-
-
-    <!-- Card 4: Sky Fighter -->
-    <a href="/airplane-game" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">✈️</span>
-        <h3 class="card-title">Sky Fighter</h3>
-        <p class="card-desc">Top-down pixel airplane shooter. Drag to fly, auto-fire destroys enemy waves, collect random upgrades to grow stronger.</p>
-        <div class="card-btn">Play →</div>
-      </div>
-    </a>
-
-    <!-- Card 5: Air Hockey -->
-    <a href="/air-hockey" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">🏒</span>
-        <h3 class="card-title">Air Hockey</h3>
-        <p class="card-desc">Two-player local air hockey on one phone. Green owns the bottom, Gold owns the top — first to 7 wins. Pure touch, no keyboard.</p>
-        <div class="card-btn">Play →</div>
-      </div>
-    </a>
-
-    <!-- Card 7: Blackjack -->
-    <a href="/blackjack-game" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">🃏</span>
-        <h3 class="card-title">Blackjack</h3>
-        <p class="card-desc">Beat the dealer to 21. Hit, stand, double down, or split pairs (resplit aces) — 6-deck shoe, S17 dealer, 3:2 blackjack payouts, and insurance when the dealer shows an Ace. Create a PIN account with a live wallet — win and lose freely, and if you go broke, borrow $2,000 at a time from the casino (1% interest, unlimited).</p>
-        <div class="card-btn">Play →</div>
-      </div>
-    </a>
-
-    <!-- Card 8: Slot Machine -->
-    <a href="/slots-game" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">🎰</span>
-        <h3 class="card-title">Slot Machine</h3>
-        <p class="card-desc">Spin the reels and chase the triple 7s. Three reels, five bet levels, a 7-7-7 jackpot of 50×, and a running paytable. Plays with the same PIN account and wallet as Blackjack — one balance across the whole casino, and you can borrow $2,000 (1% interest) whenever you go broke.</p>
-        <div class="card-btn">Play →</div>
-      </div>
-    </a>
-
-    <!-- Card 9: Reaction Time -->
-    <a href="/reaction" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">⚡</span>
-        <h3 class="card-title">Reaction Time</h3>
-        <p class="card-desc">How fast are your reflexes? Wait for the green light, then tap as hard as you can. Five rounds, false-start detection, and a PIN-protected leaderboard ranked by your fastest millisecond.</p>
-        <div class="card-btn">Play →</div>
-      </div>
-    </a>
-
-    <!-- Card 10: Balloon Pop -->
-    <a href="/balloon" class="card-link" onmouseenter="trackMouse(event)" onmouseleave="untrackMouse(this)">
-      <div class="card">
-        <div class="card-glow"></div>
-        <div class="card-border"></div>
-        <span class="card-icon">🎈</span>
-        <h3 class="card-title">Balloon Pop</h3>
-        <p class="card-desc">Tap to inflate, then hit Lock In to bank the size as points — but over-inflate and it pops for nothing. Every balloon bursts at a different size. 30 seconds, highest total wins, with a PIN leaderboard.</p>
-        <div class="card-btn">Play →</div>
       </div>
     </a>
 

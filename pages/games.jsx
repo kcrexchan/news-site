@@ -3,149 +3,20 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 
 const games = [
-  {
-    name: 'Breakout',
-    emoji: '🧱',
-    description: 'Classic brick-breaking arcade game. Guide the paddle, bounce the ball, and smash every brick to win.',
-    route: '/breakout',
-    accent: '#6b9e4a',
-    features: [
-      'Arrow keys or mouse to control paddle',
-      'Ball speeds up with each paddle hit',
-      '4 levels — each one spells a name in bricks',
-      '3 lives — don\'t let the ball drop!',
-    ],
-  },
-  {
-    name: 'Tetris',
-    emoji: '🟦',
-    description: 'The legendary block-stacking puzzle. Fit falling tetrominoes together and clear complete rows for points.',
-    route: '/tetris',
-    accent: '#4a7ab5',
-    features: [
-      '7 classic tetromino shapes',
-      'Move, rotate, and hard-drop blocks',
-      'Clear rows to score points',
-      'Speed increases as you level up',
-    ],
-  },
-  {
-    name: 'Heads Up!',
-    emoji: '📱',
-    description: 'Hold the screen to your forehead and guess the words your friends shout! Swipe right for correct, left to skip.',
-    route: '/heads-up',
-    accent: '#b54a7a',
-    features: [
-      '8 categories with 240+ words',
-      'Adjustable timer (15–60 seconds)',
-      'Swipe or keyboard controls',
-      'Score tracking and word review',
-    ],
-  },
-  {
-    name: 'Sky Fighter',
-    emoji: '✈️',
-    description: 'Top-down pixel airplane shooter. Drag to fly, auto-fire destroys enemy waves, collect random upgrades to grow stronger.',
-    route: '/airplane-game',
-    accent: '#3a86ff',
-    features: [
-      'Drag to move your plane',
-      'Auto-fire destroys enemies',
-      'Collect random power-up upgrades',
-      'Wave-based difficulty scaling',
-    ],
-  },
-  {
-    name: 'Tank Battle',
-    emoji: '🔥',
-    description: 'Top-down tank combat on a procedurally-generated battlefield. Survive waves of enemies, destroy terrain, and collect power-ups.',
-    route: '/tank',
-    accent: '#e74c3c',
-    features: [
-      'WASD to move, mouse to aim & fire',
-      '4 enemy types that scale with waves',
-      'Destructible walls and rubble',
-      'Power-up drops: health, speed, damage, special',
-    ],
-  },
-  {
-    name: 'Rube Goldberg',
-    emoji: '⚙️',
-    description: 'A Rube Goldberg chain-reaction machine! A ball rolls down the ramp, topples a domino, and lands in the basin. Verified by physics simulation — it works every time.',
-    route: '/rube',
-    accent: '#8e5ad8',
-    features: [
-      'Ball rolls down ramp & plows through a domino',
-      'Balloon rises in a fan wind zone',
-      'Goal basin catches the ball in a wide funnel',
-      'Win condition: ball in basin + domino toppled',
-    ],
-  },
-  {
-    name: 'Reaction Time',
-    emoji: '⚡',
-    description: 'How fast are your reflexes? Wait for the green light, then tap as hard as you can. Five rounds, best time wins — and you can save it to the leaderboard.',
-    route: '/reaction',
-    accent: '#f5b301',
-    features: [
-      'Tap the moment the pad turns green',
-      'False starts are caught & retried',
-      '5 rounds — best, average, and last shown',
-      'PIN-protected leaderboard ranked by fastest ms',
-    ],
-  },
-  {
-    name: 'Balloon Pop',
-    emoji: '🎈',
-    description: 'Tap to inflate, lock in for points, and don\'t overdo it — every balloon pops at a different size. 30 seconds, highest total wins.',
-    route: '/balloon',
-    accent: '#ff6b9d',
-    features: [
-      'Tap the stage to inflate the balloon',
-      'Lock In to bank its size as score',
-      'Over-inflate and it pops — zero points',
-      '30-second rounds, PIN leaderboard',
-    ],
-  },
-  {
-    name: 'Tic-Tac-Toe',
-    emoji: '❌⭕',
-    description: 'The classic noughts and crosses. Challenge an unbeatable AI that never loses — or switch to 2-player mode for a local duel against a friend. Can you force a draw?',
-    route: '/tic-tac-toe',
-    accent: '#35e08a',
-    features: [
-      'Unbeatable minimax AI (never loses)',
-      'Three difficulty modes: Unbeatable, Hard, Easy',
-      'Tap cells to play — works on any device',
-      'Running scoreboard across games',
-    ],
-  },
-  {
-    name: 'Memory Match',
-    emoji: '🃏',
-    description: 'Flip the cards and find every matching pair. Three board sizes, a live move counter, and a best-time record to beat. Train your memory — how fast can you clear it?',
-    route: '/memory-match',
-    accent: '#e0c060',
-    features: [
-      'Three difficulty levels: 4×3, 4×4, 6×4 boards',
-      'Smooth 3D card-flip animations',
-      'Live move + pair counter',
-      'Best-time record saved per board size',
-    ],
-  },
-  {
-    name: 'Sudoku',
-    emoji: '🔢',
-    description: 'The classic number puzzle. Fill every row, column and 3×3 box with digits 1–9 — no repeats. Five difficulty levels from Easy to Insane, live timer, hints and error-checking.',
-    route: '/sudoku',
-    accent: '#6bdf4a',
-    features: [
-      'Randomly generated puzzles (never the same twice)',
-      'Five difficulties: Easy, Medium, Hard, Expert, Insane',
-      'Live timer + move counter',
-      'Hints, error-checking and erase tool',
-    ],
-  },
+  { name: 'Breakout', emoji: '🕹️', route: '/breakout', accent: '#6b9e4a' },
+  { name: 'Tetris', emoji: '🟦', route: '/tetris', accent: '#4a7ab5' },
+  { name: 'Air Hockey', emoji: '🏒', route: '/air-hockey', accent: '#38bdf8' },
+  { name: 'Heads Up!', emoji: '📱', route: '/heads-up', accent: '#b54a7a' },
+  { name: 'Sky Fighter', emoji: '✈️', route: '/airplane-game', accent: '#3a86ff' },
+  { name: 'Tank Battle', emoji: '🛡️', route: '/tank', accent: '#e74c3c' },
+  { name: 'Rube Goldberg', emoji: '⚙️', route: '/rube', accent: '#8e5ad8' },
+  { name: 'Reaction Time', emoji: '⚡', route: '/reaction', accent: '#f5b301' },
+  { name: 'Balloon Pop', emoji: '🎈', route: '/balloon', accent: '#ff6b9d' },
+  { name: 'Tic-Tac-Toe', emoji: '❌⭕', route: '/tic-tac-toe', accent: '#35e08a' },
+  { name: 'Memory Match', emoji: '🃏', route: '/memory-match', accent: '#e0c060' },
+  { name: 'Sudoku', emoji: '🔢', route: '/sudoku', accent: '#6bdf4a' },
+  { name: 'Blackjack', emoji: '🎰', route: '/blackjack-game', accent: '#d4af37' },
+  { name: 'Slot Machine', emoji: '💰', route: '/slots-game', accent: '#c8a951' },
 ];
 
 export default function Games() {
@@ -154,7 +25,7 @@ export default function Games() {
   return (
     <>
       <Head>
-        <title>Games 🎮</title>
+        <title>Arcade · Local LLM Hub</title>
       </Head>
 
       <div style={styles.page}>
@@ -162,11 +33,11 @@ export default function Games() {
         <div style={styles.header}>
           <button onClick={() => router.back()} style={{...styles.backLink, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit'}}>← Back</button>
           <h1 style={styles.pageTitle}>🎮 Arcade</h1>
-          <span style={styles.hint}>Pick a game to start playing</span>
+          <span style={styles.hint}>{games.length} games · pick one to play</span>
         </div>
 
-        {/* Game cards */}
-        <div style={styles.cardsGrid}>
+        {/* Game grid — compact, no-scroll */}
+        <div style={styles.grid}>
           {games.map((game) => (
             <div
               key={game.name}
@@ -174,30 +45,17 @@ export default function Games() {
               onClick={() => router.push(game.route)}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = `0 12px 40px ${game.accent}33`;
+                e.currentTarget.style.boxShadow = `0 12px 36px ${game.accent}33`;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
               }}
             >
-              {/* Emoji icon */}
               <div style={{ ...styles.cardIcon, background: `${game.accent}22` }}>
-                <span style={{ fontSize: 56 }}>{game.emoji}</span>
+                <span style={{ fontSize: 48 }}>{game.emoji}</span>
               </div>
-
               <h2 style={styles.cardTitle}>{game.name}</h2>
-              <p style={styles.cardDesc}>{game.description}</p>
-
-              <ul style={styles.featureList}>
-                {game.features.map((f, i) => (
-                  <li key={i} style={styles.featureItem}>
-                    <span style={{ color: game.accent, marginRight: 8 }}>✓</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
               <button
                 style={{ ...styles.playBtn, background: game.accent }}
                 onClick={(e) => {
@@ -205,7 +63,7 @@ export default function Games() {
                   router.push(game.route);
                 }}
               >
-                ▶ Play {game.name}
+                ▶ Play
               </button>
             </div>
           ))}
@@ -229,7 +87,7 @@ const styles = {
     padding: '0 20px',
   },
   header: {
-    maxWidth: 900,
+    maxWidth: 1080,
     margin: '0 auto',
     padding: '32px 0 24px',
     textAlign: 'center',
@@ -252,62 +110,47 @@ const styles = {
     fontSize: 16,
     color: '#7a8f6e',
   },
-  cardsGrid: {
-    maxWidth: 900,
+  grid: {
+    maxWidth: 1080,
     margin: '0 auto',
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-    gap: 24,
-    padding: '0 0 48px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: 20,
+    paddingBottom: 40,
   },
   card: {
     background: '#1a2a1a',
     borderRadius: 16,
-    padding: '28px 28px 24px',
+    padding: '28px 20px 24px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
     cursor: 'pointer',
     transition: 'transform 0.2s, box-shadow 0.2s',
     boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
   },
   cardIcon: {
-    width: 80,
-    height: 80,
+    width: 76,
+    height: 76,
     borderRadius: 20,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   cardTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 700,
-    margin: '0 0 8px',
+    margin: '0 0 18px',
     color: '#ecfccb',
-  },
-  cardDesc: {
-    fontSize: 15,
-    color: '#a7c4a0',
-    lineHeight: 1.6,
-    margin: '0 0 20px',
-  },
-  featureList: {
-    listStyle: 'none',
-    padding: 0,
-    margin: '0 0 24px',
-  },
-  featureItem: {
-    fontSize: 14,
-    color: '#8a9e82',
-    padding: '4px 0',
-    display: 'flex',
-    alignItems: 'center',
   },
   playBtn: {
     width: '100%',
-    padding: '14px 0',
+    padding: '12px 0',
     border: 'none',
     borderRadius: 10,
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 700,
     cursor: 'pointer',
     letterSpacing: '0.5px',
