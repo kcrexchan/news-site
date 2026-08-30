@@ -41,10 +41,10 @@
   // ── Brick types: name printed on the brick, HP = hits needed ──────────────
   // Higher HP bricks drop power-ups more often.
   const BRICK_TYPES = [
-    { id: 'lisa', name: 'LISA', hp: 1, color: '#2ecc71', drop: 0.05 },
-    { id: 'rex',  name: 'REX',  hp: 2, color: '#e67e22', drop: 0.10 },
-    { id: 'cory', name: 'CORY', hp: 4, color: '#3498db', drop: 0.15 },
-    { id: 'nic',  name: 'NIC',  hp: 6, color: '#9b59b6', drop: 0.20 },
+    { id: 'lisa', name: 'LISA', hp: 1, blocks: 1, color: '#2ecc71', drop: 0.05 },
+    { id: 'rex',  name: 'REX',  hp: 2, blocks: 2, color: '#e67e22', drop: 0.10 },
+    { id: 'cory', name: 'CORY', hp: 4, blocks: 4, color: '#3498db', drop: 0.15 },
+    { id: 'nic',  name: 'NIC',  hp: 6, blocks: 6, color: '#9b59b6', drop: 0.20 },
   ];
   const BT = {};
   BRICK_TYPES.forEach(b => { BT[b.id] = b; });
@@ -195,19 +195,23 @@
     wideHits = 0; shootTimer = 0; lastShot = 0;
     bullets = []; powerups = [];
     // Bricks
-    const brickW = Math.max(24, W / COLS - 8);
+    const cellW = Math.max(24, W / COLS - 8);
     const brickH = 24, brickPad = 4;
     bricks = [];
     for (let r = 0; r < ROWS; r++) {
-      bricks[r] = [];
-      for (let c = 0; c < COLS; c++) {
-        const t = BT[pickType(cfg.weights)];
-        bricks[r][c] = {
-          x: c * (brickW + brickPad) + (W - COLS * (brickW + brickPad) + brickPad) / 2,
-          y: r * (brickH + brickPad) + 56,
-          w: brickW, h: brickH,
-          type: t, hp: t.hp, alive: true,
-        };
+      let c = 0;
+      while (c < COLS) {
+        // pick a type whose full block span fits in the remaining columns
+        let t = BT.lisa, tries = 0;
+        while (t.blocks > COLS - c && tries++ < 10) t = BT[pickType(cfg.weights)];
+        const blocks = t.blocks;
+        const x = c * (cellW + brickPad) + (W - COLS * (cellW + brickPad) + brickPad) / 2;
+        const y = r * (brickH + brickPad) + 56;
+        bricks.push({
+          x, y, w: blocks * cellW + (blocks - 1) * brickPad, h: brickH,
+          type: t, hp: t.hp, blocks, alive: true, r, c,
+        });
+        c += blocks;
       }
     }
     balls = [newBall(W / 2, H - 40, cfg.speed * (Math.random() > 0.5 ? 1 : -1), -cfg.speed, cfg.ballColor)];
@@ -332,9 +336,7 @@
   }
 
   function drawBricks() {
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const b = bricks[r][c];
+    for (const b of bricks) {
         if (!b.alive) continue;
         const col = b.type.color;
         ctx.fillStyle = col;
@@ -360,7 +362,6 @@
         }
         ctx.textAlign = 'left';
       }
-    }
   }
 
   function drawBullets() {
@@ -509,9 +510,8 @@
         }
 
         // Bricks — at most one hit per ball per frame
-        for (let r = 0; r < ROWS && !hitBrick; r++) {
-        for (let c = 0; c < COLS; c++) {
-          const br = bricks[r][c];
+        for (const br of bricks) {
+          if (hitBrick) continue;
           if (!br.alive) continue;
           const closestX = Math.max(br.x, Math.min(b.x, br.x + br.w));
           const closestY = Math.max(br.y, Math.min(b.y, br.y + br.h));
@@ -540,8 +540,6 @@
             break;
           }
         }
-      }
-    }
 
     // Ball lost — only when ALL balls are gone does a life cost
       if (b.y - b.r > H + 20) {
@@ -573,10 +571,9 @@
       if (bl.x + bl.r > W) { bl.x = W - bl.r; }
       let dead = bl.y < -10;
       if (!dead) {
-        for (let r = 0; r < ROWS && !dead; r++) {
-          for (let c = 0; c < COLS; c++) {
-            const br = bricks[r][c];
-            if (!br.alive) continue;
+        for (const br of bricks) {
+          if (dead) break;
+          if (!br.alive) continue;
             if (bl.x + bl.r > br.x && bl.x - bl.r < br.x + br.w &&
                 bl.y + bl.r > br.y && bl.y - bl.r < br.y + br.h) {
               soundBrick(br);
