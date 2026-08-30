@@ -419,7 +419,8 @@ function stepBall(dt) {
   const sp = Math.hypot(BALL.vx, BALL.vy);
   if (sp > MAX_BALL_SPEED) { BALL.vx = BALL.vx / sp * MAX_BALL_SPEED; BALL.vy = BALL.vy / sp * MAX_BALL_SPEED; }
   // Wedge fix: if the puck is pinned against two walls (a corner) or held by a
-  // mallet against one wall, nudge it toward center so it can't get stuck dead-still.
+  // mallet against one wall, keep nudging it toward center until it escapes —
+  // otherwise friction re-stalls it and it wedges dead-still forever.
   const againstLeft = BALL.x - BALL.r <= T.left + 0.5;
   const againstRight = BALL.x + BALL.r >= T.right - 0.5;
   const againstTop = BALL.y - BALL.r <= T.top + 0.5;
@@ -431,21 +432,17 @@ function stepBall(dt) {
   }
   const wedged = wallCount >= 2 || (wallCount === 1 && pinnedByMallet);
 
-  if (sp < 0.05) {
-    if (wedged) {
-      stuckTimer += dt;
-      const dx = T.cx - BALL.x, dy = T.cy - BALL.y;
-      const d = Math.hypot(dx, dy) || 1;
-      // Escalating kick toward center so it breaks free even if the mallet keeps pressing.
-      const boost = 1 + Math.min(2, stuckTimer / 60);
-      BALL.vx += (dx / d) * 0.4 * dt * boost;
-      BALL.vy += (dy / d) * 0.4 * dt * boost;
-    } else {
-      stuckTimer = 0;
-      BALL.vx = 0; BALL.vy = 0; // genuine stall — stop it cleanly
-    }
+  if (wedged) {
+    stuckTimer += dt;
+    const dx = T.cx - BALL.x, dy = T.cy - BALL.y;
+    const d = Math.hypot(dx, dy) || 1;
+    // Escalating kick toward center so it breaks free even if the mallet keeps pressing.
+    const boost = 1 + Math.min(3, stuckTimer / 45);
+    BALL.vx += (dx / d) * 0.6 * dt * boost;
+    BALL.vy += (dy / d) * 0.6 * dt * boost;
   } else {
     stuckTimer = 0;
+    if (sp < 0.05) { BALL.vx = 0; BALL.vy = 0; } // genuine stall — stop it cleanly
   }
 }
 
