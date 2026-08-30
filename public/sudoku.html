@@ -137,7 +137,7 @@
     <div id="board"></div>
 
     <div id="controls">
-      <div class="mode-row">
+      <div class="mode-row" id="mode-row">
         <button class="mode-btn active" data-diff="easy">Easy</button>
         <button class="mode-btn" data-diff="medium">Medium</button>
         <button class="mode-btn" data-diff="hard">Hard</button>
@@ -404,6 +404,12 @@
     if (startTime) return;
     startTime = Date.now();
     timerId = setInterval(updateTimer, 1000);
+    // Game started: hide the level picker to free up space.
+    const modeRow = document.getElementById('mode-row');
+    if (modeRow && modeRow.style.display !== 'none'){
+      modeRow.style.display = 'none';
+      fitBoard();
+    }
   }
   function stopTimer(){ if (timerId){ clearInterval(timerId); timerId = null; } }
   function updateTimer(){
@@ -493,6 +499,9 @@
     document.getElementById('sb-moves').textContent = '0';
     document.getElementById('sb-time').textContent = '0:00';
     selectedCell = null;
+    // Fresh game: show the level picker again.
+    const modeRow = document.getElementById('mode-row');
+    if (modeRow) modeRow.style.display = '';
     generate();
     renderBoard();
     refreshNumpad();
