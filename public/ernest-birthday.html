@@ -107,24 +107,48 @@
   .cake-hint { font-size: 14px; color: var(--muted); margin-bottom: 18px; letter-spacing: 1px }
   .cake-hint b { color: var(--rose-soft) }
 
-  .cake { position: relative; width: 200px; margin: 0 auto; cursor: pointer; user-select: none }
-  .plate { width: 230px; height: 14px; margin: 0 auto; border-radius: 50%; background: linear-gradient(180deg,#e8c25a,#a67c2a); box-shadow: 0 8px 20px rgba(0,0,0,.4) }
-  .layer { position: relative; margin: 0 auto; border-radius: 14px 14px 8px 8px }
-  .l1 { width: 200px; height: 60px; background: linear-gradient(180deg,#fff0f3,#f7c9d4); margin-top: 6px; box-shadow: inset 0 -10px 0 rgba(232,99,125,.3) }
-  .l2 { width: 150px; height: 56px; background: linear-gradient(180deg,#fff8d9,#f0d88a); margin-top: -2px; box-shadow: inset 0 -10px 0 rgba(232,99,125,.35) }
-  .drip { position: absolute; top: -6px; width: 22px; height: 20px; background: #fff0f3; border-radius: 0 0 12px 12px }
-  .drip:nth-child(1){ left: 18px } .drip:nth-child(2){ right: 24px; height: 26px } .drip:nth-child(3){ left: 50%; transform: translateX(-50%) }
+  .cake-wrap { perspective: 900px; display: flex; justify-content: center; padding: 24px 0 6px }
+  .cake { position: relative; width: 230px; margin: 0 auto; cursor: pointer; user-select: none; transform-style: preserve-3d; transition: transform .3s ease }
+  .cake:hover { transform: translateY(-4px) rotateX(4deg) }
+
+  /* Plate */
+  .plate { position: relative; width: 270px; height: 16px; margin: 0 auto; border-radius: 50%; background: linear-gradient(180deg,#f4e9c8,#d4af37 60%,#a67c2a); box-shadow: 0 14px 28px rgba(0,0,0,.45), inset 0 -4px 8px rgba(0,0,0,.3) }
+  .plate::before { content:''; position:absolute; left:50%; top:-6px; transform:translateX(-50%); width:210px; height:8px; border-radius:50%; background:linear-gradient(180deg,#fff,#e8dcc0) }
+
+  /* Layers */
+  .layer { position: relative; margin: 0 auto; border-radius: 16px 16px 8px 8px; box-shadow: inset 0 -14px 20px rgba(0,0,0,.12), 0 3px 8px rgba(0,0,0,.15) }
+  .l-top { width: 150px; height: 62px; background: linear-gradient(180deg,#fffaf0,#ffe4ec); margin-top: -2px; z-index: 3; overflow: visible }
+  .l-mid { width: 190px; height: 66px; background: linear-gradient(180deg,#fff5d6,#f7d98c); margin-top: -2px; z-index: 2 }
+  .l-bot { width: 230px; height: 72px; background: linear-gradient(180deg,#ffe4ec,#f4a9bd); margin-top: -2px; z-index: 1 }
+
+  /* Frosting drip on each layer */
+  .drips { position: absolute; left: 0; right: 0; top: -5px; height: 30px; z-index: 4; pointer-events: none }
+  .drip { position: absolute; top: 0; width: 26px; border-radius: 0 0 14px 14px; background: linear-gradient(180deg,#fffefb,#fff3f5) }
+  .drips.t1 .drip { height: 22px }
+  .drips.t2 .drip { height: 28px }
+  .drips.t3 .drip { height: 24px }
+
+  /* Sprinkles */
+  .sprinkle { position: absolute; width: 7px; height: 3.5px; border-radius: 2px; opacity: .95; box-shadow: 0 1px 1px rgba(0,0,0,.08) }
+
+  /* Cherry toppers */
+  .cherry { position: absolute; top: -14px; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 30%,#ff7a94,#d62f4e); box-shadow: inset -2px -2px 3px rgba(0,0,0,.25), 0 2px 4px rgba(0,0,0,.2); z-index: 5 }
+  .cherry::after { content:''; position:absolute; top:-10px; left:6px; width:2px; height:10px; background:#3f7a3a; border-radius:2px; transform:rotate(8deg) }
 
   /* ─── Candle + flame ────────────────────── */
-  .candle { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); width: 12px; height: 40px; border-radius: 3px 3px 0 0; background: repeating-linear-gradient(45deg,var(--rose) #0 6px,#fff0f3 #6px 12px) }
-  .flame { position: absolute; top: -58px; left: 50%; transform: translateX(-50%); width: 18px; height: 26px; border-radius: 50% 50% 50% 50%/60% 60% 40% 40%; background: radial-gradient(circle at 50% 70%, #fff3c9 0%, #f0a020 45%, #b6302a 100%); box-shadow: 0 0 26px 8px rgba(240,160,32,.6); animation: flicker .18s ease-in-out infinite alternate }
-  @keyframes flicker { from { transform: translateX(-50%) scale(1) rotate(-2deg) } to { transform: translateX(-50%) scale(1.12,1.05) rotate(2deg) } }
-  .flame.out { opacity: 0; transform: translateX(-50%) scale(.2); transition: opacity .3s ease, transform .3s ease }
-  .smoke { position: absolute; top: -70px; left: 50%; width: 6px; height: 24px; border-radius: 10px; background: rgba(200,200,200,.0); transform: translateX(-50%); transition: opacity .4s ease }
+  .candle { position: absolute; top: -56px; left: 50%; transform: translateX(-50%); width: 14px; height: 52px; border-radius: 3px 3px 0 0; background: repeating-linear-gradient(45deg,var(--rose) #0 7px,#fff0f3 #7px 14px); box-shadow: inset -3px 0 4px rgba(0,0,0,.12), inset 3px 0 4px rgba(255,255,255,.4) }
+  .candle::after { content:''; position:absolute; top:-6px; left:0; right:0; height:8px; background:repeating-linear-gradient(45deg,var(--gold) #0 7px,#fff0f3 #7px 14px); border-radius:50% }
+  .flame { position: absolute; top: -82px; left: 50%; transform: translateX(-50%); width: 20px; height: 30px; border-radius: 50% 50% 50% 50%/62% 62% 38% 38%; background: radial-gradient(circle at 50% 72%, #fffef0 0%, #ffd45a 38%, #ff9a20 70%, #e04b1a 100%); box-shadow: 0 0 30px 12px rgba(255,160,40,.55), 0 0 60px 20px rgba(255,120,40,.22); animation: flicker .18s ease-in-out infinite alternate }
+  @keyframes flicker { from { transform: translateX(-50%) scale(1) rotate(-2deg) } to { transform: translateX(-50%) scale(1.12,1.06) rotate(2deg) } }
+  .flame.out { opacity: 0; transform: translateX(-50%) scale(.15); transition: opacity .3s ease, transform .3s ease }
+  .smoke { position: absolute; top: -94px; left: 50%; width: 6px; height: 28px; border-radius: 10px; background: rgba(200,200,200,.0); transform: translateX(-50%); transition: opacity .4s ease }
   .smoke.on { animation: smokeRise 1.6s ease-out forwards }
-  @keyframes smokeRise { 0% { opacity: 0; transform: translateX(-50%) translateY(0) scale(1) } 40% { opacity: .5 } 100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(2.4) } }
+  @keyframes smokeRise { 0% { opacity: 0; transform: translateX(-50%) translateY(0) scale(1) } 40% { opacity: .5 } 100% { opacity: 0; transform: translateX(-50%) translateY(-42px) scale(2.4) } }
 
-  .wish-msg { margin-top: 22px; font-family: 'Noto Serif TC', serif; font-size: clamp(18px, 5vw, 24px); color: var(--gold-soft); opacity: 0; transform: translateY(10px); transition: all .6s ease }
+  /* Little banner on the cake */
+  .banner { position: absolute; top: -30px; left: 50%; transform: translateX(-50%); font-family:'Noto Serif TC',serif; font-weight:700; font-size:12px; color:#fff; letter-spacing:1px; background:linear-gradient(90deg,var(--rose),var(--gold)); padding:3px 10px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.25); white-space:nowrap; z-index:6 }
+
+  .wish-msg { margin-top: 24px; font-family: 'Noto Serif TC', serif; font-size: clamp(18px, 5vw, 24px); color: var(--gold-soft); opacity: 0; transform: translateY(10px); transition: all .6s ease }
   .wish-msg.show { opacity: 1; transform: translateY(0) }
 
   /* ─── Message card ──────────────────────── */
@@ -173,13 +197,30 @@
   <!-- CAKE -->
   <section class="cake-section">
     <p class="cake-hint">👇 撳落去吹熄支蠟燭，許個願 👇</p>
-    <div class="cake" id="cake" role="button" aria-label="Blow out the candle" tabindex="0">
-      <div class="candle"></div>
-      <div class="flame" id="flame"></div>
-      <div class="smoke" id="smoke"></div>
-      <div class="layer l2"><span class="drip"></span><span class="drip"></span></div>
-      <div class="layer l1"><span class="drip"></span><span class="drip"></span><span class="drip"></span></div>
-      <div class="plate"></div>
+    <div class="cake-wrap">
+      <div class="cake" id="cake" role="button" aria-label="Blow out the candle" tabindex="0">
+        <!-- Cherry + candle -->
+        <span class="cherry" style="left:50%; transform:translateX(-50%)"></span>
+        <span class="banner">Happy Birthday</span>
+        <span class="candle"></span>
+        <span class="flame" id="flame"></span>
+        <span class="smoke" id="smoke"></span>
+
+        <!-- Top layer -->
+        <div class="layer l-top">
+          <div class="drips t1"><span class="drip" style="left:14%"></span><span class="drip" style="left:50%;transform:translateX(-50%)"></span><span class="drip" style="right:14%"></span></div>
+        </div>
+        <!-- Mid layer -->
+        <div class="layer l-mid">
+          <div class="drips t2"><span class="drip" style="left:10%"></span><span class="drip" style="left:45%;transform:translateX(-50%)"></span><span class="drip" style="right:10%"></span></div>
+        </div>
+        <!-- Bottom layer -->
+        <div class="layer l-bot">
+          <div class="drips t3"><span class="drip" style="left:8%"></span><span class="drip" style="left:32%;transform:translateX(-50%)"></span><span class="drip" style="left:60%;transform:translateX(-50%)"></span><span class="drip" style="right:8%"></span></div>
+        </div>
+        <!-- Plate -->
+        <div class="plate"></div>
+      </div>
     </div>
     <p class="wish-msg" id="wishMsg">願望一定會實現 —— 因為今日係你嘅大日子！🌟</p>
   </section>
@@ -274,6 +315,21 @@ function burstConfetti() { for (let i = 0; i < 60; i++) setTimeout(makePiece, i 
 
 // gentle ambient confetti on load
 setTimeout(() => { for (let i = 0; i < 24; i++) setTimeout(makePiece, i * 60); }, 900);
+
+// ─── Scatter sprinkles on each layer ──────
+const SPRINKLE_COLORS = ['#e8637d','#ffb3c1','#e8c25a','#f0d88a','#fff0f3','#7ec8e3','#b39ddb'];
+document.querySelectorAll('.layer').forEach(layer => {
+  const count = 14;
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('span');
+    s.className = 'sprinkle';
+    s.style.left = (Math.random() * 86 + 7) + '%';
+    s.style.top = (Math.random() * 72 + 10) + '%';
+    s.style.background = SPRINKLE_COLORS[Math.floor(Math.random() * SPRINKLE_COLORS.length)];
+    s.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
+    layer.appendChild(s);
+  }
+});
 </script>
 </body>
 </html>
