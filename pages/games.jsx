@@ -17,6 +17,7 @@ const games = [
   { name: 'Sudoku', emoji: '🔢', route: '/sudoku', accent: '#6bdf4a' },
   { name: 'Blackjack', emoji: '🎰', route: '/blackjack-game', accent: '#d4af37' },
   { name: 'Slot Machine', emoji: '💰', route: '/slots-game', accent: '#c8a951' },
+  { name: 'Floppy Bird', emoji: '🐦', route: '/flappy-bird', accent: '#f97316' },
 ];
 
 export default function Games() {
