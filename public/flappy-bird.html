@@ -93,9 +93,10 @@
   const ovBest = document.getElementById('ov-best');
   const playBtn = document.getElementById('play-btn');
 
-  // Logical game world (fixed size), scaled to canvas for crisp rendering.
-  const W = 420, H = 720;
-  let scale = 1, offX = 0, offY = 0;
+  // Logical game world — W fixed, H adapts to viewport so game fills screen.
+  const W = 420;
+  let H = 720;
+  let scale = 1;
 
   function resize() {
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -103,9 +104,9 @@
     canvas.height = vh * devicePixelRatio;
     canvas.style.width = vw + 'px';
     canvas.style.height = vh + 'px';
-    scale = Math.min(vw / W, vh / H);
-    offX = (vw - W * scale) / 2;
-    offY = (vh - H * scale) / 2;
+    // Scale to fill width; H expands so game fills full screen height too.
+    scale = vw / W;
+    H = vh / scale;
   }
   window.addEventListener('resize', resize);
 
@@ -242,12 +243,8 @@
     ctx.save();
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    // scale into the logical world centered on screen
-    const cw = canvas.width / devicePixelRatio;
-    const ch = canvas.height / devicePixelRatio;
-    ctx.translate(cw/2, ch/2);
-    ctx.scale(scale, scale);
-    ctx.translate(-W/2, -H/2);
+    // scale world coords to fill the full canvas (origin at top-left)
+    ctx.setTransform(scale * devicePixelRatio, 0, 0, scale * devicePixelRatio, 0, 0);
 
     drawBackground();
     drawPipes();
@@ -399,10 +396,13 @@
 
   function renderReady() {
     // idle animation for the start screen
+    ctx.save();
+    ctx.setTransform(scale * devicePixelRatio, 0, 0, scale * devicePixelRatio, 0, 0);
     drawBackground();
     drawGround();
     if (pipes.length) drawPipes();
     bird.wing = Math.max(0, bird.wing - 0.03);
+    ctx.restore();
     requestAnimationFrame(renderReady);
   }
 

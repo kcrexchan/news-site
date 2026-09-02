@@ -6,21 +6,33 @@ export default function FloppyBird() {
     <>
       <Head>
         <title>Floppy Bird 🐦</title>
-        <style>{`
-          html, body { margin: 0; padding: 0; overflow: hidden; background: #061204; }
+        <style key="flappy-fullscreen">{`
+          html, body, #__next {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+            background: #061204 !important;
+          }
           .theme-toggle { display: none !important; }
         `}</style>
       </Head>
       <iframe
         src="/flappy-bird.html"
+        scrolling="no"
+        allowFullScreen
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
+          right: 0,
+          bottom: 0,
           width: '100%',
           height: '100%',
           border: 'none',
           display: 'block',
+          overflow: 'hidden',
         }}
         title="Floppy Bird"
       />
