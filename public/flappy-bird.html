@@ -149,15 +149,92 @@
   }
 
   function gameOver() {
-    state = 'over';
+    state = 'dying';  // death animation phase before 'over'
+    // Save record now, show menu after animation
     const isRecord = score > best;
     if (isRecord) { best = score; setBest(best); }
-    ovTitle.textContent = 'Game Over';
-    ovSub.textContent = isRecord ? 'New high score! 🏅' : 'Tap to try again';
-    ovScore.textContent = String(score);
-    ovBest.textContent = String(best);
-    playBtn.textContent = 'Play Again';
-    setTimeout(() => overlay.classList.remove('hidden'), 380);
+    // Store what to show in menu for later
+    bird._isRecord = isRecord;
+    // Give the bird a strong upward bounce on hit (feels like impact), then gravity pulls it down
+    bird.vy = -280;
+    bird.dead = true;
+    lastTime = performance.now();
+    requestAnimationFrame(deathLoop);
+  }
+
+  function deathLoop(now) {
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.05) dt = 0.05;
+
+    // physics: only gravity, no pipe movement
+    bird.vy += GRAVITY * dt;
+    bird.y += bird.vy * dt;
+    bird.rot += dt * 8;  // spin on death
+
+    const groundY = H - GROUND_H - BIRD_R;
+
+    // Render frame
+    ctx.save();
+    ctx.setTransform(scale * devicePixelRatio, 0, 0, scale * devicePixelRatio, 0, 0);
+    drawBackground();
+    drawPipes();
+    drawGround();
+    // Flash red on the dead bird
+    ctx.save();
+    ctx.translate(BIRD_X, bird.y);
+    ctx.rotate(bird.rot);
+    // Red-tinted dead bird body
+    const g = ctx.createRadialGradient(-3, -4, 4, 0, 0, 18);
+    g.addColorStop(0, '#ffaaaa');
+    g.addColorStop(1, '#cc2222');
+    ctx.fillStyle = g;
+    ctx.strokeStyle = '#881111';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, BIRD_R, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    // X eyes (dead)
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(4,-9); ctx.lineTo(10,-3); ctx.moveTo(10,-9); ctx.lineTo(4,-3); ctx.stroke();
+    // beak
+    ctx.fillStyle = '#ff8c1a'; ctx.strokeStyle = '#c96a0a';
+    ctx.beginPath(); ctx.moveTo(13,-1); ctx.lineTo(22,2); ctx.lineTo(13,6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+
+    if (bird.y < groundY) {
+      // Still falling
+      requestAnimationFrame(deathLoop);
+    } else {
+      // Hit the ground — splat! show a puff, then menu
+      bird.y = groundY;
+      // Draw final splat frame
+      ctx.save();
+      ctx.setTransform(scale * devicePixelRatio, 0, 0, scale * devicePixelRatio, 0, 0);
+      drawBackground();
+      drawPipes();
+      drawGround();
+      // Draw squished dead bird (flat)
+      ctx.save();
+      ctx.translate(BIRD_X, bird.y + BIRD_R * 0.6);
+      ctx.scale(1.6, 0.4);
+      const g2 = ctx.createRadialGradient(0, 0, 2, 0, 0, 18);
+      g2.addColorStop(0, '#ffaaaa'); g2.addColorStop(1, '#cc2222');
+      ctx.fillStyle = g2;
+      ctx.beginPath(); ctx.arc(0, 0, BIRD_R, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.restore();
+
+      // Show menu after a short pause
+      state = 'over';
+      setTimeout(() => {
+        ovTitle.textContent = 'Game Over';
+        ovSub.textContent = bird._isRecord ? 'New high score! 🏅' : 'Tap to try again';
+        ovScore.textContent = String(score);
+        ovBest.textContent = String(best);
+        playBtn.textContent = 'Play Again';
+        overlay.classList.remove('hidden');
+      }, 600);
+    }
   }
 
   function flap(silent) {
@@ -168,8 +245,10 @@
       for (let i = 0; i < 4; i++) {
         particles.push({ x: BIRD_X - 6, y: bird.y + 4, vx: -60 - Math.random()*60, vy: (Math.random()-0.5)*80, life: 0.4, max: 0.4 });
       }
-    } else if (!silent && state !== 'playing') {
-      // Tap on overlays: ready → start; over → restart
+    } else if (!silent && state === 'over') {
+      // Only restart from 'over' state — not during death animation
+      startGame();
+    } else if (!silent && state === 'ready') {
       startGame();
     }
   }
