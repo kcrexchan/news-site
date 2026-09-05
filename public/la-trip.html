@@ -181,6 +181,24 @@
     border-top: 1px solid var(--border); padding-top: 1.5rem; line-height: 1.6;
   }
 
+  .map-link {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+    font-size: 12px; color: var(--accent-blue); text-decoration: none; font-weight: 600;
+  }
+  .map-link:hover { text-decoration: underline; }
+
+  .refs {
+    display: flex; flex-direction: column; gap: 8px; margin-top: 14px;
+  }
+  .refs a {
+    font-size: 12px; color: var(--text-secondary); text-decoration: none;
+    padding: 8px 12px; border-radius: 8px; background: var(--card-bg); border: 1px solid var(--border);
+    display: flex; justify-content: space-between; gap: 10px; transition: all .2s;
+  }
+  .refs a:hover { color: var(--accent-green); border-color: var(--accent-green); }
+  .refs .ref-label { color: var(--text-primary); font-weight: 600; flex-shrink: 0; }
+  .refs .ref-url { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+
   @media (max-width: 560px) {
     .route-stats { grid-template-columns: 1fr; gap: 10px; }
     .weather-grid { grid-template-columns: 1fr; }
@@ -212,6 +230,7 @@
     <a href="#weather">🌤️ Weather</a>
     <a href="#itinerary">📅 3-Day Itinerary</a>
     <a href="#neighborhoods">🏙️ Neighborhoods</a>
+    <a href="#references">📚 References</a>
   </nav>
 
   <section id="route">
@@ -226,6 +245,7 @@
         The fastest route runs down I-5 through the Central Valley and over the Grapevine (Tejon Pass)
         into the LA Basin. Plan 6–8 hours total once you add fuel/food stops and traffic.
       </p>
+      <a class="map-link" href="https://www.google.com/maps/dir/San+Mateo,+CA/Los+Angeles,+CA/data=!4m2!4m1!3e0" target="_blank" rel="noopener">🗺️ Open full route in Google Maps →</a>
       <div class="advisory">
         <span class="icon">⚠️</span>
         <div>
@@ -248,26 +268,32 @@
         <div class="waypoint">
           <div class="wp-head"><h4>🥩 Harris Ranch / Coalinga</h4><span class="wp-meta">~167 mi · ~2h–2h15</span></div>
           <p>Best mid-trip fuel + full meal stop. Shell truck center with gas, food court (Denny's, Carl's Jr., Burger King), plus the famous Harris Ranch Inn &amp; Restaurant — ranch-raised steaks. Hotels on both sides of I-5 if you want to break the drive overnight.</p>
+          <a class="map-link" href="https://www.google.com/maps/search/Harris+Ranch+Inn+%26+Restaurant+Coalinga+CA" target="_blank" rel="noopener">📍 View on Google Maps →</a>
         </div>
         <div class="waypoint">
           <div class="wp-head"><h4>🍦 Kettleman City</h4><span class="wp-meta">~200 mi · ~3h</span></div>
           <p>The "middle of California" small-town stop. A pilgrimage-worthy In-N-Out on SR-41, Doc Burnstein's ice cream, and Bravo Farms for cheese/snacks. Gas stations at the SR-41 exit — a good quick stretch-and-fuel break.</p>
+          <a class="map-link" href="https://www.google.com/maps/search/Kettleman+City,+CA" target="_blank" rel="noopener">📍 View on Google Maps →</a>
         </div>
         <div class="waypoint">
           <div class="wp-head"><h4>⛽ Buttonwillow</h4><span class="wp-meta">~260 mi · ~4h</span></div>
           <p>Big truck-stop services: TA Travel Center + "I-5 Oasis" (Sinclair gas, food court incl. Krispy Kreme, Starbucks, McDonald's) — one of the last full-service stops before the mountain pass. Local eats nearby: Mi Lindo Manzanillo, Tacos El Paraiso.</p>
+          <a class="map-link" href="https://www.google.com/maps/search/Buttonwillow,+CA" target="_blank" rel="noopener">📍 View on Google Maps →</a>
         </div>
         <div class="waypoint">
           <div class="wp-head"><h4>🍕 Bakersfield</h4><span class="wp-meta">~263 mi · ~4h–4h10</span></div>
           <p>Largest city on the route — full downtown dining, gas everywhere, ATMs, hotels. Known for thick-crust pies (Flame's Pizza, Zeppo's). <strong style="color: var(--accent-amber);">Fill up here</strong> — fuel gets scarce between Bakersfield and Palmdale.</p>
+          <a class="map-link" href="https://www.google.com/maps/search/Bakersfield,+CA" target="_blank" rel="noopener">📍 View on Google Maps →</a>
         </div>
         <div class="waypoint">
           <div class="wp-head"><h4>⛰️ Grapevine / Tejon Pass Summit</h4><span class="wp-meta">~283 mi · ~4h20</span></div>
           <p>Summit rest areas (both directions) with views into the San Gabriel Mountains and Antelope Valley. Weather watch: high winds/fog can close this pass — the wind advisory above applies right here.</p>
+          <a class="map-link" href="https://www.google.com/maps/search/Tejon+Pass,+CA" target="_blank" rel="noopener">📍 View on Google Maps →</a>
         </div>
         <div class="waypoint">
           <div class="wp-head"><h4>🏁 Santa Clarita → Downtown LA</h4><span class="wp-meta">~327–370 mi · ~5h–5h40</span></div>
           <p>The final stretch. Note: California mileposts count down as you head south, so signage will read decreasing numbers from Harris Ranch to the Grapevine.</p>
+          <a class="map-link" href="https://www.google.com/maps/search/Downtown+Los+Angeles,+CA" target="_blank" rel="noopener">📍 View on Google Maps →</a>
         </div>
       </div>
       <ul class="tip-list">
@@ -334,9 +360,9 @@
         <div><h3>Hollywood &amp; Griffith</h3><div class="day-tag">Stars, sign views, and a hilltop sunset</div></div>
       </div>
       <div class="stop-list">
-        <div class="stop"><span class="icon">🎬</span><div><h4>Hollywood Blvd &amp; TCL Chinese Theatre</h4><p>Handprints, footprints, and movie-star plaster hands in the forecourt (6925 Hollywood Blvd). 30–45 minutes is plenty.</p></div></div>
-        <div class="stop"><span class="icon">⭐</span><div><h4>Walk of Fame</h4><p>The star-studded sidewalk runs both directions along Hollywood Blvd, past the old TCL and El Capitan marquees. One hour max — it's kitsch by design.</p></div></div>
-        <div class="stop"><span class="icon">🔭</span><div><h4>Griffith Observatory (sunset)</h4><p>Free admission with postcard views of the city basin and Hollywood Sign. Arrive 60–90 min before sunset. Lot fills by midday — park early or use the Greek Theatre lot.</p></div></div>
+        <div class="stop"><span class="icon">🎬</span><div><h4>Hollywood Blvd &amp; TCL Chinese Theatre</h4><p>Handprints, footprints, and movie-star plaster hands in the forecourt (6925 Hollywood Blvd). 30–45 minutes is plenty.</p><a class="map-link" href="https://www.google.com/maps/search/TCL+Chinese+Theatre+Hollywood" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">⭐</span><div><h4>Walk of Fame</h4><p>The star-studded sidewalk runs both directions along Hollywood Blvd, past the old TCL and El Capitan marquees. One hour max — it's kitsch by design.</p><a class="map-link" href="https://www.google.com/maps/search/Hollywood+Walk+of+Fame" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">🔭</span><div><h4>Griffith Observatory (sunset)</h4><p>Free admission with postcard views of the city basin and Hollywood Sign. Arrive 60–90 min before sunset. Lot fills by midday — park early or use the Greek Theatre lot.</p><a class="map-link" href="https://www.google.com/maps/search/Griffith+Observatory" target="_blank" rel="noopener">📍 Maps →</a></div></div>
       </div>
       <div class="food-pick"><span class="icon">🥗</span><div><strong>Food pick:</strong><p>Sqirl (Silver Lake) for brunch — L.A.'s most famous casual brunch spot: vegetable-forward plates, house-made pasta. Expect a line; go early.</p></div></div>
     </div>
@@ -347,10 +373,10 @@
         <div><h3>Santa Monica &amp; Venice</h3><div class="day-tag">Beach day — walkable or a short bike ride</div></div>
       </div>
       <div class="stop-list">
-        <div class="stop"><span class="icon">🎡</span><div><h4>Santa Monica Pier (go early)</h4><p>Amusement rides, the giant Ferris wheel with ocean views. Mornings are cool and quiet; by midday it's a proper crowd.</p></div></div>
-        <div class="stop"><span class="icon">🚲</span><div><h4>Coastal bike path to Venice</h4><p>Rent bikes at the pier, ride ~2.5 flat scenic miles west to Venice (10–15 min). The best "I'm actually in L.A." moment on this trip.</p></div></div>
-        <div class="stop"><span class="icon">🏖️</span><div><h4>Venice Boardwalk &amp; Muscle Beach</h4><p>Street performers, tarot readers, a skate park, and the outdoor gym where locals lift by the surf. No admission — just walk end to end.</p></div></div>
-        <div class="stop"><span class="icon">🎨</span><div><h4>Venice Canals + Abbot Kinney Blvd</h4><p>A 10-minute wander through the painted-house canals, then a slow stroll down Abbot Kinney: boutiques, vintage shops, cafés, food trucks.</p></div></div>
+        <div class="stop"><span class="icon">🎡</span><div><h4>Santa Monica Pier (go early)</h4><p>Amusement rides, the giant Ferris wheel with ocean views. Mornings are cool and quiet; by midday it's a proper crowd.</p><a class="map-link" href="https://www.google.com/maps/search/Santa+Monica+Pier" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">🚲</span><div><h4>Coastal bike path to Venice</h4><p>Rent bikes at the pier, ride ~2.5 flat scenic miles west to Venice (10–15 min). The best "I'm actually in L.A." moment on this trip.</p><a class="map-link" href="https://www.google.com/maps/dir/Santa+Monica+Pier/Venice+Beach,+CA" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">🏖️</span><div><h4>Venice Boardwalk &amp; Muscle Beach</h4><p>Street performers, tarot readers, a skate park, and the outdoor gym where locals lift by the surf. No admission — just walk end to end.</p><a class="map-link" href="https://www.google.com/maps/search/Muscle+Beach+Venice" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">🎨</span><div><h4>Venice Canals + Abbot Kinney Blvd</h4><p>A 10-minute wander through the painted-house canals, then a slow stroll down Abbot Kinney: boutiques, vintage shops, cafés, food trucks.</p><a class="map-link" href="https://www.google.com/maps/search/Venice+Canals+Abbot+Kinney" target="_blank" rel="noopener">📍 Maps →</a></div></div>
       </div>
       <div class="food-pick"><span class="icon">🍕</span><div><strong>Food pick:</strong><p>Gjusta (Abbot Kinney Blvd) — wood-fired pizzas, pastas, huge shared plates. Books out fast on weekends; go off-peak (~10am). Alternative: Gjelina across the street.</p></div></div>
     </div>
@@ -361,10 +387,10 @@
         <div><h3>DTLA, The Broad &amp; Koreatown</h3><div class="day-tag">Food hall, modern art, and a KBBQ send-off (+ optional Getty)</div></div>
       </div>
       <div class="stop-list">
-        <div class="stop"><span class="icon">🌮</span><div><h4>Grand Central Market</h4><p>L.A.'s historic open-air food hall on Broadway (daily 8am–9pm). 40+ vendors — tacos, ramen, oysters, pastries. Free entry, best $20 meal in the city.</p></div></div>
-        <div class="stop"><span class="icon">🖼️</span><div><h4>The Broad</h4><p>Free general admission modern art museum (closed Mondays) — Warhol's Marilyn dioramas and a huge contemporary collection. Walk-ups available; reserve online for guaranteed entry.</p></div></div>
-        <div class="stop"><span class="icon">🎭</span><div><h4>Arts District &amp; Walt Disney Concert Hall</h4><p>15-min walk south into warehouse galleries, murals, and craft-beer bars, looping past the Gehry-designed Concert Hall — one of L.A.'s best photo spots.</p></div></div>
-        <div class="stop"><span class="icon">🏛️</span><div><h4>Optional: The Getty Center</h4><p>Free admission (timed-entry reservation recommended), art collections in a Renzo Piano complex with sweeping city views. Parking $25/car ($15 after 3pm).</p></div></div>
+        <div class="stop"><span class="icon">🌮</span><div><h4>Grand Central Market</h4><p>L.A.'s historic open-air food hall on Broadway (daily 8am–9pm). 40+ vendors — tacos, ramen, oysters, pastries. Free entry, best $20 meal in the city.</p><a class="map-link" href="https://www.google.com/maps/search/Grand+Central+Market+Los+Angeles" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">🖼️</span><div><h4>The Broad</h4><p>Free general admission modern art museum (closed Mondays) — Warhol's Marilyn dioramas and a huge contemporary collection. Walk-ups available; reserve online for guaranteed entry.</p><a class="map-link" href="https://www.google.com/maps/search/The+Broad+Museum+Los+Angeles" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">🎭</span><div><h4>Arts District &amp; Walt Disney Concert Hall</h4><p>15-min walk south into warehouse galleries, murals, and craft-beer bars, looping past the Gehry-designed Concert Hall — one of L.A.'s best photo spots.</p><a class="map-link" href="https://www.google.com/maps/search/Walt+Disney+Concert+Hall" target="_blank" rel="noopener">📍 Maps →</a></div></div>
+        <div class="stop"><span class="icon">🏛️</span><div><h4>Optional: The Getty Center</h4><p>Free admission (timed-entry reservation recommended), art collections in a Renzo Piano complex with sweeping city views. Parking $25/car ($15 after 3pm).</p><a class="map-link" href="https://www.google.com/maps/search/The+Getty+Center" target="_blank" rel="noopener">📍 Maps →</a></div></div>
       </div>
       <div class="food-pick"><span class="icon">🥩</span><div><strong>Food pick:</strong><p>Korean BBQ in Koreatown — Parks on Western Ave for a sit-down grill-your-own dinner, or Kingyubu nearby for cheap-and-filling yubu pockets.</p></div></div>
     </div>
@@ -388,6 +414,24 @@
         <li><strong>Hours:</strong> The Broad is closed Mondays; Grand Central Market runs daily 8am–9pm; Griffith Observatory is best at sunset.</li>
         <li><strong>Reservations worth making ahead:</strong> Sqirl and Gjusta on weekends, plus any sit-down K-Town dinner for groups of four or more.</li>
       </ul>
+    </div>
+  </section>
+
+  <section id="references">
+    <div class="section-title">📚 References &amp; Sources</div>
+    <div class="card">
+      <div class="refs">
+        <a href="https://roads.dot.ca.gov/roadscell.php?roadnumber=5" target="_blank" rel="noopener"><span class="ref-label">Caltrans Road Information — I-5 conditions</span><span class="ref-url">roads.dot.ca.gov</span></a>
+        <a href="https://www.weather.gov/lox/" target="_blank" rel="noopener"><span class="ref-label">NWS Los Angeles — forecast &amp; advisories</span><span class="ref-url">weather.gov/lox</span></a>
+        <a href="https://www.accuweather.com/en/us/los-angeles/90012/september-weather/347625" target="_blank" rel="noopener"><span class="ref-label">AccuWeather — LA September climate data</span><span class="ref-url">accuweather.com</span></a>
+        <a href="https://www.travelmath.com/" target="_blank" rel="noopener"><span class="ref-label">TravelMath — distance &amp; drive-time tables</span><span class="ref-url">travelmath.com</span></a>
+        <a href="https://www.thebroad.org/" target="_blank" rel="noopener"><span class="ref-label">The Broad — hours &amp; admission</span><span class="ref-url">thebroad.org</span></a>
+        <a href="https://grandcentralmarket.com/" target="_blank" rel="noopener"><span class="ref-label">Grand Central Market — official site</span><span class="ref-url">grandcentralmarket.com</span></a>
+        <a href="https://www.getty.edu/visit/" target="_blank" rel="noopener"><span class="ref-label">The Getty Center — visitor info &amp; parking</span><span class="ref-url">getty.edu</span></a>
+        <a href="https://www.discoverlosangeles.com/" target="_blank" rel="noopener"><span class="ref-label">Discover Los Angeles — attraction guides</span><span class="ref-url">discoverlosangeles.com</span></a>
+        <a href="https://www.tripadvisor.com/Attractions-g32655-Activities-Los_Angeles_California.html" target="_blank" rel="noopener"><span class="ref-label">Tripadvisor — LA attractions &amp; reviews</span><span class="ref-url">tripadvisor.com</span></a>
+        <a href="https://www.thrillist.com/travel/los-angeles/highway-5-california-rest-stops" target="_blank" rel="noopener"><span class="ref-label">Thrillist — best I-5 rest stops</span><span class="ref-url">thrillist.com</span></a>
+      </div>
     </div>
   </section>
 
