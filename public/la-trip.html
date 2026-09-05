@@ -21,6 +21,7 @@
     --accent-green: #5abf3d;
     --accent-amber: #c8a951;
     --accent-red: #e0705a;
+    --accent-blue: #6bb3df;
   }
 
   body {
@@ -30,7 +31,7 @@
     min-height: 100vh;
   }
 
-  .container { max-width: 880px; margin: 0 auto; padding: 3.5rem 1.5rem 4rem; }
+  .container { max-width: 900px; margin: 0 auto; padding: 3.5rem 1.5rem 4rem; }
 
   .back-link {
     display: inline-flex; align-items: center; gap: 6px;
@@ -39,7 +40,7 @@
   }
   .back-link:hover { color: var(--accent-green); }
 
-  header.hero { text-align: center; margin-bottom: 3rem; }
+  header.hero { text-align: center; margin-bottom: 2.5rem; }
   header.hero h1 {
     font-size: clamp(30px, 6vw, 44px); font-weight: 700; letter-spacing: -0.02em;
     background: linear-gradient(135deg, #6bdf4a, #c8a951, #5abf3d, #e0c060);
@@ -54,11 +55,26 @@
     color: var(--accent-green); font-weight: 600;
   }
 
-  section { margin-bottom: 2.25rem; }
+  /* Table of contents */
+  .toc {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);
+  }
+  .toc a {
+    font-size: 12px; padding: 7px 14px; border-radius: 999px;
+    background: var(--card-bg); border: 1px solid var(--border);
+    color: var(--text-secondary); text-decoration: none; transition: all .2s;
+  }
+  .toc a:hover { color: var(--accent-amber); border-color: var(--accent-amber); }
+
+  section { margin-bottom: 3rem; scroll-margin-top: 20px; }
   .section-title {
     font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--text-muted); font-weight: 700; margin-bottom: 14px;
     display: flex; align-items: center; gap: 8px;
+  }
+  .section-sub {
+    font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;
   }
 
   .card {
@@ -88,15 +104,77 @@
   .weather-grid .metric-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
   .weather-grid .metric-value { font-size: 20px; font-weight: 700; color: var(--text-primary); }
 
-  .stop-list { display: flex; flex-direction: column; gap: 12px; }
-  .stop {
-    display: flex; gap: 16px; align-items: flex-start;
-    background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px;
-    padding: 16px 18px;
+  /* Waypoint timeline */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before {
+    content: ''; position: absolute; left: 8px; top: 6px; bottom: 6px; width: 2px;
+    background: linear-gradient(180deg, var(--accent-green), var(--accent-amber));
   }
-  .stop .icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
-  .stop h4 { font-size: 15px; margin-bottom: 4px; }
-  .stop p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .waypoint { position: relative; margin-bottom: 20px; }
+  .waypoint::before {
+    content: ''; position: absolute; left: -28px; top: 4px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--accent-green); border: 2px solid var(--bg-deep);
+  }
+  .waypoint .wp-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .waypoint h4 { font-size: 15px; color: var(--text-primary); }
+  .waypoint .wp-meta { font-size: 11px; color: var(--accent-amber); font-weight: 600; background: rgba(200,169,81,0.1); padding: 2px 8px; border-radius: 6px; }
+  .waypoint p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+  .alt-routes { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .alt-route {
+    background: rgba(107,179,223,0.06); border: 1px solid rgba(107,179,223,0.25);
+    border-radius: 12px; padding: 12px 16px;
+  }
+  .alt-route .name { font-size: 13px; font-weight: 700; color: var(--accent-blue); margin-bottom: 3px; }
+  .alt-route p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  .tip-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .tip-list li { list-style: none; font-size: 13px; color: var(--text-secondary); padding-left: 20px; position: relative; line-height: 1.5; }
+  .tip-list li::before { content: '💡'; position: absolute; left: 0; top: 0; font-size: 12px; }
+
+  /* Day cards for LA itinerary */
+  .day-card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 18px;
+    padding: 24px; margin-bottom: 18px;
+  }
+  .day-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .day-num {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent-green), var(--accent-amber));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: #0a1a06;
+  }
+  .day-header h3 { font-size: 17px; color: var(--text-primary); }
+  .day-header .day-tag { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .day-intro { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; font-style: italic; }
+
+  .stop-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+  .stop {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .stop .icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .stop h4 { font-size: 14px; margin-bottom: 4px; }
+  .stop p { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+
+  .food-pick {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: rgba(200,169,81,0.08); border: 1px solid rgba(200,169,81,0.28);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .food-pick .icon { font-size: 18px; flex-shrink: 0; }
+  .food-pick strong { color: var(--accent-amber); }
+  .food-pick p { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin-top: 2px; }
+
+  /* Neighborhoods */
+  .hood-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hood {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .hood h4 { font-size: 13px; color: var(--accent-green); margin-bottom: 5px; }
+  .hood p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
 
   .source-note {
     font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 3rem;
@@ -106,6 +184,9 @@
   @media (max-width: 560px) {
     .route-stats { grid-template-columns: 1fr; gap: 10px; }
     .weather-grid { grid-template-columns: 1fr; }
+    .hood-grid { grid-template-columns: 1fr; }
+    .timeline { padding-left: 22px; }
+    .waypoint::before { left: -22px; }
   }
 </style>
 </head>
@@ -117,39 +198,106 @@
 
   <header class="hero">
     <h1>Los Angeles Trip Briefing</h1>
-    <p>San Mateo → Los Angeles · Road trip conditions, weather &amp; things to do</p>
+    <p>San Mateo → Los Angeles · Full road trip guide: route, waypoints, weather &amp; a 3-day itinerary</p>
     <div class="badge-row">
       <span class="badge">🚗 On the road</span>
       <span class="badge">☀️ Fun trip</span>
     </div>
   </header>
 
-  <section>
-    <div class="section-title">🛣️ Route &amp; Traffic</div>
+  <nav class="toc">
+    <a href="#route">🛣️ Route</a>
+    <a href="#waypoints">📍 Waypoints</a>
+    <a href="#alt-routes">🗺️ Alt Routes</a>
+    <a href="#weather">🌤️ Weather</a>
+    <a href="#itinerary">📅 3-Day Itinerary</a>
+    <a href="#neighborhoods">🏙️ Neighborhoods</a>
+  </nav>
+
+  <section id="route">
+    <div class="section-title">🛣️ Route &amp; Traffic Advisory</div>
     <div class="card">
       <div class="route-stats">
-        <div class="stat"><div class="num">~380 mi</div><div class="label">Distance (I-5)</div></div>
-        <div class="stat"><div class="num">~5.5–6 hrs</div><div class="label">Drive time (no stops)</div></div>
+        <div class="stat"><div class="num">~370 mi</div><div class="label">Distance (I-5)</div></div>
+        <div class="stat"><div class="num">~5h40m</div><div class="label">Drive time (no stops)</div></div>
         <div class="stat"><div class="num">I-5 South</div><div class="label">Primary route</div></div>
       </div>
       <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
         The fastest route runs down I-5 through the Central Valley and over the Grapevine (Tejon Pass)
-        into the LA Basin. Alternative: US-101 along the coast — scenic but ~1.5 hrs longer.
+        into the LA Basin. Plan 6–8 hours total once you add fuel/food stops and traffic.
       </p>
       <div class="advisory">
         <span class="icon">⚠️</span>
         <div>
           <strong>Grapevine wind advisory in effect.</strong> Caltrans reports a high wind advisory
-          from the LA/Kern County line to south of SR‑99 (the Grapevine). Travel is <em>not recommended
+          from the LA/Kern County line to south of SR-99 (the Grapevine). Travel is <em>not recommended
           for campers, trailers, or high-profile/permit loads</em>. Regular passenger cars: drive with caution,
-          keep a firm grip on the wheel through the pass. No other restrictions reported on I-5 north or south sections.
+          keep a firm grip on the wheel through the pass. Seasonal wind/fog is the main risk to your schedule —
+          check Caltrans traffic cams before the climb.
           <br><span style="color: var(--text-muted); font-size: 11px;">Source: Caltrans Road Information, checked Sept 5, 2026, 6:40 AM.</span>
         </div>
       </div>
     </div>
   </section>
 
-  <section>
+  <section id="waypoints">
+    <div class="section-title">📍 Waypoints &amp; Rest Stops</div>
+    <p class="section-sub">Checkpoints along I-5 south of San Mateo, in order — fuel up strategically, the desert stretch between Kettleman City and Buttonwillow runs thin on gas.</p>
+    <div class="card">
+      <div class="timeline">
+        <div class="waypoint">
+          <div class="wp-head"><h4>🥩 Harris Ranch / Coalinga</h4><span class="wp-meta">~167 mi · ~2h–2h15</span></div>
+          <p>Best mid-trip fuel + full meal stop. Shell truck center with gas, food court (Denny's, Carl's Jr., Burger King), plus the famous Harris Ranch Inn &amp; Restaurant — ranch-raised steaks. Hotels on both sides of I-5 if you want to break the drive overnight.</p>
+        </div>
+        <div class="waypoint">
+          <div class="wp-head"><h4>🍦 Kettleman City</h4><span class="wp-meta">~200 mi · ~3h</span></div>
+          <p>The "middle of California" small-town stop. A pilgrimage-worthy In-N-Out on SR-41, Doc Burnstein's ice cream, and Bravo Farms for cheese/snacks. Gas stations at the SR-41 exit — a good quick stretch-and-fuel break.</p>
+        </div>
+        <div class="waypoint">
+          <div class="wp-head"><h4>⛽ Buttonwillow</h4><span class="wp-meta">~260 mi · ~4h</span></div>
+          <p>Big truck-stop services: TA Travel Center + "I-5 Oasis" (Sinclair gas, food court incl. Krispy Kreme, Starbucks, McDonald's) — one of the last full-service stops before the mountain pass. Local eats nearby: Mi Lindo Manzanillo, Tacos El Paraiso.</p>
+        </div>
+        <div class="waypoint">
+          <div class="wp-head"><h4>🍕 Bakersfield</h4><span class="wp-meta">~263 mi · ~4h–4h10</span></div>
+          <p>Largest city on the route — full downtown dining, gas everywhere, ATMs, hotels. Known for thick-crust pies (Flame's Pizza, Zeppo's). <strong style="color: var(--accent-amber);">Fill up here</strong> — fuel gets scarce between Bakersfield and Palmdale.</p>
+        </div>
+        <div class="waypoint">
+          <div class="wp-head"><h4>⛰️ Grapevine / Tejon Pass Summit</h4><span class="wp-meta">~283 mi · ~4h20</span></div>
+          <p>Summit rest areas (both directions) with views into the San Gabriel Mountains and Antelope Valley. Weather watch: high winds/fog can close this pass — the wind advisory above applies right here.</p>
+        </div>
+        <div class="waypoint">
+          <div class="wp-head"><h4>🏁 Santa Clarita → Downtown LA</h4><span class="wp-meta">~327–370 mi · ~5h–5h40</span></div>
+          <p>The final stretch. Note: California mileposts count down as you head south, so signage will read decreasing numbers from Harris Ranch to the Grapevine.</p>
+        </div>
+      </div>
+      <ul class="tip-list">
+        <li>Refuel at Harris Ranch or Bakersfield — both have full truck-stop service.</li>
+        <li>Best single-meal-stop plan if you only want to stop twice: lunch at Harris Ranch, last break at Bakersfield.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="alt-routes">
+    <div class="section-title">🗺️ Alternate Scenic Routes</div>
+    <div class="card">
+      <div class="alt-routes">
+        <div class="alt-route">
+          <div class="name">US-101 Central Coast → Santa Barbara</div>
+          <p>~430–460 mi, roughly <strong>+1h–1.5h</strong> over direct I-5 (~7h total). Passes Monterey &amp; Carmel, an optional Big Sur detour, Pismo Beach, and Santa Barbara.</p>
+        </div>
+        <div class="alt-route">
+          <div class="name">Highway 1 Full Pacific Coast Highway</div>
+          <p>Monterey → Big Sur → Hearst Castle/San Simeon → Santa Barbara → LA. ~500 mi, <strong>10–12h+ of driving</strong> (+4–6h). Best as a multi-day trip — watch for Big Sur road closures.</p>
+        </div>
+        <div class="alt-route">
+          <div class="name">US-395 Sierra Side-Trip</div>
+          <p>Exit I-5 at Fresno, run down US-395 past Sequoia/Kings Canyon National Parks, rejoin the Valley near Visalia/Tulare. <strong>+1h–2h</strong>. Giant sequoias and mountain scenery as a break from the flat Central Valley.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="weather">
     <div class="section-title">🌤️ Los Angeles Weather</div>
     <div class="weather-grid">
       <div class="card">
@@ -176,41 +324,79 @@
     </p>
   </section>
 
-  <section>
-    <div class="section-title">📍 Fun Things To Do</div>
-    <div class="stop-list">
-      <div class="stop">
-        <span class="icon">🎢</span>
-        <div><h4>Universal Studios Hollywood</h4><p>Studio tour, rides, and Super Nintendo World if you want a full-day theme park fix.</p></div>
+  <section id="itinerary">
+    <div class="section-title">📅 A Relaxed 3-Day Itinerary</div>
+    <p class="section-sub">One area per day to keep driving minimal — add ~30 min for LA traffic between zones. Most sights below are free or low-cost; only planetarium shows and museum special exhibits carry extra fees.</p>
+
+    <div class="day-card">
+      <div class="day-header">
+        <div class="day-num">1</div>
+        <div><h3>Hollywood &amp; Griffith</h3><div class="day-tag">Stars, sign views, and a hilltop sunset</div></div>
       </div>
-      <div class="stop">
-        <span class="icon">🔭</span>
-        <div><h4>Griffith Observatory</h4><p>Free admission, iconic Hollywood Sign + city skyline views — best around sunset.</p></div>
+      <div class="stop-list">
+        <div class="stop"><span class="icon">🎬</span><div><h4>Hollywood Blvd &amp; TCL Chinese Theatre</h4><p>Handprints, footprints, and movie-star plaster hands in the forecourt (6925 Hollywood Blvd). 30–45 minutes is plenty.</p></div></div>
+        <div class="stop"><span class="icon">⭐</span><div><h4>Walk of Fame</h4><p>The star-studded sidewalk runs both directions along Hollywood Blvd, past the old TCL and El Capitan marquees. One hour max — it's kitsch by design.</p></div></div>
+        <div class="stop"><span class="icon">🔭</span><div><h4>Griffith Observatory (sunset)</h4><p>Free admission with postcard views of the city basin and Hollywood Sign. Arrive 60–90 min before sunset. Lot fills by midday — park early or use the Greek Theatre lot.</p></div></div>
       </div>
-      <div class="stop">
-        <span class="icon">🏖️</span>
-        <div><h4>Santa Monica Pier &amp; Venice Beach Boardwalk</h4><p>Classic SoCal beach walk, street performers, and the Pacific Park ferris wheel.</p></div>
+      <div class="food-pick"><span class="icon">🥗</span><div><strong>Food pick:</strong><p>Sqirl (Silver Lake) for brunch — L.A.'s most famous casual brunch spot: vegetable-forward plates, house-made pasta. Expect a line; go early.</p></div></div>
+    </div>
+
+    <div class="day-card">
+      <div class="day-header">
+        <div class="day-num">2</div>
+        <div><h3>Santa Monica &amp; Venice</h3><div class="day-tag">Beach day — walkable or a short bike ride</div></div>
       </div>
-      <div class="stop">
-        <span class="icon">🖼️</span>
-        <div><h4>The Getty Center</h4><p>Free museum with world-class art and gardens, plus a tram ride up with sweeping city views.</p></div>
+      <div class="stop-list">
+        <div class="stop"><span class="icon">🎡</span><div><h4>Santa Monica Pier (go early)</h4><p>Amusement rides, the giant Ferris wheel with ocean views. Mornings are cool and quiet; by midday it's a proper crowd.</p></div></div>
+        <div class="stop"><span class="icon">🚲</span><div><h4>Coastal bike path to Venice</h4><p>Rent bikes at the pier, ride ~2.5 flat scenic miles west to Venice (10–15 min). The best "I'm actually in L.A." moment on this trip.</p></div></div>
+        <div class="stop"><span class="icon">🏖️</span><div><h4>Venice Boardwalk &amp; Muscle Beach</h4><p>Street performers, tarot readers, a skate park, and the outdoor gym where locals lift by the surf. No admission — just walk end to end.</p></div></div>
+        <div class="stop"><span class="icon">🎨</span><div><h4>Venice Canals + Abbot Kinney Blvd</h4><p>A 10-minute wander through the painted-house canals, then a slow stroll down Abbot Kinney: boutiques, vintage shops, cafés, food trucks.</p></div></div>
       </div>
-      <div class="stop">
-        <span class="icon">🍜</span>
-        <div><h4>Koreatown / Grand Central Market</h4><p>Some of LA's best food density — great stop for dinner after a long drive.</p></div>
+      <div class="food-pick"><span class="icon">🍕</span><div><strong>Food pick:</strong><p>Gjusta (Abbot Kinney Blvd) — wood-fired pizzas, pastas, huge shared plates. Books out fast on weekends; go off-peak (~10am). Alternative: Gjelina across the street.</p></div></div>
+    </div>
+
+    <div class="day-card">
+      <div class="day-header">
+        <div class="day-num">3</div>
+        <div><h3>DTLA, The Broad &amp; Koreatown</h3><div class="day-tag">Food hall, modern art, and a KBBQ send-off (+ optional Getty)</div></div>
       </div>
-      <div class="stop">
-        <span class="icon">🌉</span>
-        <div><h4>Downtown LA &amp; Arts District</h4><p>Murals, rooftop bars, and walkable architecture if you want an evening out.</p></div>
+      <div class="stop-list">
+        <div class="stop"><span class="icon">🌮</span><div><h4>Grand Central Market</h4><p>L.A.'s historic open-air food hall on Broadway (daily 8am–9pm). 40+ vendors — tacos, ramen, oysters, pastries. Free entry, best $20 meal in the city.</p></div></div>
+        <div class="stop"><span class="icon">🖼️</span><div><h4>The Broad</h4><p>Free general admission modern art museum (closed Mondays) — Warhol's Marilyn dioramas and a huge contemporary collection. Walk-ups available; reserve online for guaranteed entry.</p></div></div>
+        <div class="stop"><span class="icon">🎭</span><div><h4>Arts District &amp; Walt Disney Concert Hall</h4><p>15-min walk south into warehouse galleries, murals, and craft-beer bars, looping past the Gehry-designed Concert Hall — one of L.A.'s best photo spots.</p></div></div>
+        <div class="stop"><span class="icon">🏛️</span><div><h4>Optional: The Getty Center</h4><p>Free admission (timed-entry reservation recommended), art collections in a Renzo Piano complex with sweeping city views. Parking $25/car ($15 after 3pm).</p></div></div>
       </div>
+      <div class="food-pick"><span class="icon">🥩</span><div><strong>Food pick:</strong><p>Korean BBQ in Koreatown — Parks on Western Ave for a sit-down grill-your-own dinner, or Kingyubu nearby for cheap-and-filling yubu pockets.</p></div></div>
+    </div>
+  </section>
+
+  <section id="neighborhoods">
+    <div class="section-title">🏙️ Neighborhoods to Know</div>
+    <div class="hood-grid">
+      <div class="hood"><h4>Hollywood</h4><p>The postcard version of L.A.: the Blvd, the Sign, the studios' shadow. Tourist by day, surprisingly lively dining scene by night.</p></div>
+      <div class="hood"><h4>Santa Monica</h4><p>Polished beachfront city with a working pier and Montana Avenue's upscale shops — the friendliest entry point to coastal L.A.</p></div>
+      <div class="hood"><h4>Venice Beach</h4><p>Chaotic, colorful, gloriously weird: street performers, canals, skate culture, and the best $10 lunch on Abbot Kinney.</p></div>
+      <div class="hood"><h4>Downtown LA (DTLA)</h4><p>The city's urban heart — museums, the food-hall scene, concert venues, and a skyline that surprises first-time visitors.</p></div>
+      <div class="hood"><h4>Koreatown</h4><p>Dense, loud, and endlessly hungry-friendly: KBBQ, late-night snacks, bakeries, and some of the best value food in the city.</p></div>
+      <div class="hood"><h4>Silver Lake</h4><p>The indie pocket just north of Hollywood: quirky shops, famous brunch lines, and a reservoir that's L.A.'s unofficial living room.</p></div>
+    </div>
+    <div class="card" style="margin-top: 16px;">
+      <div class="section-title" style="margin-bottom: 10px;">📝 Practical Notes</div>
+      <ul class="tip-list">
+        <li><strong>Traffic:</strong> Between zones (Westside ↔ DTLA), budget 30–45 min in peak hours even for short drives.</li>
+        <li><strong>Parking:</strong> Observatory lot fills by early afternoon — arrive before noon or use the Greek Theatre lot. Getty parking is cashless.</li>
+        <li><strong>Hours:</strong> The Broad is closed Mondays; Grand Central Market runs daily 8am–9pm; Griffith Observatory is best at sunset.</li>
+        <li><strong>Reservations worth making ahead:</strong> Sqirl and Gjusta on weekends, plus any sit-down K-Town dinner for groups of four or more.</li>
+      </ul>
     </div>
   </section>
 
   <div class="source-note">
-    Compiled from Caltrans Road Information (roads.dot.ca.gov), NWS Los Angeles (weather.gov/lox),
-    AccuWeather September climate data, and Discover Los Angeles / Tripadvisor attraction guides.
-    Traffic advisory checked live; weather/attractions reflect general seasonal patterns — verify
-    live conditions via Google Maps/Waze before the Grapevine.
+    Route data cross-checked against Caltrans' official I-5 exit/milepost list and TravelMath distance tables.
+    Weather from Caltrans Road Information + NWS Los Angeles + AccuWeather September climate data.
+    Itinerary verified against The Broad, Grand Central Market, and Getty official sites, plus Yelp/Infatuation/Eater LA/Reddit
+    for restaurant picks. Traffic advisory checked live Sept 5, 2026 — verify current conditions via Google Maps/Waze
+    before the Grapevine.
   </div>
 
 </div>
