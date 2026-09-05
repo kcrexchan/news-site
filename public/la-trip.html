@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Los Angeles Trip Briefing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box }
+
+  :root {
+    --bg-deep: #061204;
+    --bg-mid: #0a2009;
+    --card-bg: rgba(255,255,255,0.03);
+    --border: rgba(167,139,108,0.18);
+    --text-primary: #ecfccb;
+    --text-secondary: #a7c4a0;
+    --text-muted: #7a8f6e;
+    --accent-green: #5abf3d;
+    --accent-amber: #c8a951;
+    --accent-red: #e0705a;
+  }
+
+  body {
+    background: linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 40%, var(--bg-deep) 100%);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+
+  .container { max-width: 880px; margin: 0 auto; padding: 3.5rem 1.5rem 4rem; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--text-secondary); text-decoration: none; font-size: 14px;
+    margin-bottom: 2rem; transition: color .2s;
+  }
+  .back-link:hover { color: var(--accent-green); }
+
+  header.hero { text-align: center; margin-bottom: 3rem; }
+  header.hero h1 {
+    font-size: clamp(30px, 6vw, 44px); font-weight: 700; letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #6bdf4a, #c8a951, #5abf3d, #e0c060);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  header.hero p { color: var(--text-secondary); margin-top: 10px; font-size: 15px; }
+
+  .badge-row { display: flex; justify-content: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .badge {
+    font-size: 12px; padding: 6px 14px; border-radius: 999px;
+    background: rgba(90,191,61,0.12); border: 1px solid rgba(90,191,61,0.3);
+    color: var(--accent-green); font-weight: 600;
+  }
+
+  section { margin-bottom: 2.25rem; }
+  .section-title {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted); font-weight: 700; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 18px;
+    padding: 22px 24px; backdrop-filter: blur(10px);
+  }
+
+  .route-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px;
+  }
+  .stat { text-align: center; }
+  .stat .num { font-size: 22px; font-weight: 700; color: var(--accent-amber); }
+  .stat .label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .advisory {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: rgba(224,112,90,0.08); border: 1px solid rgba(224,112,90,0.3);
+    border-radius: 12px; padding: 14px 16px; margin-top: 14px; font-size: 14px; line-height: 1.5;
+  }
+  .advisory .icon { font-size: 18px; flex-shrink: 0; }
+  .advisory strong { color: var(--accent-red); }
+
+  .weather-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+  }
+  .weather-grid .card { padding: 18px 20px; }
+  .weather-grid .metric-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .weather-grid .metric-value { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+
+  .stop-list { display: flex; flex-direction: column; gap: 12px; }
+  .stop {
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .stop .icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .stop h4 { font-size: 15px; margin-bottom: 4px; }
+  .stop p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+  .source-note {
+    font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 3rem;
+    border-top: 1px solid var(--border); padding-top: 1.5rem; line-height: 1.6;
+  }
+
+  @media (max-width: 560px) {
+    .route-stats { grid-template-columns: 1fr; gap: 10px; }
+    .weather-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <a href="/" class="back-link">← Back to Hub</a>
+
+  <header class="hero">
+    <h1>Los Angeles Trip Briefing</h1>
+    <p>San Mateo → Los Angeles · Road trip conditions, weather &amp; things to do</p>
+    <div class="badge-row">
+      <span class="badge">🚗 On the road</span>
+      <span class="badge">☀️ Fun trip</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-title">🛣️ Route &amp; Traffic</div>
+    <div class="card">
+      <div class="route-stats">
+        <div class="stat"><div class="num">~380 mi</div><div class="label">Distance (I-5)</div></div>
+        <div class="stat"><div class="num">~5.5–6 hrs</div><div class="label">Drive time (no stops)</div></div>
+        <div class="stat"><div class="num">I-5 South</div><div class="label">Primary route</div></div>
+      </div>
+      <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+        The fastest route runs down I-5 through the Central Valley and over the Grapevine (Tejon Pass)
+        into the LA Basin. Alternative: US-101 along the coast — scenic but ~1.5 hrs longer.
+      </p>
+      <div class="advisory">
+        <span class="icon">⚠️</span>
+        <div>
+          <strong>Grapevine wind advisory in effect.</strong> Caltrans reports a high wind advisory
+          from the LA/Kern County line to south of SR‑99 (the Grapevine). Travel is <em>not recommended
+          for campers, trailers, or high-profile/permit loads</em>. Regular passenger cars: drive with caution,
+          keep a firm grip on the wheel through the pass. No other restrictions reported on I-5 north or south sections.
+          <br><span style="color: var(--text-muted); font-size: 11px;">Source: Caltrans Road Information, checked Sept 5, 2026, 6:40 AM.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">🌤️ Los Angeles Weather</div>
+    <div class="weather-grid">
+      <div class="card">
+        <div class="metric-label">Typical September high</div>
+        <div class="metric-value">83–92°F</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Typical September low</div>
+        <div class="metric-value">62–66°F</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Recent pattern</div>
+        <div class="metric-value">Cooling trend</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Rain chance</div>
+        <div class="metric-value">Low–moderate</div>
+      </div>
+    </div>
+    <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px; line-height: 1.6;">
+      LA has recently seen a break from summer heat with below-average temperatures and a slight
+      chance of showers, mainly Sunday, per NWS Los Angeles. Pack a light layer for evenings —
+      coastal areas cool off fast after sunset.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-title">📍 Fun Things To Do</div>
+    <div class="stop-list">
+      <div class="stop">
+        <span class="icon">🎢</span>
+        <div><h4>Universal Studios Hollywood</h4><p>Studio tour, rides, and Super Nintendo World if you want a full-day theme park fix.</p></div>
+      </div>
+      <div class="stop">
+        <span class="icon">🔭</span>
+        <div><h4>Griffith Observatory</h4><p>Free admission, iconic Hollywood Sign + city skyline views — best around sunset.</p></div>
+      </div>
+      <div class="stop">
+        <span class="icon">🏖️</span>
+        <div><h4>Santa Monica Pier &amp; Venice Beach Boardwalk</h4><p>Classic SoCal beach walk, street performers, and the Pacific Park ferris wheel.</p></div>
+      </div>
+      <div class="stop">
+        <span class="icon">🖼️</span>
+        <div><h4>The Getty Center</h4><p>Free museum with world-class art and gardens, plus a tram ride up with sweeping city views.</p></div>
+      </div>
+      <div class="stop">
+        <span class="icon">🍜</span>
+        <div><h4>Koreatown / Grand Central Market</h4><p>Some of LA's best food density — great stop for dinner after a long drive.</p></div>
+      </div>
+      <div class="stop">
+        <span class="icon">🌉</span>
+        <div><h4>Downtown LA &amp; Arts District</h4><p>Murals, rooftop bars, and walkable architecture if you want an evening out.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="source-note">
+    Compiled from Caltrans Road Information (roads.dot.ca.gov), NWS Los Angeles (weather.gov/lox),
+    AccuWeather September climate data, and Discover Los Angeles / Tripadvisor attraction guides.
+    Traffic advisory checked live; weather/attractions reflect general seasonal patterns — verify
+    live conditions via Google Maps/Waze before the Grapevine.
+  </div>
+
+</div>
+
+</body>
+</html>
