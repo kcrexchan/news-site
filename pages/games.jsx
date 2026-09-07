@@ -8,8 +8,6 @@ const games = [
   { name: 'Air Hockey', emoji: '🏒', route: '/air-hockey', accent: '#38bdf8' },
   { name: 'Heads Up!', emoji: '📱', route: '/heads-up', accent: '#b54a7a' },
   { name: 'Sky Fighter', emoji: '✈️', route: '/airplane-game', accent: '#3a86ff' },
-  { name: 'Tank Battle', emoji: '🛡️', route: '/tank', accent: '#e74c3c' },
-  { name: 'Rube Goldberg', emoji: '⚙️', route: '/rube', accent: '#8e5ad8' },
   { name: 'Reaction Time', emoji: '⚡', route: '/reaction', accent: '#f5b301' },
   { name: 'Balloon Pop', emoji: '🎈', route: '/balloon', accent: '#ff6b9d' },
   { name: 'Tic-Tac-Toe', emoji: '❌⭕', route: '/tic-tac-toe', accent: '#35e08a' },
