@@ -12,6 +12,14 @@ const tideStations = [
     lat: 37.5025,
     lng: -122.48217,
   },
+  {
+    slug: 'bodega-bay',
+    name: 'Bodega Bay',
+    subtitle: 'Bodega Harbor Entrance, CA',
+    noaaId: '9415625',
+    lat: 38.3083,
+    lng: -123.055,
+  },
 ];
 
 export default tideStations;

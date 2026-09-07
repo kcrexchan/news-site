@@ -75,7 +75,7 @@ function fmtWeekday(t) {
 /* =========================================================================== */
 /*  Tide curve chart — hand-built inline SVG, no dependencies                */
 /* =========================================================================== */
-function TideChart({ curve }) {
+function TideChart({ curve, unavailableReason }) {
   const W = 760
   const H = 300
   const M = { top: 18, right: 14, bottom: 34, left: 52 }
@@ -85,7 +85,7 @@ function TideChart({ curve }) {
   if (!Array.isArray(curve) || curve.length < 2) {
     return (
       <div style={{ fontSize: 14, color: '#8a8a8a', padding: '1rem 0' }}>
-        No water-level data available for this date.
+        {unavailableReason || 'No water-level data available for this date.'}
       </div>
     )
   }
@@ -357,7 +357,7 @@ export default function Tides() {
               <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                 <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>Water level</h3>
                 <p style={{ fontSize: 13, color: '#8a8a8a', margin: '0 0 16px' }}>Predicted tide curve · {data.date}</p>
-                <TideChart curve={data.curve} />
+                <TideChart curve={data.curve} unavailableReason={data.curveUnavailable} />
               </div>
             </>
           )}

@@ -149,14 +149,22 @@ export default async function handler(req, res) {
     fetchNoaa(station.noaaId, compactDate),
   ]);
 
+  // The hilo table is the primary content — if it fails, there's nothing to show.
   if (hiloRes.error) return json(res, 502, { error: hiloRes.error });
-  if (curveRes.error) return json(res, 502, { error: curveRes.error });
 
+  // The 6-minute curve is a nice-to-have. Some NOAA stations are "subordinate"
+  // (harmonic offsets from a reference station) and only support hi/lo
+  // predictions, not a continuous curve — that's a real NOAA limitation, not
+  // a bug. Degrade gracefully: keep the hilo table, drop the chart, and say
+  // why instead of failing the whole request.
   const body = {
     station,
     date,
     hilo: hiloRes.rows.map((r) => ({ time: r.time, height: r.height, type: r.type })),
-    curve: curveRes.rows.map(({ time, height }) => ({ time, height })),
+    curve: curveRes.error ? [] : curveRes.rows.map(({ time, height }) => ({ time, height })),
+    curveUnavailable: curveRes.error
+      ? "This station only publishes high/low tide predictions — a full water-level curve isn't available."
+      : null,
   };
 
   res.setHeader("Cache-Control", "public, max-age=3600");
