@@ -8,6 +8,9 @@ import tideStations from "../../data/tide-stations";
  * GET /api/tides?station=<slug>&date=YYYY-MM-DD
  *   -> 200 { station, date, hilo: [{time,height,type}], curve: [{time,height}] }
  *
+ * GET /api/tides?station=<slug>&month=YYYY-MM&mode=monthly-lows
+ *   -> 200 { station, month, lowestTides: [{time,height}] } (up to 5, ascending)
+ *
  * NOAA shape (verified against the live API):
  *   { "predictions": [ { "t": "2026-09-10 04:43", "v": "-0.264", "type": "L" }, ... ] }
  * `v` is a STRING (feet relative to MLLW); hilo entries carry type H or L.
@@ -24,7 +27,7 @@ function json(res, status, body) {
 }
 
 // Fetch one NOAA datagetter call and normalize to [{time, height}].
-async function fetchNoaa(noaaId, compactDate, extraParams) {
+async function fetchNoaa(noaaId, compactDate, extraParams, compactEndDate) {
   const params = new URLSearchParams({
     product: "predictions",
     datum: "MLLW",
@@ -34,7 +37,7 @@ async function fetchNoaa(noaaId, compactDate, extraParams) {
     format: "json",
     station: noaaId,
     begin_date: compactDate,
-    end_date: compactDate,
+    end_date: compactEndDate || compactDate,
   });
   if (extraParams) {
     for (const [k, v] of Object.entries(extraParams)) params.set(k, v);
@@ -87,8 +90,49 @@ export default async function handler(req, res) {
 
   const slug = String(req.query.station || "").trim();
   const date = String(req.query.date || "").trim();
+  const mode = String(req.query.mode || "").trim();
 
   if (!slug) return json(res, 400, { error: "Missing required query param 'station' (a station slug)." });
+
+  // ---- Mode: monthly-lows — top-5 lowest tides for a calendar month ----
+  if (mode === "monthly-lows") {
+    const MONTH_RE = /^\d{4}-\d{2}$/;
+    const month = String(req.query.month || "").trim();
+    if (!MONTH_RE.test(month)) {
+      return json(res, 400, { error: "Missing or invalid 'month' — expected format YYYY-MM." });
+    }
+
+    const station = tideStations.find((s) => s.slug === slug);
+    if (!station) return json(res, 404, { error: `Unknown station '${slug}'.` });
+
+    const yearNum = parseInt(month.slice(0, 4), 10);
+    const monthNum = parseInt(month.slice(5, 7), 10);
+    if (monthNum < 1 || monthNum > 12) {
+      return json(res, 400, { error: "Invalid 'month' — expected format YYYY-MM." });
+    }
+
+    // Day-0 of the following month = last day of the requested month. Correct
+    // for every month including February (leap years included).
+    const lastDay = new Date(yearNum, monthNum, 0).getDate();
+    const compactMonth = month.replace(/-/g, "");
+    const beginDate = `${compactMonth}01`;
+    const endDate = `${compactMonth}${String(lastDay).padStart(2, "0")}`;
+
+    // One NOAA call: hilo events across the whole month.
+    const hiloRes = await fetchNoaa(station.noaaId, beginDate, { interval: "hilo" }, endDate);
+    if (hiloRes.error) return json(res, 502, { error: hiloRes.error });
+
+    const lowestTides = hiloRes.rows
+      .filter((r) => r.type === "L")
+      .sort((a, b) => a.height - b.height) // ascending — lowest first
+      .slice(0, 5)
+      .map(({ time, height }) => ({ time, height }));
+
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return json(res, 200, { station, month, lowestTides });
+  }
+
+  // ---- Default mode: single-day tide events + water-level curve (unchanged) ----
   if (!DATE_RE.test(date)) {
     return json(res, 400, { error: "Missing or invalid 'date' — expected format YYYY-MM-DD." });
   }

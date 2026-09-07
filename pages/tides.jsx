@@ -45,6 +45,17 @@ function fmtHeight(ft) {
   return `${n.toFixed(2)} ft`
 }
 
+// Calendar label for a NOAA time string ("2026-09-10 04:43" -> "Sep 10").
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function fmtDateLabel(t) {
+  if (typeof t !== 'string') return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t.trim())
+  if (!m) return t.slice(0, 10)
+  const monthIdx = parseInt(m[2], 10) - 1
+  if (monthIdx < 0 || monthIdx > 11) return t.slice(0, 10)
+  return `${MONTHS_SHORT[monthIdx]} ${parseInt(m[3], 10)}`
+}
+
 /* =========================================================================== */
 /*  Tide curve chart — hand-built inline SVG, no dependencies                */
 /* =========================================================================== */
@@ -178,6 +189,44 @@ export default function Tides() {
     return () => { cancelled = true }
   }, [stationSlug, date])
 
+  /* ---- Lowest tides this month — independent fetch + state ------------- */
+  // Calendar month of the selected date (YYYY-MM). Re-derives whenever the
+  // date picker crosses into a different month.
+  const monthKey = /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : null
+  const [monthLows, setMonthLows] = useState(null)
+  const [monthLoading, setMonthLoading] = useState(Boolean(monthKey && stationSlug))
+  const [monthError, setMonthError] = useState(null)
+  const monthReqIdRef = useRef(0)
+
+  useEffect(() => {
+    if (!stationSlug || !monthKey) return
+    const myId = ++monthReqIdRef.current
+    let cancelled = false
+    setMonthLoading(true)
+    setMonthError(null)
+
+    fetch(`/api/tides?station=${encodeURIComponent(stationSlug)}&month=${encodeURIComponent(monthKey)}&mode=monthly-lows`)
+      .then(async (r) => {
+        let body = null
+        try { body = await r.json() } catch {}
+        if (!r.ok) throw new Error((body && body.error) || `Request failed (${r.status})`)
+        return body
+      })
+      .then((body) => {
+        if (cancelled || myId !== monthReqIdRef.current) return
+        setMonthLows(body)
+        setMonthLoading(false)
+      })
+      .catch((e) => {
+        if (cancelled || myId !== monthReqIdRef.current) return
+        setMonthError(e.message || 'Failed to load monthly tides.')
+        setMonthLows(null)
+        setMonthLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [stationSlug, monthKey])
+
   const station = tideStations.find((s) => s.slug === (data && data.station ? data.station.slug : stationSlug)) || tideStations[0]
 
   const inputStyle = {
@@ -295,6 +344,59 @@ export default function Tides() {
                 <TideChart curve={data.curve} />
               </div>
             </>
+          )}
+
+          {/* Lowest tides this month — independent section; renders on its own load/error state */}
+          {monthKey && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>Lowest Tides This Month</h3>
+              <p style={{ fontSize: 13, color: '#8a8a8a', margin: '0 0 16px' }}>
+                Five deepest predicted lows · {monthKey} · local time at the station
+              </p>
+
+              {monthLoading && (
+                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>🌗</div>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#ffcc80' }}>Loading lowest tides…</p>
+                </div>
+              )}
+
+              {!monthLoading && monthError && (
+                <div style={{ borderLeft: '4px solid #f57c00', padding: '12px 16px', background: 'rgba(245,124,0,0.08)', borderRadius: 8 }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#ff8a65' }}>Couldn&apos;t load monthly tides</p>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#e0c9a8' }}>{monthError}</p>
+                </div>
+              )}
+
+              {!monthLoading && !monthError && monthLows && (
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 360, fontSize: 15 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Rank</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Date</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Time</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Height</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(monthLows.lowestTides || []).map((ev, i) => (
+                        <tr key={i} style={{ borderBottom: i < monthLows.lowestTides.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                          <td style={{ padding: '10px', width: 56 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', fontSize: 12, fontWeight: 700, background: i === 0 ? 'rgba(253,216,53,0.2)' : 'rgba(255,152,0,0.18)', color: i === 0 ? '#fdd835' : '#ff9800', border: `1px solid ${i === 0 ? 'rgba(253,216,53,0.4)' : 'rgba(255,152,0,0.35)'}` }}>
+                              {i + 1}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px', color: '#e0e0e0', fontWeight: 600 }}>{fmtDateLabel(ev.time)}</td>
+                          <td style={{ padding: '10px 10px 10px 0', textAlign: 'right', color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(ev.time)}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', color: '#ffcc80', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtHeight(ev.height)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
