@@ -47,6 +47,7 @@ function fmtHeight(ft) {
 
 // Calendar label for a NOAA time string ("2026-09-10 04:43" -> "Sep 10").
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 function fmtDateLabel(t) {
   if (typeof t !== 'string') return ''
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t.trim())
@@ -54,6 +55,21 @@ function fmtDateLabel(t) {
   const monthIdx = parseInt(m[2], 10) - 1
   if (monthIdx < 0 || monthIdx > 11) return t.slice(0, 10)
   return `${MONTHS_SHORT[monthIdx]} ${parseInt(m[3], 10)}`
+}
+
+// Day-of-week label from the same NOAA date portion ("2026-09-10" -> "Thu").
+// Calendar-only arithmetic (no timezone conversion) — matches the date NOAA
+// already reports in the station's local time.
+function fmtWeekday(t) {
+  if (typeof t !== 'string') return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t.trim())
+  if (!m) return ''
+  const y = parseInt(m[1], 10)
+  const monthIdx = parseInt(m[2], 10) - 1
+  const day = parseInt(m[3], 10)
+  const d = new Date(y, monthIdx, day)
+  if (Number.isNaN(d.getTime())) return ''
+  return WEEKDAYS_SHORT[d.getDay()]
 }
 
 /* =========================================================================== */
@@ -375,6 +391,7 @@ export default function Tides() {
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                         <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Rank</th>
                         <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Date</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Day</th>
                         <th style={{ textAlign: 'right', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Time</th>
                         <th style={{ textAlign: 'right', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Height</th>
                       </tr>
@@ -388,6 +405,7 @@ export default function Tides() {
                             </span>
                           </td>
                           <td style={{ padding: '10px', color: '#e0e0e0', fontWeight: 600 }}>{fmtDateLabel(ev.time)}</td>
+                          <td style={{ padding: '10px', color: '#8a8a8a' }}>{fmtWeekday(ev.time)}</td>
                           <td style={{ padding: '10px 10px 10px 0', textAlign: 'right', color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(ev.time)}</td>
                           <td style={{ padding: '10px', textAlign: 'right', color: '#ffcc80', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtHeight(ev.height)}</td>
                         </tr>
