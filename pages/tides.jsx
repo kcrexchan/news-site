@@ -246,12 +246,9 @@ export default function Tides() {
     return () => { cancelled = true }
   }, [stationSlug, monthKey])
 
-  /* ---- Lowest tides by location — EVERY station, whole calendar year -----
-   * Fully independent from the selected station: re-fetches only when the
-   * *year* changes, never when the dropdown station changes. Decoupled on
-   * purpose — this is an always-on summary of every location's deepest lows
-   * across the entire year.
-   */
+  /* ---- Lowest tides by location — EVERY station, from the request day
+   * (inclusive) through the end of the year — always-on, decoupled from the
+   * dropdown. Re-fetches only when the *year* changes. */
   const [stationLows, setStationLows] = useState(null)
   const [stationLoading, setStationLoading] = useState(Boolean(yearKey))
   const [stationError, setStationError] = useState(null)
@@ -465,7 +462,7 @@ export default function Tides() {
             <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>Lowest Tides by Location · {yearKey}</h3>
               <p style={{ fontSize: 13, color: '#8a8a8a', margin: '0 0 16px' }}>
-                Five deepest predicted lows for every location · {yearKey} · local time at the station
+                Five deepest predicted lows · from {stationLows?.startLabel} through {stationLows?.endDateLabel} · local time at the station
               </p>
 
               {stationLoading && (

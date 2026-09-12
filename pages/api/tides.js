@@ -152,12 +152,18 @@ export default async function handler(req, res) {
     return json(res, 200, { station, month, lowestTides: lowRes.lowestTides });
   }
 
-  // ---- Cross-station mode: lowest-5 lows for EVERY station, for the whole year ----
+  // ---- Cross-station mode: lowest-5 lows for EVERY station, from the request
+  // day (inclusive) through the end of that calendar year ----
   // Decoupled from the selected station — the page shows this as an always-on
   // summary regardless of what station is picked in the dropdown. One NOAA call
-  // per station for the full calendar year; failures degrade gracefully so one
-  // bad station doesn't sink the whole page. We take the 5 lowest lows from the
-  // *entire year's* data for each station (not per month).
+  // per station for the (possibly partial) year; failures degrade gracefully so
+  // one bad station doesn't sink the whole page. We take the 5 lowest lows from
+  // the station's data between today and year-end (not per month).
+  //
+  // "Today" is evaluated in the stations' own timezone (all stations below are
+  // Pacific / America/Los_Angeles), independent of the server's local TZ. If the
+  // requested year is NOT the current year (past/future), we fall back to the
+  // full year (Jan 1) since "today" only makes sense within the current year.
   if (mode === "all-station-lows") {
     const YEAR_RE = /^\d{4}$/;
     const year = String(req.query.year || "").trim();
@@ -166,8 +172,44 @@ export default async function handler(req, res) {
     }
 
     const yearNum = parseInt(year, 10);
-    const beginDate = `${year}0101`;
+    // Evaluate "today" in the stations' own TZ (America/Los_Angeles). All 9
+    // stations are Pacific, so this is correct regardless of server TZ.
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const todayMonth = parts.find((p) => p.type === "month").value; // "09"
+    const todayDay = parts.find((p) => p.type === "day").value; // "12"
+    const currentYear = parts.find((p) => p.type === "year").value; // "2026"
+    const beginDate = String(yearNum) === currentYear
+      ? `${year}${todayMonth}${todayDay}` // this year: start at today (inclusive), YYYYMMDD
+      : `${year}0101`; // past/future year: "today" doesn't exist there → full year
     const endDate = `${year}1231`;
+    // A display-friendly start date in the stations' own TZ, e.g. "Sep 12, 2026".
+    // The start is "today" only within the current year; past/future years
+    // begin at Jan 1 (the fallback beginDate). Client renders "from {startLabel}
+    // through {year}-12-31" so the range is unambiguous. beginDate is a compact
+    // YYYYMMDD, which `new Date()` can't parse, so split it into components and
+    // build a UTC date from them.
+    const [sy, sm, sd] = [
+      parseInt(beginDate.slice(0, 4), 10),
+      parseInt(beginDate.slice(4, 6), 10),
+      parseInt(beginDate.slice(6, 8), 10),
+    ];
+    const startLabel = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(Date.UTC(sy, sm - 1, sd, 12)));
+    const endDateLabel = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(yearNum, 11, 31));
 
     const results = await Promise.all(
       tideStations.map(async (station) => {
@@ -179,7 +221,7 @@ export default async function handler(req, res) {
     );
 
     res.setHeader("Cache-Control", "public, max-age=3600");
-    return json(res, 200, { year, results });
+    return json(res, 200, { year, startLabel, endDateLabel, results });
   }
 
   // ---- Default mode: single-day tide events + water-level curve (unchanged) ----
