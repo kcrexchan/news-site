@@ -209,6 +209,9 @@ export default function Tides() {
   // Calendar month of the selected date (YYYY-MM). Re-derives whenever the
   // date picker crosses into a different month.
   const monthKey = /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : null
+  // Calendar year of the selected date (YYYY). Drives the always-on
+  // "lowest tides by location" panel — which spans the whole year.
+  const yearKey = /^\d{4}/.test(date) ? date.slice(0, 4) : null
   const [monthLows, setMonthLows] = useState(null)
   const [monthLoading, setMonthLoading] = useState(Boolean(monthKey && stationSlug))
   const [monthError, setMonthError] = useState(null)
@@ -243,24 +246,25 @@ export default function Tides() {
     return () => { cancelled = true }
   }, [stationSlug, monthKey])
 
-  /* ---- Lowest tides by location — EVERY station for the month --------
+  /* ---- Lowest tides by location — EVERY station, whole calendar year -----
    * Fully independent from the selected station: re-fetches only when the
-   * month changes, never when the dropdown station changes. Decoupled on
-   * purpose — this is an always-on summary of every location.
+   * *year* changes, never when the dropdown station changes. Decoupled on
+   * purpose — this is an always-on summary of every location's deepest lows
+   * across the entire year.
    */
   const [stationLows, setStationLows] = useState(null)
-  const [stationLoading, setStationLoading] = useState(Boolean(monthKey))
+  const [stationLoading, setStationLoading] = useState(Boolean(yearKey))
   const [stationError, setStationError] = useState(null)
   const stationLowsReqIdRef = useRef(0)
 
   useEffect(() => {
-    if (!monthKey) return
+    if (!yearKey) return
     const myId = ++stationLowsReqIdRef.current
     let cancelled = false
     setStationLoading(true)
     setStationError(null)
 
-    fetch(`/api/tides?station=${encodeURIComponent(stationSlug)}&month=${encodeURIComponent(monthKey)}&mode=all-station-lows`)
+    fetch(`/api/tides?station=${encodeURIComponent(stationSlug)}&year=${encodeURIComponent(yearKey)}&mode=all-station-lows`)
       .then(async (r) => {
         let body = null
         try { body = await r.json() } catch {}
@@ -280,7 +284,7 @@ export default function Tides() {
       })
 
     return () => { cancelled = true }
-  }, [monthKey, stationSlug])
+  }, [yearKey, stationSlug])
 
   const station = tideStations.find((s) => s.slug === (data && data.station ? data.station.slug : stationSlug)) || tideStations[0]
 
@@ -456,12 +460,12 @@ export default function Tides() {
             </div>
           )}
 
-          {/* Lowest tides by location — EVERY station, always-on, decoupled from the dropdown */}
-          {monthKey && (
+          {/* Lowest tides by location — EVERY station, whole year, always-on, decoupled from the dropdown */}
+          {yearKey && (
             <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>Lowest Tides by Location</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>Lowest Tides by Location · {yearKey}</h3>
               <p style={{ fontSize: 13, color: '#8a8a8a', margin: '0 0 16px' }}>
-                Five deepest predicted lows for every location · {monthKey} · local time at the station
+                Five deepest predicted lows for every location · {yearKey} · local time at the station
               </p>
 
               {stationLoading && (

@@ -11,11 +11,17 @@ import tideStations from "../../data/tide-stations";
  * GET /api/tides?station=<slug>&month=YYYY-MM&mode=monthly-lows
  *   -> 200 { station, month, lowestTides: [{time,height}] } (up to 5, ascending)
  *
- * GET /api/tides?station=<slug>&month=YYYY-MM&mode=all-station-lows
- *   -> 200 { month, results: [{ station, ok, error, lowestTides }] } for EVERY
- *      station (up to 5 lowest each, ascending). Failures degrade gracefully:
- *      that station's entry has ok:false. The `station` param is required but
- *      ignored in this mode — the page fetches all locations at once.
+ * GET /api/tides?station=<slug>&year=YYYY&mode=all-station-lows
+ *   -> 200 { year, results: [{ station, ok, error, lowestTides }] } for EVERY
+ *      station: the 5 lowest low-tide heights across the *entire calendar year*,
+ *      ascending (lowest first). Failures degrade gracefully — that station's
+ *      entry has ok:false. The `station` param is required but ignored in this
+ *      mode — the page fetches all locations at once.
+ *
+ * NOTE: NOAA datagetter has no meaningful single-query range cap; one call per
+ * station returns the full year (verified: ~1400+ hilo events for a year). We
+ * fetch the whole year in a single NOAA call per station and slice the lowest
+ * 5 lows from that union — no per-month fan-out needed.
  *
  * NOAA shape (verified against the live API):
  *   { "predictions": [ { "t": "2026-09-10 04:43", "v": "-0.264", "type": "L" }, ... ] }
@@ -146,29 +152,22 @@ export default async function handler(req, res) {
     return json(res, 200, { station, month, lowestTides: lowRes.lowestTides });
   }
 
-  // ---- Cross-station mode: lowest-5 lows for EVERY station, for a month ----
+  // ---- Cross-station mode: lowest-5 lows for EVERY station, for the whole year ----
   // Decoupled from the selected station — the page shows this as an always-on
-  // summary regardless of what station is picked in the dropdown. One NOAA
-  // call per station; failures degrade gracefully so one bad station doesn't
-  // sink the whole page.
+  // summary regardless of what station is picked in the dropdown. One NOAA call
+  // per station for the full calendar year; failures degrade gracefully so one
+  // bad station doesn't sink the whole page. We take the 5 lowest lows from the
+  // *entire year's* data for each station (not per month).
   if (mode === "all-station-lows") {
-    const MONTH_RE = /^\d{4}-\d{2}$/;
-    const month = String(req.query.month || "").trim();
-    if (!MONTH_RE.test(month)) {
-      return json(res, 400, { error: "Missing or invalid 'month' — expected format YYYY-MM." });
+    const YEAR_RE = /^\d{4}$/;
+    const year = String(req.query.year || "").trim();
+    if (!YEAR_RE.test(year)) {
+      return json(res, 400, { error: "Missing or invalid 'year' — expected format YYYY." });
     }
 
-    const yearNum = parseInt(month.slice(0, 4), 10);
-    const monthNum = parseInt(month.slice(5, 7), 10);
-    if (monthNum < 1 || monthNum > 12) {
-      return json(res, 400, { error: "Invalid 'month' — expected format YYYY-MM." });
-    }
-
-    // Last day of the requested month (day-0 of following month; leap-safe).
-    const lastDay = new Date(yearNum, monthNum, 0).getDate();
-    const compactMonth = month.replace(/-/g, "");
-    const beginDate = `${compactMonth}01`;
-    const endDate = `${compactMonth}${String(lastDay).padStart(2, "0")}`;
+    const yearNum = parseInt(year, 10);
+    const beginDate = `${year}0101`;
+    const endDate = `${year}1231`;
 
     const results = await Promise.all(
       tideStations.map(async (station) => {
@@ -180,7 +179,7 @@ export default async function handler(req, res) {
     );
 
     res.setHeader("Cache-Control", "public, max-age=3600");
-    return json(res, 200, { month, results });
+    return json(res, 200, { year, results });
   }
 
   // ---- Default mode: single-day tide events + water-level curve (unchanged) ----
