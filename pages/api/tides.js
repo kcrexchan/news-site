@@ -11,6 +11,12 @@ import tideStations from "../../data/tide-stations";
  * GET /api/tides?station=<slug>&month=YYYY-MM&mode=monthly-lows
  *   -> 200 { station, month, lowestTides: [{time,height}] } (up to 5, ascending)
  *
+ * GET /api/tides?station=<slug>&month=YYYY-MM&mode=all-station-lows
+ *   -> 200 { month, results: [{ station, ok, error, lowestTides }] } for EVERY
+ *      station (up to 5 lowest each, ascending). Failures degrade gracefully:
+ *      that station's entry has ok:false. The `station` param is required but
+ *      ignored in this mode — the page fetches all locations at once.
+ *
  * NOAA shape (verified against the live API):
  *   { "predictions": [ { "t": "2026-09-10 04:43", "v": "-0.264", "type": "L" }, ... ] }
  * `v` is a STRING (feet relative to MLLW); hilo entries carry type H or L.
@@ -82,6 +88,19 @@ async function fetchNoaa(noaaId, compactDate, extraParams, compactEndDate) {
   return { rows };
 }
 
+// Turn a NOAA hilo response into the top-5 lowest lows (ascending). Returns
+// { ok: false, error } on failure so callers can degrade gracefully instead
+// of throwing — reused by both the single-station and cross-station modes.
+function lowestFromHilo(hiloRes) {
+  if (hiloRes.error) return { ok: false, error: hiloRes.error };
+  const lowestTides = hiloRes.rows
+    .filter((r) => r.type === "L")
+    .sort((a, b) => a.height - b.height) // ascending — lowest first
+    .slice(0, 5)
+    .map(({ time, height }) => ({ time, height }));
+  return { ok: true, lowestTides };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -120,16 +139,48 @@ export default async function handler(req, res) {
 
     // One NOAA call: hilo events across the whole month.
     const hiloRes = await fetchNoaa(station.noaaId, beginDate, { interval: "hilo" }, endDate);
-    if (hiloRes.error) return json(res, 502, { error: hiloRes.error });
-
-    const lowestTides = hiloRes.rows
-      .filter((r) => r.type === "L")
-      .sort((a, b) => a.height - b.height) // ascending — lowest first
-      .slice(0, 5)
-      .map(({ time, height }) => ({ time, height }));
+    const lowRes = lowestFromHilo(hiloRes);
+    if (!lowRes.ok) return json(res, 502, { error: lowRes.error });
 
     res.setHeader("Cache-Control", "public, max-age=3600");
-    return json(res, 200, { station, month, lowestTides });
+    return json(res, 200, { station, month, lowestTides: lowRes.lowestTides });
+  }
+
+  // ---- Cross-station mode: lowest-5 lows for EVERY station, for a month ----
+  // Decoupled from the selected station — the page shows this as an always-on
+  // summary regardless of what station is picked in the dropdown. One NOAA
+  // call per station; failures degrade gracefully so one bad station doesn't
+  // sink the whole page.
+  if (mode === "all-station-lows") {
+    const MONTH_RE = /^\d{4}-\d{2}$/;
+    const month = String(req.query.month || "").trim();
+    if (!MONTH_RE.test(month)) {
+      return json(res, 400, { error: "Missing or invalid 'month' — expected format YYYY-MM." });
+    }
+
+    const yearNum = parseInt(month.slice(0, 4), 10);
+    const monthNum = parseInt(month.slice(5, 7), 10);
+    if (monthNum < 1 || monthNum > 12) {
+      return json(res, 400, { error: "Invalid 'month' — expected format YYYY-MM." });
+    }
+
+    // Last day of the requested month (day-0 of following month; leap-safe).
+    const lastDay = new Date(yearNum, monthNum, 0).getDate();
+    const compactMonth = month.replace(/-/g, "");
+    const beginDate = `${compactMonth}01`;
+    const endDate = `${compactMonth}${String(lastDay).padStart(2, "0")}`;
+
+    const results = await Promise.all(
+      tideStations.map(async (station) => {
+        const hiloRes = await fetchNoaa(station.noaaId, beginDate, { interval: "hilo" }, endDate);
+        const lowRes = lowestFromHilo(hiloRes);
+        if (!lowRes.ok) return { station, ok: false, error: lowRes.error, lowestTides: [] };
+        return { station, ok: true, error: null, lowestTides: lowRes.lowestTides };
+      })
+    );
+
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return json(res, 200, { month, results });
   }
 
   // ---- Default mode: single-day tide events + water-level curve (unchanged) ----
