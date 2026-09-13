@@ -8,14 +8,16 @@ import Head from 'next/head'
 /*  - Electric energy use: 31 kWh / 100 mi  -> 0.31 kWh per mile               */
 /*  - Combined MPGe: 110 (for reference)                                     */
 /*  - Gasoline-only combined MPG: 42                                          */
-/*  - Usable battery: 17 kWh                                                  */
+/*  - Battery capacity: 17 kWh (gross/nameplate, per Honda; EPA does not list  */
+/*    usable kWh directly — usable is ~14.4 kWh. Not used in any cost calc,   */
+/*    shown as a spec line only; EV range (47 mi) drives the calculation.     */
 /*  - Maximum EV driving range: 47 miles                                      */
 /* =========================================================================== */
 const CAR = {
   name: 'Honda Clarity PHEV',
   electricUsePerMile: 0.31, // kWh per mile (31 kWh/100 mi, EPA)
   gasMpg: 42, // combined MPG, gasoline only (EPA)
-  batteryKwh: 17, // usable battery capacity (Honda/EPA)
+  batteryKwh: 17, // gross/nameplate capacity (Honda) — not used in cost calcs, spec display only
   evRange: 47, // miles of electric-only range (EPA)
   annualMiles: 12000, // default annual driving for the savings estimate
 }
