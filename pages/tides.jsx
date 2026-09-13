@@ -205,26 +205,35 @@ export default function Tides() {
     return () => { cancelled = true }
   }, [stationSlug, date])
 
-  /* ---- Lowest tides this month — independent fetch + state ------------- */
-  // Calendar month of the selected date (YYYY-MM). Re-derives whenever the
-  // date picker crosses into a different month.
-  const monthKey = /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : null
-  // Calendar year of the selected date (YYYY). Drives the always-on
-  // "lowest tides by location" panel — which spans the whole year.
+  /* ---- Lowest tides by location (year OR month mode) ------------------- */
+  // Calendar year and month of the selected date (YYYY / YYYY-MM), read
+  // directly from the date-picker value. yearKey drives the panel heading;
+  // monthKey drives the month-mode API query.
   const yearKey = /^\d{4}/.test(date) ? date.slice(0, 4) : null
-  const [monthLows, setMonthLows] = useState(null)
-  const [monthLoading, setMonthLoading] = useState(Boolean(monthKey && stationSlug))
-  const [monthError, setMonthError] = useState(null)
-  const monthReqIdRef = useRef(0)
+  const monthKey = /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : null
+
+  // Dropdown selection: 'year' (request day → year-end) or 'month' (this
+  // month). always-on, decoupled from the station picker — re-fetches on
+  // station change or mode change only.
+  const [lowMode, setLowMode] = useState('year')
+  const [lowByLocation, setLowByLocation] = useState(null)
+  const [lowByLocationLoading, setLowByLocationLoading] = useState(true)
+  const [lowByLocationError, setLowByLocationError] = useState(null)
+  const lowByLocationReqIdRef = useRef(0)
 
   useEffect(() => {
-    if (!stationSlug || !monthKey) return
-    const myId = ++monthReqIdRef.current
+    if (!stationSlug) return
+    const myId = ++lowByLocationReqIdRef.current
     let cancelled = false
-    setMonthLoading(true)
-    setMonthError(null)
+    setLowByLocationLoading(true)
+    setLowByLocationError(null)
 
-    fetch(`/api/tides?station=${encodeURIComponent(stationSlug)}&month=${encodeURIComponent(monthKey)}&mode=monthly-lows`)
+    const mode = lowMode === 'year' ? 'all-station-lows' : 'all-station-lows-month'
+    const qs = lowMode === 'year'
+      ? `year=${encodeURIComponent(yearKey)}&mode=${mode}`
+      : `month=${encodeURIComponent(monthKey)}&mode=${mode}`
+
+    fetch(`/api/tides?station=${encodeURIComponent(stationSlug)}&${qs}`)
       .then(async (r) => {
         let body = null
         try { body = await r.json() } catch {}
@@ -232,56 +241,19 @@ export default function Tides() {
         return body
       })
       .then((body) => {
-        if (cancelled || myId !== monthReqIdRef.current) return
-        setMonthLows(body)
-        setMonthLoading(false)
+        if (cancelled || myId !== lowByLocationReqIdRef.current) return
+        setLowByLocation(body)
+        setLowByLocationLoading(false)
       })
       .catch((e) => {
-        if (cancelled || myId !== monthReqIdRef.current) return
-        setMonthError(e.message || 'Failed to load monthly tides.')
-        setMonthLows(null)
-        setMonthLoading(false)
+        if (cancelled || myId !== lowByLocationReqIdRef.current) return
+        setLowByLocationError(e.message || 'Failed to load lowest tides by location.')
+        setLowByLocation(null)
+        setLowByLocationLoading(false)
       })
 
     return () => { cancelled = true }
-  }, [stationSlug, monthKey])
-
-  /* ---- Lowest tides by location — EVERY station, from the request day
-   * (inclusive) through the end of the year — always-on, decoupled from the
-   * dropdown. Re-fetches only when the *year* changes. */
-  const [stationLows, setStationLows] = useState(null)
-  const [stationLoading, setStationLoading] = useState(Boolean(yearKey))
-  const [stationError, setStationError] = useState(null)
-  const stationLowsReqIdRef = useRef(0)
-
-  useEffect(() => {
-    if (!yearKey) return
-    const myId = ++stationLowsReqIdRef.current
-    let cancelled = false
-    setStationLoading(true)
-    setStationError(null)
-
-    fetch(`/api/tides?station=${encodeURIComponent(stationSlug)}&year=${encodeURIComponent(yearKey)}&mode=all-station-lows`)
-      .then(async (r) => {
-        let body = null
-        try { body = await r.json() } catch {}
-        if (!r.ok) throw new Error((body && body.error) || `Request failed (${r.status})`)
-        return body
-      })
-      .then((body) => {
-        if (cancelled || myId !== stationLowsReqIdRef.current) return
-        setStationLows(body)
-        setStationLoading(false)
-      })
-      .catch((e) => {
-        if (cancelled || myId !== stationLowsReqIdRef.current) return
-        setStationError(e.message || 'Failed to load lowest tides by location.')
-        setStationLows(null)
-        setStationLoading(false)
-      })
-
-    return () => { cancelled = true }
-  }, [yearKey, stationSlug])
+  }, [stationSlug, lowMode, yearKey, monthKey])
 
   const station = tideStations.find((s) => s.slug === (data && data.station ? data.station.slug : stationSlug)) || tideStations[0]
 
@@ -331,6 +303,15 @@ export default function Tides() {
               <div style={{ flex: '1 1 180px' }}>
                 <label htmlFor="date-input" style={labelStyle}>Date</label>
                 <input id="date-input" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} min="2024-01-01" max="2035-12-31" style={{ ...inputStyle, width: '100%' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16 }}>
+              <div style={{ flex: '1 1 200px' }}>
+                <label htmlFor="low-mode" style={labelStyle}>Low tides view</label>
+                <select id="low-mode" value={lowMode} onChange={(e) => setLowMode(e.target.value)} style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}>
+                  <option value="year">Lowest tide of the year</option>
+                  <option value="month">Lowest tide of the month</option>
+                </select>
               </div>
             </div>
             {station && (
@@ -402,128 +383,79 @@ export default function Tides() {
             </>
           )}
 
-          {/* Lowest tides this month — independent section; renders on its own load/error state */}
-          {monthKey && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>Lowest Tides This Month</h3>
-              <p style={{ fontSize: 13, color: '#8a8a8a', margin: '0 0 16px' }}>
-                Five deepest predicted lows · {monthKey} · local time at the station
-              </p>
-
-              {monthLoading && (
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                  <div style={{ fontSize: 24, marginBottom: 8 }}>🌗</div>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#ffcc80' }}>Loading lowest tides…</p>
-                </div>
-              )}
-
-              {!monthLoading && monthError && (
-                <div style={{ borderLeft: '4px solid #f57c00', padding: '12px 16px', background: 'rgba(245,124,0,0.08)', borderRadius: 8 }}>
-                  <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#ff8a65' }}>Couldn&apos;t load monthly tides</p>
-                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#e0c9a8' }}>{monthError}</p>
-                </div>
-              )}
-
-              {!monthLoading && !monthError && monthLows && (
-                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 360, fontSize: 15 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Rank</th>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Date</th>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Day</th>
-                        <th style={{ textAlign: 'right', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Time</th>
-                        <th style={{ textAlign: 'right', padding: '8px 10px', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8a8a8a', fontWeight: 700 }}>Height</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(monthLows.lowestTides || []).map((ev, i) => (
-                        <tr key={i} style={{ borderBottom: i < monthLows.lowestTides.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                          <td style={{ padding: '10px', width: 56 }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', fontSize: 12, fontWeight: 700, background: i === 0 ? 'rgba(253,216,53,0.2)' : 'rgba(255,152,0,0.18)', color: i === 0 ? '#fdd835' : '#ff9800', border: `1px solid ${i === 0 ? 'rgba(253,216,53,0.4)' : 'rgba(255,152,0,0.35)'}` }}>
-                              {i + 1}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px', color: '#e0e0e0', fontWeight: 600 }}>{fmtDateLabel(ev.time)}</td>
-                          <td style={{ padding: '10px', color: '#8a8a8a' }}>{fmtWeekday(ev.time)}</td>
-                          <td style={{ padding: '10px 10px 10px 0', textAlign: 'right', color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(ev.time)}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', color: '#ffcc80', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtHeight(ev.height)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+          {/* Lowest tides by location — the mode chosen in the dropdown above
+              (year = request day → year-end; month = this month). Single
+              always-on panel, decoupled from the station picker. */}
+          {lowByLocationError && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)', borderLeft: '4px solid #f57c00' }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#ff8a65', margin: '0 0 8px' }}>Couldn&apos;t load tides by location</h3>
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: '#e0c9a8' }}>{lowByLocationError}</p>
             </div>
           )}
 
-          {/* Lowest tides by location — EVERY station, whole year, always-on, decoupled from the dropdown */}
-          {yearKey && (
+          {lowByLocationLoading && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)', textAlign: 'center' }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>🌗</div>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#ffcc80' }}>Loading lowest tides by location…</p>
+            </div>
+          )}
+
+          {lowByLocation && (
             <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.5rem,3vw,2rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>Lowest Tides by Location · {yearKey}</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#ffcc80', margin: '0 0 4px' }}>
+                {lowMode === 'year'
+                  ? `Lowest Tides by Location · ${yearKey}`
+                  : `Lowest Tides by Location · ${lowByLocation.monthLabel || lowByLocation.month}`}
+              </h3>
               <p style={{ fontSize: 13, color: '#8a8a8a', margin: '0 0 16px' }}>
-                Five deepest predicted lows · from {stationLows?.startLabel} through {stationLows?.endDateLabel} · local time at the station
+                {lowMode === 'year'
+                  ? `Five deepest predicted lows · from ${lowByLocation.startLabel} through ${lowByLocation.endDateLabel} · local time at the station`
+                  : 'Five deepest predicted lows · local time at the station'}
               </p>
 
-              {stationLoading && (
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                  <div style={{ fontSize: 24, marginBottom: 8 }}>🌗</div>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#ffcc80' }}>Loading all locations…</p>
-                </div>
-              )}
-
-              {!stationLoading && stationError && (
-                <div style={{ borderLeft: '4px solid #f57c00', padding: '12px 16px', background: 'rgba(245,124,0,0.08)', borderRadius: 8 }}>
-                  <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#ff8a65' }}>Couldn&apos;t load tides by location</p>
-                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#e0c9a8' }}>{stationError}</p>
-                </div>
-              )}
-
-              {!stationLoading && !stationError && stationLows && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  {stationLows.results.map((r) => {
-                    if (!r.ok) {
-                      return (
-                        <div key={r.station.slug} style={{ borderLeft: '4px solid #8a8a8a', padding: '8px 12px', background: 'rgba(138,138,138,0.06)', borderRadius: 8 }}>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#8a8a8a' }}>
-                            {r.station.name} — data unavailable: {r.error}
-                          </p>
-                        </div>
-                      )
-                    }
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                {(lowByLocation.results || []).map((r) => {
+                  if (!r.ok) {
                     return (
-                      <div key={r.station.slug}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid rgba(255,152,0,0.2)' }}>
-                          <span style={{ fontSize: 15, fontWeight: 700, color: '#ff9800' }}>{r.station.name}</span>
-                          <span style={{ fontSize: 12, color: '#8a8a8a' }}>{r.station.subtitle}</span>
-                        </div>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                          <thead>
-                            <tr>
-                              <th style={{ textAlign: 'left', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Rank</th>
-                              <th style={{ textAlign: 'left', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Date</th>
-                              <th style={{ textAlign: 'left', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Time</th>
-                              <th style={{ textAlign: 'right', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Height</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {r.lowestTides.map((ev, i) => (
-                              <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
-                                <td style={{ padding: '4px 8px', color: '#8a8a8a', width: 40 }}>
-                                  <span style={{ fontWeight: 700 }}>{i + 1}</span>
-                                </td>
-                                <td style={{ padding: '4px 8px', color: '#e0e0e0' }}>{fmtDateLabel(ev.time)}</td>
-                                <td style={{ padding: '4px 8px', color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(ev.time)}</td>
-                                <td style={{ padding: '4px 8px', textAlign: 'right', color: '#ffcc80', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtHeight(ev.height)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div key={r.station.slug} style={{ borderLeft: '4px solid #8a8a8a', padding: '8px 12px', background: 'rgba(138,138,138,0.06)', borderRadius: 8 }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#8a8a8a' }}>
+                          {r.station.name} — data unavailable: {r.error}
+                        </p>
                       </div>
                     )
-                  })}
-                </div>
-              )}
+                  }
+                  return (
+                    <div key={r.station.slug}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid rgba(255,152,0,0.2)' }}>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: '#ff9800' }}>{r.station.name}</span>
+                        <span style={{ fontSize: 12, color: '#8a8a8a' }}>{r.station.subtitle}</span>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Rank</th>
+                            <th style={{ textAlign: 'left', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Date</th>
+                            <th style={{ textAlign: 'left', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Time</th>
+                            <th style={{ textAlign: 'right', padding: '4px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8a8a8a', fontWeight: 700 }}>Height</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.lowestTides.map((ev, i) => (
+                            <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                              <td style={{ padding: '4px 8px', color: '#8a8a8a', width: 40 }}>
+                                <span style={{ fontWeight: 700 }}>{i + 1}</span>
+                              </td>
+                              <td style={{ padding: '4px 8px', color: '#e0e0e0' }}>{fmtDateLabel(ev.time)}</td>
+                              <td style={{ padding: '4px 8px', color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(ev.time)}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'right', color: '#ffcc80', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtHeight(ev.height)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

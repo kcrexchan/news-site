@@ -11,6 +11,10 @@ import tideStations from "../../data/tide-stations";
  * GET /api/tides?station=<slug>&month=YYYY-MM&mode=monthly-lows
  *   -> 200 { station, month, lowestTides: [{time,height}] } (up to 5, ascending)
  *
+ * GET /api/tides?station=<slug>&month=YYYY-MM&mode=all-station-lows-month
+ *   -> 200 { month, monthLabel, results: [...] } for EVERY station: the 5
+ *      lowest low-tide heights within that single calendar month, ascending.
+ *
  * GET /api/tides?station=<slug>&year=YYYY&mode=all-station-lows
  *   -> 200 { year, results: [{ station, ok, error, lowestTides }] } for EVERY
  *      station: the 5 lowest low-tide heights across the *entire calendar year*,
@@ -150,6 +154,52 @@ export default async function handler(req, res) {
 
     res.setHeader("Cache-Control", "public, max-age=3600");
     return json(res, 200, { station, month, lowestTides: lowRes.lowestTides });
+  }
+
+  // ---- Cross-station month mode: lowest-5 lows for EVERY station, within a
+  // single calendar month (YYYY-MM). Fan-out structure identical to
+  // all-station-lows, but each station's data is sliced to that month only —
+  // i.e. monthly-lows's single-station logic applied across all 9 stations.
+  // Failures degrade gracefully: one bad station's entry has ok:false.
+  if (mode === "all-station-lows-month") {
+    const MONTH_RE = /^\d{4}-\d{2}$/;
+    const month = String(req.query.month || "").trim();
+    if (!MONTH_RE.test(month)) {
+      return json(res, 400, { error: "Missing or invalid 'month' — expected format YYYY-MM." });
+    }
+
+    const yearNum = parseInt(month.slice(0, 4), 10);
+    const monthNum = parseInt(month.slice(5, 7), 10);
+    if (monthNum < 1 || monthNum > 12) {
+      return json(res, 400, { error: "Invalid 'month' — expected format YYYY-MM." });
+    }
+
+    // Day-0 of the following month = last day of the requested month. Correct
+    // for every month including February (leap years included).
+    const lastDay = new Date(yearNum, monthNum, 0).getDate();
+    const compactMonth = month.replace(/-/g, "");
+    const beginDate = `${compactMonth}01`;
+    const endDate = `${compactMonth}${String(lastDay).padStart(2, "0")}`;
+
+    // Display-friendly month label, e.g. "Sep 2026". Use the 15th so month-end
+    // months never roll over (any in-month day is safe).
+    const monthLabel = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(Date.UTC(yearNum, monthNum - 1, 15)));
+
+    const results = await Promise.all(
+      tideStations.map(async (station) => {
+        const hiloRes = await fetchNoaa(station.noaaId, beginDate, { interval: "hilo" }, endDate);
+        const lowRes = lowestFromHilo(hiloRes);
+        if (!lowRes.ok) return { station, ok: false, error: lowRes.error, lowestTides: [] };
+        return { station, ok: true, error: null, lowestTides: lowRes.lowestTides };
+      })
+    );
+
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return json(res, 200, { month, monthLabel, results });
   }
 
   // ---- Cross-station mode: lowest-5 lows for EVERY station, from the request
