@@ -95,27 +95,33 @@ export default function EvVsGas() {
             <label style={{ display: 'block', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 12 }}>Your local fuel prices</label>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 220px' }}>
-                <label htmlFor="gas-price" style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 6 }}>Gas price / gallon</label>
+                <label htmlFor="gas-price" style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 6 }}>
+                  Gas price / gallon — {fmtMoney(gasP)}
+                </label>
                 <input
                   id="gas-price"
-                  type="number"
+                  type="range"
                   step="0.01"
-                  min="0"
+                  min="3"
+                  max="9"
                   value={gasPrice}
-                  onChange={(e) => setGasPrice(e.target.value)}
-                  style={{ ...inputStyle, width: '100%' }}
+                  onChange={(e) => setGasPrice(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#ff9800' }}
                 />
               </div>
               <div style={{ flex: '1 1 220px' }}>
-                <label htmlFor="kwh-price" style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 6 }}>Electricity price / kWh</label>
+                <label htmlFor="kwh-price" style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 6 }}>
+                  Electricity price / kWh — {fmtMoney(kwhP)}
+                </label>
                 <input
                   id="kwh-price"
-                  type="number"
+                  type="range"
                   step="0.01"
-                  min="0"
+                  min="0.1"
+                  max="2"
                   value={kwhPrice}
-                  onChange={(e) => setKwhPrice(e.target.value)}
-                  style={{ ...inputStyle, width: '100%' }}
+                  onChange={(e) => setKwhPrice(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#ff9800' }}
                 />
               </div>
             </div>
@@ -215,8 +221,3 @@ export default function EvVsGas() {
   )
 }
 
-const inputStyle = {
-  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,152,0,0.25)', borderRadius: 10,
-  color: '#e0e0e0', fontSize: 15, padding: '10px 12px', fontFamily: 'inherit', outline: 'none',
-  colorScheme: 'dark',
-}
