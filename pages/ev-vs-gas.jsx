@@ -19,7 +19,7 @@ const CAR = {
   gasMpg: 42, // combined MPG, gasoline only (EPA)
   batteryKwh: 17, // gross/nameplate capacity (Honda) — not used in cost calcs, spec display only
   mpge: 110, // EPA combined MPGe
-  evRange: 47, // miles of electric-only range (EPA)
+  evRange: 37, // miles per full charge — user's degraded battery (EPA new: 47)
   annualMiles: 12000, // default annual driving for the savings estimate
 }
 
@@ -250,7 +250,7 @@ export default function EvVsGas() {
             <h3 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', margin: '0 0 8px' }}>Source</h3>
             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: '#a0a0a0' }}>
               EPA figures for the <strong>{CAR.name}</strong> — {CAR.gasMpg} MPG combined gas, {CAR.electricUsePerMile * 100} kWh/100 mi electric,{' '}
-              {CAR.evRange}-mile EV range (fueleconomy.gov,{' '}
+              47-mile EV range when new, {CAR.evRange} mi assumed for your degraded battery (fueleconomy.gov,{' '}
               <a href="https://www.fueleconomy.gov/feg/Find.do?action=sbs&id=39782" target="_blank" rel="noopener noreferrer" style={{ color: '#ff9800' }}>2018/2021 Clarity Plug-in Hybrid</a>
               ). Battery capacity 17 kWh. Estimates assume {CAR.annualMiles.toLocaleString()} mi/yr.
             </p>
