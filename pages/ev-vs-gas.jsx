@@ -18,6 +18,7 @@ const CAR = {
   electricUsePerMile: 0.31, // kWh per mile (31 kWh/100 mi, EPA)
   gasMpg: 42, // combined MPG, gasoline only (EPA)
   batteryKwh: 17, // gross/nameplate capacity (Honda) — not used in cost calcs, spec display only
+  mpge: 110, // EPA combined MPGe
   evRange: 47, // miles of electric-only range (EPA)
   annualMiles: 12000, // default annual driving for the savings estimate
 }
@@ -43,6 +44,12 @@ export default function EvVsGas() {
   // vs gas (long trips).
   const blendedCostMile =
     electricCostMile * (share / 100) + gasCostMile * (1 - share / 100)
+
+  // Full charge = EPA wall energy per mile (includes charging losses) x EV range.
+  const fullChargeKwh = CAR.electricUsePerMile * CAR.evRange
+  const fullChargeCost = fullChargeKwh * kwhP
+  // Cost-based MPG equivalent: miles you'd get per gallon-priced dollar spent on electricity.
+  const costMpgEquiv = electricCostMile > 0 ? gasP / electricCostMile : 0
 
   const annualGasCost = gasCostMile * CAR.annualMiles
   const annualBlendedCost = blendedCostMile * CAR.annualMiles
@@ -90,6 +97,35 @@ export default function EvVsGas() {
             <p style={{ fontSize: 16, color: '#ff8a65' }}>How much cheaper is your Honda Clarity PHEV to run than filling up with gas?</p>
           </div>
 
+          {/* Full-charge calculator */}
+          <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.25rem,3vw,1.75rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)', marginTop: 24 }}>
+            <label htmlFor="kwh-price" style={{ display: 'block', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 12 }}>
+              Cost of a full charge (empty → full) — electricity {fmtMoney(kwhP)}/kWh
+            </label>
+            <input
+              id="kwh-price"
+              type="range"
+              step="0.01"
+              min="0.1"
+              max="2"
+              value={kwhPrice}
+              onChange={(e) => setKwhPrice(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#ff9800' }}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 16 }}>
+              <div style={{ background: 'rgba(76,175,80,0.08)', border: '1px solid rgba(76,175,80,0.25)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontSize: 12, color: '#8a8a8a', marginBottom: 4 }}>Full charge costs</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: '#66bb6a', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(fullChargeCost)}</div>
+                <div style={{ fontSize: 11, color: '#8a8a8a' }}>{fullChargeKwh.toFixed(1)} kWh from the wall · {CAR.evRange} mi range</div>
+              </div>
+              <div style={{ background: 'rgba(255,152,0,0.08)', border: '1px solid rgba(255,152,0,0.25)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontSize: 12, color: '#8a8a8a', marginBottom: 4 }}>Equivalent MPG (at gas {fmtMoney(gasP)}/gal)</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: '#ff9800', fontVariantNumeric: 'tabular-nums' }}>{costMpgEquiv.toFixed(1)} MPG</div>
+                <div style={{ fontSize: 11, color: '#8a8a8a' }}>vs {CAR.gasMpg} MPG on gas · EPA rating {CAR.mpge} MPGe</div>
+              </div>
+            </div>
+          </div>
+
           {/* Inputs */}
           <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 'clamp(1.25rem,3vw,1.75rem)', boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)', marginTop: 24 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 12 }}>Your local fuel prices</label>
@@ -106,21 +142,6 @@ export default function EvVsGas() {
                   max="9"
                   value={gasPrice}
                   onChange={(e) => setGasPrice(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#ff9800' }}
-                />
-              </div>
-              <div style={{ flex: '1 1 220px' }}>
-                <label htmlFor="kwh-price" style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', marginBottom: 6 }}>
-                  Electricity price / kWh — {fmtMoney(kwhP)}
-                </label>
-                <input
-                  id="kwh-price"
-                  type="range"
-                  step="0.01"
-                  min="0.1"
-                  max="2"
-                  value={kwhPrice}
-                  onChange={(e) => setKwhPrice(Number(e.target.value))}
                   style={{ width: '100%', accentColor: '#ff9800' }}
                 />
               </div>
