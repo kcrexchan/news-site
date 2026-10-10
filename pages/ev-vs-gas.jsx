@@ -107,7 +107,7 @@ export default function EvVsGas() {
               type="range"
               step="0.01"
               min="0.1"
-              max="2"
+              max="0.7"
               value={kwhPrice}
               onChange={(e) => setKwhPrice(Number(e.target.value))}
               style={{ width: '100%', accentColor: '#ff9800' }}

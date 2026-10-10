@@ -1,140 +1,136 @@
 {
-  "date": "2026-08-28",
+  "date": "2026-10-09",
   "timezone": "America/Los_Angeles",
   "locations": [
     {
       "location": "Half Moon Bay",
       "coastal": true,
-      "sunrise": "06:37",
-      "sunset": "19:43",
-      "moonrise": "20:02",
-      "moonset": "07:05",
+      "sunrise": "07:12",
+      "sunset": "18:40",
+      "moonrise": "06:15",
+      "moonset": "18:02",
       "nws_station": "KHAF",
       "air": {
-        "time_utc": "2026-08-28T06:35:00+00:00",
-        "temp_C": 15,
+        "time_utc": "2026-10-09T06:35:00+00:00",
+        "temp_C": 14,
         "humidity_pct": 100,
-        "pressure_hPa": 1014.9,
-        "wind_ms": 14.76
+        "pressure_hPa": 1010.5,
+        "wind_ms": 7.56
       },
       "tides": {
         "station": "9414523",
         "highs": [
           {
-            "time": "2026-08-28 00:42",
-            "m": 2.507
-          },
-          {
-            "time": "2026-08-28 13:48",
-            "m": 2.321
+            "time": "2026-10-09 12:18",
+            "m": 2.59
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 07:24",
-            "m": 0.011
+            "time": "2026-10-09 06:06",
+            "m": 0.198
           },
           {
-            "time": "2026-08-28 19:36",
-            "m": 0.6
+            "time": "2026-10-09 18:42",
+            "m": 0.093
           }
         ]
       },
       "water": {
         "buoy": "46042",
-        "time": "2026 08 28 06 30",
+        "time": "2026 10 09 06 30",
         "wvht_m": "MM",
         "dpd_s": "MM",
         "mwd": "MM",
-        "pres_hPa": "1013.3",
-        "atmp_C": "15.0",
-        "wtmp_C": "13.2"
+        "pres_hPa": "1009.8",
+        "atmp_C": "15.2",
+        "wtmp_C": "17.5"
       }
     },
     {
       "location": "Santa Cruz",
       "coastal": true,
-      "sunrise": "06:36",
-      "sunset": "19:41",
-      "moonrise": "20:01",
-      "moonset": "07:04",
+      "sunrise": "07:10",
+      "sunset": "18:39",
+      "moonrise": "06:13",
+      "moonset": "18:01",
       "nws_station": "AP803",
       "air": {
-        "time_utc": "2026-08-28T06:31:00+00:00",
-        "temp_C": 18.3,
-        "humidity_pct": 70.4,
-        "pressure_hPa": 1014.0,
+        "time_utc": "2026-10-09T06:38:00+00:00",
+        "temp_C": 17.2,
+        "humidity_pct": 73.4,
+        "pressure_hPa": 1010.3,
         "wind_ms": 0
       },
       "tides": {
         "station": "9413450",
         "highs": [
           {
-            "time": "2026-08-28 11:48",
-            "m": 1.376
+            "time": "2026-10-09 10:06",
+            "m": 1.661
           },
           {
-            "time": "2026-08-28 23:12",
-            "m": 1.619
+            "time": "2026-10-09 22:36",
+            "m": 1.434
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 05:24",
-            "m": 0.021
+            "time": "2026-10-09 03:54",
+            "m": 0.241
           },
           {
-            "time": "2026-08-28 17:12",
-            "m": 0.56
+            "time": "2026-10-09 16:30",
+            "m": 0.164
           }
         ]
       },
       "water": {
         "buoy": "46012",
-        "time": "2026 08 28 06 00",
-        "wvht_m": "1.5",
-        "dpd_s": "10",
+        "time": "2026 10 09 06 00",
+        "wvht_m": "1.9",
+        "dpd_s": "12",
         "mwd": "MM",
-        "pres_hPa": "1015.0",
-        "atmp_C": "15.6",
-        "wtmp_C": "15.9"
+        "pres_hPa": "1010.5",
+        "atmp_C": "14.9",
+        "wtmp_C": "16.0"
       }
     },
     {
       "location": "Antioch",
       "coastal": false,
-      "sunrise": "06:34",
-      "sunset": "19:42",
-      "moonrise": "20:00",
-      "moonset": "07:02",
+      "sunrise": "07:10",
+      "sunset": "18:37",
+      "moonrise": "06:13",
+      "moonset": "17:59",
       "nws_station": "KCCR",
       "air": {
-        "time_utc": "2026-08-28T06:40:00+00:00",
-        "temp_C": 22,
-        "humidity_pct": 46.5,
-        "pressure_hPa": 1012.9,
-        "wind_ms": 12.96
+        "time_utc": "2026-10-09T06:40:00+00:00",
+        "temp_C": 19,
+        "humidity_pct": 63.8,
+        "pressure_hPa": 1008.1,
+        "wind_ms": 0
       },
       "tides": {
         "station": "9415144",
         "highs": [
           {
-            "time": "2026-08-28 02:06",
-            "m": 1.468
+            "time": "2026-10-09 01:18",
+            "m": 1.315
           },
           {
-            "time": "2026-08-28 15:24",
-            "m": 1.312
+            "time": "2026-10-09 13:48",
+            "m": 1.432
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 09:12",
-            "m": 0.046
+            "time": "2026-10-09 07:42",
+            "m": 0.115
           },
           {
-            "time": "2026-08-28 21:12",
-            "m": 0.401
+            "time": "2026-10-09 20:24",
+            "m": 0.074
           }
         ]
       }
@@ -142,38 +138,38 @@
     {
       "location": "Brentwood",
       "coastal": false,
-      "sunrise": "06:33",
-      "sunset": "19:41",
-      "moonrise": "20:00",
-      "moonset": "07:02",
+      "sunrise": "07:10",
+      "sunset": "18:37",
+      "moonrise": "06:12",
+      "moonset": "17:59",
       "nws_station": "KLVK",
       "air": {
-        "time_utc": "2026-08-28T06:35:00+00:00",
-        "temp_C": 20,
-        "humidity_pct": 60.0,
-        "pressure_hPa": 1013.5,
-        "wind_ms": 5.544
+        "time_utc": "2026-10-09T06:40:00+00:00",
+        "temp_C": 22,
+        "humidity_pct": 46.5,
+        "pressure_hPa": 1008.5,
+        "wind_ms": 0
       },
       "tides": {
         "station": "9415144",
         "highs": [
           {
-            "time": "2026-08-28 02:06",
-            "m": 1.468
+            "time": "2026-10-09 01:18",
+            "m": 1.315
           },
           {
-            "time": "2026-08-28 15:24",
-            "m": 1.312
+            "time": "2026-10-09 13:48",
+            "m": 1.432
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 09:12",
-            "m": 0.046
+            "time": "2026-10-09 07:42",
+            "m": 0.115
           },
           {
-            "time": "2026-08-28 21:12",
-            "m": 0.401
+            "time": "2026-10-09 20:24",
+            "m": 0.074
           }
         ]
       }
@@ -181,38 +177,38 @@
     {
       "location": "Tracy",
       "coastal": false,
-      "sunrise": "06:32",
-      "sunset": "19:40",
-      "moonrise": "19:59",
-      "moonset": "07:01",
+      "sunrise": "07:08",
+      "sunset": "18:36",
+      "moonrise": "06:11",
+      "moonset": "17:58",
       "nws_station": "KSCK",
       "air": {
-        "time_utc": "2026-08-28T06:40:00+00:00",
+        "time_utc": "2026-10-09T06:40:00+00:00",
         "temp_C": 24,
-        "humidity_pct": 47.0,
-        "pressure_hPa": 1012.5,
+        "humidity_pct": 44.0,
+        "pressure_hPa": 1006.8,
         "wind_ms": 9.252
       },
       "tides": {
         "station": "9415144",
         "highs": [
           {
-            "time": "2026-08-28 02:06",
-            "m": 1.468
+            "time": "2026-10-09 01:18",
+            "m": 1.315
           },
           {
-            "time": "2026-08-28 15:24",
-            "m": 1.312
+            "time": "2026-10-09 13:48",
+            "m": 1.432
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 09:12",
-            "m": 0.046
+            "time": "2026-10-09 07:42",
+            "m": 0.115
           },
           {
-            "time": "2026-08-28 21:12",
-            "m": 0.401
+            "time": "2026-10-09 20:24",
+            "m": 0.074
           }
         ]
       }
@@ -220,38 +216,38 @@
     {
       "location": "Bethel Island",
       "coastal": false,
-      "sunrise": "06:33",
-      "sunset": "19:41",
-      "moonrise": "19:59",
-      "moonset": "07:02",
+      "sunrise": "07:09",
+      "sunset": "18:37",
+      "moonrise": "06:12",
+      "moonset": "17:59",
       "nws_station": "KLVK",
       "air": {
-        "time_utc": "2026-08-28T06:35:00+00:00",
-        "temp_C": 20,
-        "humidity_pct": 60.0,
-        "pressure_hPa": 1013.5,
-        "wind_ms": 5.544
+        "time_utc": "2026-10-09T06:40:00+00:00",
+        "temp_C": 22,
+        "humidity_pct": 46.5,
+        "pressure_hPa": 1008.5,
+        "wind_ms": 0
       },
       "tides": {
         "station": "9415144",
         "highs": [
           {
-            "time": "2026-08-28 02:06",
-            "m": 1.468
+            "time": "2026-10-09 01:18",
+            "m": 1.315
           },
           {
-            "time": "2026-08-28 15:24",
-            "m": 1.312
+            "time": "2026-10-09 13:48",
+            "m": 1.432
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 09:12",
-            "m": 0.046
+            "time": "2026-10-09 07:42",
+            "m": 0.115
           },
           {
-            "time": "2026-08-28 21:12",
-            "m": 0.401
+            "time": "2026-10-09 20:24",
+            "m": 0.074
           }
         ]
       }
@@ -259,38 +255,34 @@
     {
       "location": "Oakley",
       "coastal": false,
-      "sunrise": "06:33",
-      "sunset": "19:41",
-      "moonrise": "20:00",
-      "moonset": "07:02",
+      "sunrise": "07:10",
+      "sunset": "18:37",
+      "moonrise": "06:12",
+      "moonset": "17:59",
       "nws_station": "KCCR",
       "air": {
-        "time_utc": "2026-08-28T06:40:00+00:00",
-        "temp_C": 22,
-        "humidity_pct": 46.5,
-        "pressure_hPa": 1012.9,
-        "wind_ms": 12.96
+        "time_utc": "2026-10-09T06:40:00+00:00",
+        "temp_C": 19,
+        "humidity_pct": 63.8,
+        "pressure_hPa": 1008.1,
+        "wind_ms": 0
       },
       "tides": {
         "station": "9416131",
         "highs": [
           {
-            "time": "2026-08-28 05:36",
-            "m": 1.36
+            "time": "2026-10-09 04:30",
+            "m": 1.119
           },
           {
-            "time": "2026-08-28 18:24",
-            "m": 1.222
+            "time": "2026-10-09 16:48",
+            "m": 1.289
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 00:24",
-            "m": 0.43
-          },
-          {
-            "time": "2026-08-28 12:54",
-            "m": 0.092
+            "time": "2026-10-09 11:30",
+            "m": 0.136
           }
         ]
       }
@@ -298,46 +290,42 @@
     {
       "location": "Hogback",
       "coastal": false,
-      "sunrise": "06:33",
-      "sunset": "19:41",
-      "moonrise": "20:00",
-      "moonset": "07:02",
+      "sunrise": "07:10",
+      "sunset": "18:37",
+      "moonrise": "06:12",
+      "moonset": "17:59",
       "nws_station": "KSUU",
       "air": {
-        "time_utc": "2026-08-28T05:55:00+00:00",
-        "temp_C": 20.8,
+        "time_utc": "2026-10-09T05:55:00+00:00",
+        "temp_C": 20.6,
         "humidity_pct": 48.0,
-        "pressure_hPa": 1011.5,
-        "wind_ms": 22.32
+        "pressure_hPa": 1006.1,
+        "wind_ms": 25.92
       },
       "tides": {
         "station": "9416131",
         "highs": [
           {
-            "time": "2026-08-28 05:36",
-            "m": 1.36
+            "time": "2026-10-09 04:30",
+            "m": 1.119
           },
           {
-            "time": "2026-08-28 18:24",
-            "m": 1.222
+            "time": "2026-10-09 16:48",
+            "m": 1.289
           }
         ],
         "lows": [
           {
-            "time": "2026-08-28 00:24",
-            "m": 0.43
-          },
-          {
-            "time": "2026-08-28 12:54",
-            "m": 0.092
+            "time": "2026-10-09 11:30",
+            "m": 0.136
           }
         ]
       }
     }
   ],
   "moon": {
-    "phase_fraction": 0.4831,
-    "illumination": 0.9972,
-    "phase_name": "Full Moon"
+    "phase_fraction": 0.9098,
+    "illumination": 0.0782,
+    "phase_name": "Waning Crescent"
   }
 }
