@@ -48,6 +48,7 @@ export default function EvVsGas() {
   // Full charge = EPA wall energy per mile (includes charging losses) x EV range.
   const fullChargeKwh = CAR.electricUsePerMile * CAR.evRange
   const fullChargeCost = fullChargeKwh * kwhP
+  const fullChargeGasCost = gasCostMile * CAR.evRange // same miles on gas
   // Cost-based MPG equivalent: miles you'd get per gallon-priced dollar spent on electricity.
   const costMpgEquiv = electricCostMile > 0 ? gasP / electricCostMile : 0
 
@@ -112,11 +113,29 @@ export default function EvVsGas() {
               onChange={(e) => setKwhPrice(Number(e.target.value))}
               style={{ width: '100%', accentColor: '#ff9800' }}
             />
+            <label htmlFor="gas-price-top" style={{ display: 'block', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8a8a', margin: '16px 0 12px' }}>
+              Gas price / gallon — {fmtMoney(gasP)}
+            </label>
+            <input
+              id="gas-price-top"
+              type="range"
+              step="0.01"
+              min="3"
+              max="9"
+              value={gasPrice}
+              onChange={(e) => setGasPrice(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#ff9800' }}
+            />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 16 }}>
               <div style={{ background: 'rgba(76,175,80,0.08)', border: '1px solid rgba(76,175,80,0.25)', borderRadius: 14, padding: '14px 16px' }}>
                 <div style={{ fontSize: 12, color: '#8a8a8a', marginBottom: 4 }}>Full charge costs</div>
                 <div style={{ fontSize: 26, fontWeight: 700, color: '#66bb6a', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(fullChargeCost)}</div>
                 <div style={{ fontSize: 11, color: '#8a8a8a' }}>{fullChargeKwh.toFixed(1)} kWh from the wall · {CAR.evRange} mi range</div>
+              </div>
+              <div style={{ background: 'rgba(255,152,0,0.08)', border: '1px solid rgba(255,152,0,0.25)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontSize: 12, color: '#8a8a8a', marginBottom: 4 }}>Same {CAR.evRange} mi on gas</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: '#ff9800', fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(fullChargeGasCost)}</div>
+                <div style={{ fontSize: 11, color: '#8a8a8a' }}>{(CAR.evRange / CAR.gasMpg).toFixed(2)} gal at {fmtMoney(gasP)}/gal · {CAR.gasMpg} MPG</div>
               </div>
               <div style={{ background: 'rgba(255,152,0,0.08)', border: '1px solid rgba(255,152,0,0.25)', borderRadius: 14, padding: '14px 16px' }}>
                 <div style={{ fontSize: 12, color: '#8a8a8a', marginBottom: 4 }}>Equivalent MPG (at gas {fmtMoney(gasP)}/gal)</div>
